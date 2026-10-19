@@ -26,6 +26,24 @@
           "staffRoleIds": []
         }
       ]
+    },
+    "1510643183728595035": {
+      "categoryId": null,
+      "staffRoleIds": [],
+      "logChannelId": null,
+      "panelChannelId": null,
+      "panelSent": false,
+      "panelMessageId": null,
+      "counter": 0,
+      "open": {},
+      "panelMode": null,
+      "panel": {
+        "titre": null,
+        "description": null,
+        "selecteur": null,
+        "image": null
+      },
+      "types": []
     }
   }
 }
