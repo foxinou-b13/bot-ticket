@@ -43,7 +43,16 @@
         "selecteur": null,
         "image": null
       },
-      "types": []
+      "types": [
+        {
+          "id": "tmvfptavd3ha8",
+          "nom": "bug",
+          "emoji": null,
+          "description": null,
+          "categoryId": null,
+          "staffRoleIds": []
+        }
+      ]
     }
   }
 }
