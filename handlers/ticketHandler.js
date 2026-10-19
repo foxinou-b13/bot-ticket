@@ -281,7 +281,7 @@ function rowAssistant(config) {
     .setPlaceholder('Choisissez un type...')
     .setMinValues(1)
     .setMaxValues(1);
-  for (const type of config.types.slice(0, 22)) {
+  for (const type of config.types.slice(0, 21)) {
     const option = new StringSelectMenuOptionBuilder()
       .setLabel(coupe(type.nom, 100))
       .setValue(type.id);
@@ -301,7 +301,12 @@ function rowAssistant(config) {
       .setLabel('Textes du panneau')
       .setEmoji('🎨')
       .setValue('__panel__')
-      .setDescription('Titre, description, texte du sélecteur'),
+      .setDescription('Titre, description, texte du sélecteur, image'),
+    new StringSelectMenuOptionBuilder()
+      .setLabel('Réinitialiser les textes')
+      .setEmoji('🧹')
+      .setValue('__reset__')
+      .setDescription('Revenir aux textes complets par défaut'),
     new StringSelectMenuOptionBuilder()
       .setLabel('Terminer')
       .setEmoji('✅')
@@ -958,6 +963,18 @@ async function handleSelectMenu(interaction) {
 
     if (valeur === '__new__') return interaction.showModal(modalNouveauType());
     if (valeur === '__panel__') return interaction.showModal(modalPanel(config));
+
+    if (valeur === '__reset__') {
+      store.setGuild(guild.id, {
+        panel: { titre: null, description: null, selecteur: null, image: null },
+      });
+      const cfg = store.getGuild(guild.id);
+      return interaction.update({
+        content: '🧹 **Textes réinitialisés !** Le panneau affichera maintenant les textes complets par défaut (titre, lignes d\'informations, avertissements).\nClique sur « ✅ Terminer » pour republicar le panneau.',
+        embeds: [embedAssistant(cfg)],
+        components: [rowAssistant(cfg)],
+      });
+    }
 
     if (valeur === '__done__') {
       const cfg = store.getGuild(guild.id);
