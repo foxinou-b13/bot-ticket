@@ -35,22 +35,7 @@
       "panelSent": true,
       "panelMessageId": "1561841234593447937",
       "counter": 2,
-      "open": {
-        "1561876379489017856": {
-          "numero": 2,
-          "userId": "1497375017980137534",
-          "sujet": "J'aimerais savoir pk j'étais ban discord et pour qu'elle raison svp merci !!!",
-          "typeId": "tmvfptavd3ha8",
-          "typeNom": "bug",
-          "typeEmoji": "🎄",
-          "staffRoleIds": [
-            "1511382517385527466"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1792450747273,
-          "messageId": "1561876380801703977"
-        }
-      },
+      "open": {},
       "panelMode": "menu",
       "panel": {
         "titre": null,
