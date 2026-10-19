@@ -87,13 +87,23 @@ Le bot tourne tant que le programme tourne. Pour du 24h/24 **gratuit** :
 
 1. Crée un compte sur https://fadehost.com (1 bot gratuit par compte)
 2. Crée un bot → déploiement **depuis GitHub** :
-   - Dépôt : `https://github.com/foxinou-b13/aura-asmr`
-   - Branche : `bot-tickets`
+   - Dépôt : `https://github.com/foxinou-b13/bot-ticket`
+   - Branche : `main`
+   - (Dépôt privé : autorise FadeHost à y accéder via "Configure GitHub App")
 3. Variables d'environnement du bot :
    - `DISCORD_TOKEN` = le token de ton bot
    - `CLIENT_ID` = `1528495720158593074`
 4. Clique **Déployer** → le bot reste en ligne 24h/24 (256 Mo de RAM,
    redémarrage automatique en cas de crash, région Europe/France)
+
+### 🔄 Mises à jour automatiques
+
+Tout le code vit dans le dépôt GitHub `bot-ticket`. Pour modifier le bot :
+
+1. La modification est poussée sur GitHub (branche `main`)
+2. FadeHost détecte le changement et **redéploie automatiquement**
+
+Aucune autre action n'est nécessaire : le bot se met à jour tout seul.
 
 ### Alternative gratuite : ton PC
 
