@@ -22,6 +22,9 @@ const {
 } = require('discord.js');
 const store = require('../utils/store');
 
+// ─── Anti double-clic (comme les bots pro) : un seul ticket créé à la fois par membre ───
+const creationEnCours = new Set();
+
 // ─── Petits utilitaires ───
 function slug(txt) {
   return String(txt || '')
@@ -66,22 +69,36 @@ function boutonOuvrir() {
   );
 }
 
-function embedPanneau(config, options = {}) {
+function embedPanneau(config, options = {}, guildName = null) {
   const p = config.panel || {};
-  return new EmbedBuilder()
+  // Texte par défaut du panneau MENU : plusieurs lignes, comme un vrai panneau de support
+  const defautMenu = [
+    'Bienvenue sur le support du serveur.',
+    '',
+    'Pour ouvrir un ticket, **sélectionne le type de ta demande** dans le menu ci-dessous, puis explique ta demande.',
+    '',
+    'ℹ️ **Informations importantes :**',
+    '・Soyez clairs et précis dans vos demandes.',
+    '・Le manque de respect envers le staff est strictement interdit.',
+    '・Les tickets abusifs ou inactifs seront fermés sans préavis.',
+    '',
+    '⚠️ Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.',
+  ].join('\n');
+  const defautBouton = "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.\nUn salon privé sera créé pour toi et notre équipe.";
+  const embed = new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle(coupe(options.titre || p.titre || '🎫 Support', 256))
+    .setTitle(coupe(options.titre || p.titre || (guildName ? `👑 Support | ${guildName}` : '🎫 Support'), 256))
     .setDescription(
       coupe(
         options.description ||
           p.description ||
-          (config.types.length
-            ? 'Bienvenue sur le support du serveur.\nPour ouvrir un ticket, **sélectionne le type de ta demande** dans le menu ci-dessous.'
-            : "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.\nUn salon privé sera créé pour toi et notre équipe."),
+          (modePanneau(config) === 'menu' ? defautMenu : defautBouton),
         4096
       )
     )
     .setFooter({ text: 'Système de tickets' });
+  if (p.image && /^https?:\/\//.test(p.image)) embed.setImage(p.image);
+  return embed;
 }
 
 // Menu déroulant des types (visible par les membres)
@@ -240,7 +257,7 @@ async function configBouton(interaction) {
       `👥 Rôles staff (${config.staffRoleIds.length}) : ${config.staffRoleIds.map(id => `<@&${id}>`).join(', ')}`,
       `📁 Catégorie : <#${config.categoryId}>`,
       `📜 Salon de logs : <#${config.logChannelId}>`,
-      `🎫 Panneau bouton : publié dans ${channel}`,
+      channel ? `🎫 Panneau bouton : publié dans ${channel}` : '❌ Panneau impossible à envoyer : vérifie que le bot peut écrire dans le salon du panneau.',
       '',
       '💡 Pour passer au **menu des types** plus tard : `/setup ticket menu`.',
     ].join('\n'),
@@ -616,7 +633,19 @@ async function creerTicket(interaction, sujet, typeId) {
   if (existant) {
     return { erreur: `Tu as déjà un ticket ouvert : <#${existant.channelId}>` };
   }
+  if (creationEnCours.has(interaction.user.id)) {
+    return { erreur: 'Ton ticket est déjà en cours de création, patiente une seconde...' };
+  }
+  creationEnCours.add(interaction.user.id);
+  try {
+    return await creerTicketInterne(interaction, sujet, typeId, categoryId, staffRoleIds, type);
+  } finally {
+    creationEnCours.delete(interaction.user.id);
+  }
+}
 
+async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffRoleIds, type) {
+  const guild = interaction.guild;
   const numero = store.prochainNumero(guild.id);
   const base = type ? type.nom : sujet;
   const suffixe = `-${slug(base) || 'ticket'}`;
@@ -1167,6 +1196,8 @@ module.exports = {
   creerTicket,
   fermerTicket,
   embedPanneau,
+  construirePanneau,
+  rowTypes,
   boutonOuvrir,
   embedTicket,
   boutonsTicket,
@@ -1178,6 +1209,10 @@ module.exports = {
   menuPrincipal,
   configBouton,
   modePanneau,
+  embedAssistant,
+  rowAssistant,
+  embedWizard,
+  rowWizard,
   handleButton,
   handleSelectMenu,
   handleModal,
