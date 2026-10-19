@@ -19,9 +19,11 @@ const {
   ChannelSelectMenuBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  AttachmentBuilder,
 } = require('discord.js');
 const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
+const { genererBanniere } = require('../utils/banniere');
 
 // ─── Anti double-clic (comme les bots pro) : un seul ticket créé à la fois par membre ───
 const creationEnCours = new Set();
@@ -70,24 +72,33 @@ function boutonOuvrir() {
   );
 }
 
+const SEP = '─────────────────────────────────────────';
+
 function embedPanneau(config, options = {}, guildName = null) {
   const p = config.panel || {};
-  // Texte par défaut du panneau MENU : plusieurs lignes, comme un vrai panneau de support
+  // Texte par défaut du panneau MENU : style des bots de support pro
+  // (paragraphs, séparateurs fins, puces décoratives)
   const defautMenu = [
-    'Bienvenue sur le support du serveur.',
+    `Bienvenue sur le support officiel de ${guildName || 'ce serveur'}.`,
     '',
-    'Pour ouvrir un ticket, **sélectionne le type de ta demande** dans le menu ci-dessous, puis explique ta demande.',
-    '',
+    'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
+    SEP,
     'ℹ️ **Informations importantes :**',
-    '・Soyez clairs et précis dans vos demandes.',
-    '・Le manque de respect envers le staff est strictement interdit.',
-    '・Les tickets abusifs ou inactifs seront fermés sans préavis.',
-    '',
-    '⚠️ Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.',
+    '• Soyez clairs et précis dans vos demandes.',
+    '• Le manque de respect envers le staff est strictement interdit.',
+    '• Évitez les mentions inutiles.',
+    '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
+    SEP,
+    '⏳ Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.',
   ].join('\n');
-  const defautBouton = "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.\nUn salon privé sera créé pour toi et notre équipe.";
+  const defautBouton = [
+    "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.",
+    'Un salon privé sera créé pour toi et notre équipe te répondra.',
+    SEP,
+    '⏳ Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.',
+  ].join('\n');
   const embed = new EmbedBuilder()
-    .setColor(0x5865F2)
+    .setColor(0x000000)
     .setTitle(coupe(options.titre || p.titre || (guildName ? `👑 Support | ${guildName}` : '🎫 Support'), 256))
     .setDescription(
       coupe(
@@ -131,10 +142,21 @@ function modePanneau(config) {
 }
 
 function construirePanneau(config, options = {}, guildName = null) {
-  if (modePanneau(config) === 'menu') {
-    return { embeds: [embedPanneau(config, options, guildName)], components: [rowTypes(config)] };
+  const embed = embedPanneau(config, options, guildName);
+  const contenu =
+    modePanneau(config) === 'menu'
+      ? { embeds: [embed], components: [rowTypes(config)] }
+      : { embeds: [embed], components: [boutonOuvrir()] };
+
+  // Bannière générée automatiquement avec le nom du serveur,
+  // affichée DANS l'embed (comme les bots de support pro).
+  const p = config.panel || {};
+  const imagePerso = p.image && /^https?:\/\//.test(p.image);
+  if (!imagePerso && guildName) {
+    embed.setImage('attachment://banniere.png');
+    contenu.files = [new AttachmentBuilder(genererBanniere(guildName), { name: 'banniere.png' })];
   }
-  return { embeds: [embedPanneau(config, options, guildName)], components: [boutonOuvrir()] };
+  return contenu;
 }
 
 // Envoie (ou met à jour) le panneau dans le salon configuré

@@ -49,6 +49,14 @@ test('panneau avec textes perso + image', () => {
   if (p.embeds[0].data.title !== 'Mon titre') throw new Error('titre perso ignoré');
   if (!p.embeds[0].data.image) throw new Error('image ignorée');
 });
+test('bannière auto-générée dans l\'embed + plus de ligne bleue + séparateurs', () => {
+  const p = h.construirePanneau({ ...config, panel: {} }, {}, 'Mon Serveur');
+  if (!p.files || p.files[0].name !== 'banniere.png') throw new Error('bannière absente');
+  const e = p.embeds[0].data;
+  if (!e.image || e.image.url !== 'attachment://banniere.png') throw new Error('image absente de l\'embed');
+  if (e.color !== 0) throw new Error('ligne bleue encore présente (couleur ' + e.color + ')');
+  if (!e.description.includes('───')) throw new Error('séparateurs absents');
+});
 test('panneau menu sans types → retombe en bouton', () => {
   const p = h.construirePanneau({ ...config, types: [] }, {}, 'S');
   if (p.components[0].components[0].data.label !== 'Ouvrir un ticket') throw new Error('mauvais repli');
