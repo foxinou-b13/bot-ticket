@@ -208,7 +208,13 @@ module.exports = {
 
       const titre = interaction.options.getString('titre');
       const description = interaction.options.getString('description');
-      const channel = await handler.envoyerPanel(guild, cfg, { titre, description });
+      const image = interaction.options.getAttachment('image');
+      let cfgPan = cfg;
+      if (image) {
+        store.setGuild(guild.id, { panel: { ...cfg.panel, image: image.url } });
+        cfgPan = store.getGuild(guild.id);
+      }
+      const channel = await handler.envoyerPanel(guild, cfgPan, { titre, description });
       if (!channel) {
         return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup` ou `/setup ticket bouton`.', ephemeral: true });
       }
