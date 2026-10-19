@@ -60,7 +60,16 @@
         "selecteur": null,
         "image": null
       },
-      "types": []
+      "types": [
+        {
+          "id": "tmvfwvyqrxu64",
+          "nom": "Test",
+          "emoji": null,
+          "description": null,
+          "categoryId": null,
+          "staffRoleIds": []
+        }
+      ]
     }
   }
 }
