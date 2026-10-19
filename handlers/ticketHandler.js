@@ -223,60 +223,122 @@ async function menuPrincipal(interaction) {
   });
 }
 
-// Résumé d'un type + menu des actions (comme un petit réglage par type)
-function embedType(type, config) {
-  const cat = type.categoryId
-    ? `<#${type.categoryId}>`
-    : config.categoryId
-      ? `<#${config.categoryId}> (par défaut)`
-      : '❌ aucune';
-  const roles = (type.staffRoleIds || []).length
-    ? type.staffRoleIds.map(id => `<@&${id}>`).join(', ')
-    : 'aucun — les rôles staff du serveur seront utilisés';
+// ─── Assistant guidé d'un type : étape par étape, dans l'ordre ───
+const WIZARD_STEPS = ['nom', 'emoji', 'desc', 'cat', 'roles', 'fin'];
+
+// Explication de chaque étape : aide la personne qui configure à comprendre
+const WIZARD_INFOS = {
+  nom: {
+    titre: '✏️ Étape 1/6 — Le nom du type',
+    aide: 'C\'est le nom que les membres verront dans le menu déroulant du panneau. Il sert aussi pour le nom du salon du ticket (exemple : `ticket-1-probleme-live`).',
+  },
+  emoji: {
+    titre: '😄 Étape 2/6 — L\'emoji du type',
+    aide: 'Un emoji affiché devant le nom du type, dans le menu du panneau et dans le salon du ticket. Il aide les membres à reconnaître le type en un coup d\'œil.',
+  },
+  desc: {
+    titre: '📝 Étape 3/6 — La description du type',
+    aide: 'Une phrase courte affichée sous le nom du type dans le menu déroulant. Elle explique aux membres dans quel cas choisir ce type.',
+  },
+  cat: {
+    titre: '📁 Étape 4/6 — La catégorie des tickets',
+    aide: 'La catégorie où les tickets de ce type seront créés. Si tu ne choisis rien, la catégorie principale des tickets du serveur sera utilisée.',
+  },
+  roles: {
+    titre: '🛡️ Étape 5/6 — Les rôles staff du type',
+    aide: 'Les rôles du staff qui pourront voir et prendre en charge les tickets de ce type. Tu peux en mettre plusieurs. Si tu n\'en mets aucun, les rôles staff du serveur seront utilisés.',
+  },
+  fin: {
+    titre: '✅ Étape 6/6 — Récapitulatif',
+    aide: 'Ton type est prêt ! Vérifie le résumé ci-dessous, puis clique sur « Terminer ». Tu pourras créer d\'autres types ou publier le panneau.',
+  },
+};
+
+function valeurEtape(type, config, step) {
+  if (step === 'nom') return [{ name: 'Nom actuel', value: type.nom }];
+  if (step === 'emoji') return [{ name: 'Emoji actuel', value: type.emoji || 'aucun' }];
+  if (step === 'desc') return [{ name: 'Description actuelle', value: type.description || 'aucune' }];
+  if (step === 'cat') {
+    return [{
+      name: 'Catégorie actuelle',
+      value: type.categoryId
+        ? `<#${type.categoryId}>`
+        : config.categoryId
+          ? `<#${config.categoryId}> (par défaut)`
+          : '❌ aucune',
+    }];
+  }
+  if (step === 'roles') {
+    return [{
+      name: `Rôles staff actuels (${(type.staffRoleIds || []).length})`,
+      value: (type.staffRoleIds || []).length
+        ? coupe(type.staffRoleIds.map(id => `<@&${id}>`).join(', '), 1000)
+        : 'aucun — les rôles staff du serveur seront utilisés',
+    }];
+  }
+  // fin : récapitulatif complet
+  return [
+    { name: '✏️ Nom', value: type.nom, inline: true },
+    { name: '😄 Emoji', value: type.emoji || 'aucun', inline: true },
+    {
+      name: '📁 Catégorie',
+      value: type.categoryId
+        ? `<#${type.categoryId}>`
+        : config.categoryId
+          ? `<#${config.categoryId}> (par défaut)`
+          : '❌ aucune',
+      inline: true,
+    },
+    { name: '📝 Description', value: type.description || 'aucune' },
+    {
+      name: `🛡️ Rôles staff (${(type.staffRoleIds || []).length})`,
+      value: coupe(
+        (type.staffRoleIds || []).length
+          ? type.staffRoleIds.map(id => `<@&${id}>`).join(', ')
+          : 'aucun — les rôles staff du serveur',
+        1000
+      ),
+    },
+  ];
+}
+
+function embedWizard(type, config, step) {
+  const info = WIZARD_INFOS[step];
+  const numero = WIZARD_STEPS.indexOf(step) + 1;
   return new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle(`${type.emoji ? type.emoji + ' ' : ''}${coupe(type.nom, 200)}`)
-    .setDescription('Choisissez une action :')
-    .addFields(
-      { name: '😄 Emoji', value: type.emoji || 'aucun', inline: true },
-      { name: '📁 Catégorie', value: cat, inline: true },
-      { name: '📝 Description', value: type.description ? coupe(type.description, 500) : 'aucune' },
-      { name: `🛡️ Rôles staff (${(type.staffRoleIds || []).length})`, value: coupe(roles, 1000) }
-    );
+    .setDescription(`**${info.titre}**\n\n💡 ${info.aide}`)
+    .addFields(valeurEtape(type, config, step))
+    .setFooter({ text: `Étape ${numero}/${WIZARD_STEPS.length} — utilise les boutons ci-dessous` });
 }
 
-function rowActions(typeId) {
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId(`tkt:actions:${typeId}`)
-    .setPlaceholder('Action...')
-    .setMinValues(1)
-    .setMaxValues(1)
-    .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('Renommer').setEmoji('✏️').setValue('rename'),
-      new StringSelectMenuOptionBuilder().setLabel("Changer l'emoji").setEmoji('😄').setValue('emoji'),
-      new StringSelectMenuOptionBuilder().setLabel('Description du type').setEmoji('📝').setValue('desc'),
-      new StringSelectMenuOptionBuilder().setLabel('Changer la catégorie').setEmoji('📁').setValue('cat'),
-      new StringSelectMenuOptionBuilder().setLabel('Ajouter un rôle staff').setEmoji('➕').setValue('addroles'),
-      new StringSelectMenuOptionBuilder().setLabel('Retirer un rôle staff').setEmoji('➖').setValue('delroles'),
-      new StringSelectMenuOptionBuilder().setLabel('Supprimer ce type').setEmoji('🗑️').setValue('delete'),
-      new StringSelectMenuOptionBuilder().setLabel('Retour').setEmoji('⬅️').setValue('back')
-    );
-  return new ActionRowBuilder().addComponents(menu);
+function rowWizard(typeId, step) {
+  const index = WIZARD_STEPS.indexOf(step);
+  const boutons = [];
+  if (step === 'nom') boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-act:${typeId}:nom`).setLabel('Renommer').setEmoji('✏️').setStyle(ButtonStyle.Primary));
+  if (step === 'emoji') boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-act:${typeId}:emoji`).setLabel("Changer l'emoji").setEmoji('😄').setStyle(ButtonStyle.Primary));
+  if (step === 'desc') boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-act:${typeId}:desc`).setLabel('Modifier la description').setEmoji('📝').setStyle(ButtonStyle.Primary));
+  if (step === 'cat') boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-cat:${typeId}`).setLabel('Choisir la catégorie').setEmoji('📁').setStyle(ButtonStyle.Primary));
+  if (step === 'roles') {
+    boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-addroles:${typeId}`).setLabel('Ajouter un rôle').setEmoji('➕').setStyle(ButtonStyle.Primary));
+    boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-delroles:${typeId}`).setLabel('Retirer un rôle').setEmoji('➖').setStyle(ButtonStyle.Secondary));
+  }
+  if (step === 'fin') boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-del:${typeId}`).setLabel('Supprimer ce type').setEmoji('🗑️').setStyle(ButtonStyle.Danger));
+  if (index > 0) boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-back:${typeId}:${step}`).setLabel('Retour').setEmoji('⬅️').setStyle(ButtonStyle.Secondary));
+  if (index < WIZARD_STEPS.length - 1) boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-next:${typeId}:${step}`).setLabel('Suivant').setEmoji('➡️').setStyle(ButtonStyle.Success));
+  if (step === 'fin') boutons.push(new ButtonBuilder().setCustomId(`tkt:wiz-done:${typeId}`).setLabel('Terminer').setEmoji('✅').setStyle(ButtonStyle.Success));
+  return new ActionRowBuilder().addComponents(boutons);
 }
 
-async function afficherEditeur(interaction, typeId, note) {
+async function afficherWizard(interaction, typeId, step, note) {
   const config = store.getGuild(interaction.guild.id);
   const type = store.getType(interaction.guild.id, typeId);
-  if (!type) {
-    const contenu = { embeds: [embedAssistant(config)], components: [rowAssistant(config)] };
-    return interaction.replied || interaction.deferred
-      ? interaction.editReply(contenu)
-      : interaction.update(contenu);
-  }
+  if (!type) return afficherMenu(interaction, '❌ Ce type n\'existe plus.');
   const contenu = {
     content: note || null,
-    embeds: [embedType(type, config)],
-    components: [rowActions(typeId)],
+    embeds: [embedWizard(type, config, step)],
+    components: [rowWizard(typeId, step)],
   };
   if (interaction.replied || interaction.deferred) return interaction.editReply(contenu);
   return interaction.update(contenu);
@@ -609,6 +671,94 @@ async function handleButton(interaction) {
   if (interaction.customId === 'ticket:annuler') {
     return interaction.update({ content: '✅ Annulé, le ticket reste ouvert.', components: [] });
   }
+
+  // ─── Assistant guidé d'un type : boutons des étapes ───
+  if (id.startsWith('tkt:wiz-')) {
+    if (!estAdmin(interaction.member)) {
+      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+    }
+    const parties = id.split(':'); // ['tkt', 'wiz-xxx', typeId, étape?]
+    const action = parties[1];
+    const typeId = parties[2];
+    const step = parties[3] || null;
+    const type = store.getType(guild.id, typeId);
+    if (!type) return afficherMenu(interaction, '❌ Ce type n\'existe plus.');
+
+    // Bouton d'action de l'étape (nom / emoji / description) → formulaire
+    if (action === 'tkt:wiz-act' || action === 'wiz-act') {
+      const kind = step === 'nom' ? 'rename' : step; // 'rename' | 'emoji' | 'desc'
+      return interaction.showModal(modalTypeChamp(type, kind));
+    }
+
+    // Choisir la catégorie → menu des catégories
+    if (action === 'wiz-cat') {
+      return interaction.update({
+        content: `📁 **Catégorie du type « ${type.nom} »** — choisis la catégorie où ses tickets seront créés :`,
+        embeds: [],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ChannelSelectMenuBuilder()
+              .setCustomId(`tkt:cat:${typeId}`)
+              .setPlaceholder('📁 Choisis la catégorie de ce type')
+              .setChannelTypes([ChannelType.GuildCategory])
+              .setMinValues(1)
+              .setMaxValues(1)
+          ),
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`tkt:wiz-backto:${typeId}:cat`).setLabel('Revenir à l\'étape').setEmoji('⬅️').setStyle(ButtonStyle.Secondary)
+          ),
+        ],
+      });
+    }
+
+    // Ajouter / retirer des rôles staff → menu des rôles
+    if (action === 'wiz-addroles' || action === 'wiz-delroles') {
+      if (action === 'wiz-delroles' && !(type.staffRoleIds || []).length) {
+        return afficherWizard(interaction, typeId, 'roles', '❌ Ce type n\'a aucun rôle staff à retirer.');
+      }
+      const ajout = action === 'wiz-addroles';
+      return interaction.update({
+        content: ajout
+          ? `➕ **Rôles staff du type « ${type.nom} »** — choisis un ou plusieurs rôles à ajouter :`
+          : `➖ **Rôles staff du type « ${type.nom} »** — choisis un ou plusieurs rôles à retirer :`,
+        embeds: [],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new RoleSelectMenuBuilder()
+              .setCustomId(`${ajout ? 'tkt:addroles' : 'tkt:delroles'}:${typeId}`)
+              .setPlaceholder(ajout ? '🛡️ Ajoute un ou plusieurs rôles staff' : '🛡️ Retire un ou plusieurs rôles staff')
+              .setMinValues(1)
+              .setMaxValues(10)
+          ),
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`tkt:wiz-backto:${typeId}:roles`).setLabel('Revenir à l\'étape').setEmoji('⬅️').setStyle(ButtonStyle.Secondary)
+          ),
+        ],
+      });
+    }
+
+    // Navigation : retour / suivant / revenir à l'étape
+    if (action === 'wiz-back' || action === 'wiz-next' || action === 'wiz-backto') {
+      let cible = step;
+      if (action === 'wiz-back' || action === 'wiz-next') {
+        const index = WIZARD_STEPS.indexOf(step);
+        cible = WIZARD_STEPS[action === 'wiz-back' ? index - 1 : index + 1] || step;
+      }
+      return afficherWizard(interaction, typeId, cible, null);
+    }
+
+    // Supprimer le type
+    if (action === 'wiz-del') {
+      const nom = type.nom;
+      store.removeType(guild.id, typeId);
+      return afficherMenu(interaction, `🗑️ Type « ${nom} » supprimé.`);
+    }
+
+    // Terminer : retour au menu principal
+    if (action === 'wiz-done') {
+      return afficherMenu(interaction, `✅ Type « ${type.nom} » prêt ! Crée d'autres types ou clique sur « ✅ Terminer » pour publier le panneau.`);
+    }
+  }
 }
 
 // ════════════════════════════════════════════════════════
@@ -723,91 +873,15 @@ async function handleSelectMenu(interaction) {
       });
     }
 
-    // Un type a été choisi → éditeur
-    return afficherEditeur(interaction, valeur, null);
-  }
-
-  // ── Assistant : actions d'un type ──
-  if (id.startsWith('tkt:actions:')) {
-    if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
-    }
-    const typeId = id.split(':')[2];
-    const action = interaction.values[0];
-    const type = store.getType(guild.id, typeId);
-    if (!type) return afficherMenu(interaction, '❌ Ce type n\'existe plus.');
-
-    if (action === 'back') return afficherMenu(interaction, null);
-
-    if (action === 'rename') return interaction.showModal(modalTypeChamp(type, 'rename'));
-    if (action === 'emoji') return interaction.showModal(modalTypeChamp(type, 'emoji'));
-    if (action === 'desc') return interaction.showModal(modalTypeChamp(type, 'desc'));
-
-    if (action === 'cat') {
-      return interaction.update({
-        content: `📁 **Catégorie du type « ${type.nom} »** — choisis la catégorie où ses tickets seront créés :`,
-        embeds: [],
-        components: [
-          new ActionRowBuilder().addComponents(
-            new ChannelSelectMenuBuilder()
-              .setCustomId(`tkt:cat:${typeId}`)
-              .setPlaceholder('📁 Choisis la catégorie de ce type')
-              .setChannelTypes([ChannelType.GuildCategory])
-              .setMinValues(1)
-              .setMaxValues(1)
-          ),
-        ],
-      });
-    }
-
-    if (action === 'addroles') {
-      return interaction.update({
-        content: `➕ **Rôles staff du type « ${type.nom} »** — choisis un ou plusieurs rôles :`,
-        embeds: [],
-        components: [
-          new ActionRowBuilder().addComponents(
-            new RoleSelectMenuBuilder()
-              .setCustomId(`tkt:addroles:${typeId}`)
-              .setPlaceholder('🛡️ Ajoute un ou plusieurs rôles staff')
-              .setMinValues(1)
-              .setMaxValues(10)
-          ),
-        ],
-      });
-    }
-
-    if (action === 'delroles') {
-      if (!(type.staffRoleIds || []).length) {
-        return afficherEditeur(interaction, typeId, '❌ Ce type n\'a aucun rôle staff propre à retirer.');
-      }
-      return interaction.update({
-        content: `➖ **Retirer des rôles staff du type « ${type.nom} »** — choisis le(s) rôle(s) à retirer :`,
-        embeds: [],
-        components: [
-          new ActionRowBuilder().addComponents(
-            new RoleSelectMenuBuilder()
-              .setCustomId(`tkt:delroles:${typeId}`)
-              .setPlaceholder('🛡️ Retire un ou plusieurs rôles staff')
-              .setMinValues(1)
-              .setMaxValues(10)
-          ),
-        ],
-      });
-    }
-
-    if (action === 'delete') {
-      const nom = type.nom;
-      store.removeType(guild.id, typeId);
-      return afficherMenu(interaction, `🗑️ Type « ${nom} » supprimé.`);
-    }
-    return afficherEditeur(interaction, typeId, null);
+    // Un type a été choisi → assistant guidé, étape 1
+    return afficherWizard(interaction, valeur, 'nom', null);
   }
 
   // ── Assistant : choix d'une catégorie pour un type ──
   if (id.startsWith('tkt:cat:')) {
     const typeId = id.split(':')[2];
     store.updateType(guild.id, typeId, { categoryId: interaction.values[0] });
-    return afficherEditeur(interaction, typeId, '✅ Catégorie mise à jour.');
+    return afficherWizard(interaction, typeId, 'cat', '✅ Catégorie mise à jour.');
   }
 
   // ── Assistant : ajout de rôles staff à un type ──
@@ -818,7 +892,7 @@ async function handleSelectMenu(interaction) {
     const actuel = new Set(type.staffRoleIds || []);
     for (const r of interaction.values) actuel.add(r);
     store.updateType(guild.id, typeId, { staffRoleIds: [...actuel] });
-    return afficherEditeur(interaction, typeId, `✅ ${interaction.values.length} rôle(s) ajouté(s).`);
+    return afficherWizard(interaction, typeId, 'roles', `✅ ${interaction.values.length} rôle(s) ajouté(s).`);
   }
 
   // ── Assistant : retrait de rôles staff d'un type ──
@@ -830,7 +904,7 @@ async function handleSelectMenu(interaction) {
     store.updateType(guild.id, typeId, {
       staffRoleIds: (type.staffRoleIds || []).filter(r => !aRetirer.has(r)),
     });
-    return afficherEditeur(interaction, typeId, `✅ ${interaction.values.length} rôle(s) retiré(s).`);
+    return afficherWizard(interaction, typeId, 'roles', `✅ ${interaction.values.length} rôle(s) retiré(s).`);
   }
 }
 
@@ -874,7 +948,7 @@ async function handleModal(interaction) {
       staffRoleIds: [],
     };
     store.addType(guild.id, type);
-    return afficherEditeur(interaction, type.id, `✅ Type « ${type.nom} » créé — règle-le ci-dessous.`);
+    return afficherWizard(interaction, type.id, 'nom', `✅ Type « ${type.nom} » créé — on le règle ensemble, étape par étape.`);
   }
 
   // ── Assistant : renommage / emoji / description d'un type ──
@@ -888,18 +962,18 @@ async function handleModal(interaction) {
 
     if (kind === 'rename') {
       const nom = (interaction.fields.getTextInputValue('nom') || '').trim();
-      if (!nom) return afficherEditeur(interaction, typeId, '❌ Nom obligatoire.');
+      if (!nom) return afficherWizard(interaction, typeId, 'nom', '❌ Nom obligatoire.');
       store.updateType(guild.id, typeId, { nom: coupe(nom, 45) });
-      return afficherEditeur(interaction, typeId, '✅ Type renommé.');
+      return afficherWizard(interaction, typeId, 'nom', '✅ Type renommé.');
     }
     if (kind === 'emoji') {
       const emoji = (interaction.fields.getTextInputValue('emoji') || '').trim();
       store.updateType(guild.id, typeId, { emoji: emoji || null });
-      return afficherEditeur(interaction, typeId, '✅ Emoji mis à jour.');
+      return afficherWizard(interaction, typeId, 'emoji', '✅ Emoji mis à jour.');
     }
     const desc = (interaction.fields.getTextInputValue('desc') || '').trim();
     store.updateType(guild.id, typeId, { description: desc || null });
-    return afficherEditeur(interaction, typeId, '✅ Description mise à jour.');
+    return afficherWizard(interaction, typeId, 'desc', '✅ Description mise à jour.');
   }
 
   // ── Assistant : textes du panneau ──

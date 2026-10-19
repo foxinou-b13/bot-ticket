@@ -81,15 +81,20 @@ Cet assistant (réservé à ceux qui ont « Gérer le serveur ») permet de cré
 **plusieurs types de tickets**, exactement comme sur les gros serveurs :
 
 1. **➕ Nouveau type** → tu donnes le nom du type (ex : « Problème Live »).
-2. Pour chaque type, un menu **Action...** permet de régler :
-   - ✏️ Renommer
-   - 😄 Changer l'emoji (affiché devant le nom dans le menu)
-   - 📝 Description du type (affichée dans le menu déroulant)
-   - 📁 Changer la catégorie (où les tickets de ce type sont créés)
-   - ➕ Ajouter un rôle staff (**plusieurs rôles possibles**)
-   - ➖ Retirer un rôle staff
-   - 🗑️ Supprimer ce type
-   - ⬅️ Retour
+2. Ensuite, un **assistant guidé** t'emmène étape par étape, dans l'ordre :
+
+   | Étape | Ce que c'est | Boutons |
+   |---|---|---|
+   | ✏️ 1/6 Le nom | nom vu par les membres + nom du salon | Renommer, ➡️ |
+   | 😄 2/6 L'emoji | emoji devant le nom du type | Changer l'emoji, ⬅️ ➡️ |
+   | 📝 3/6 La description | phrase sous le nom dans le menu | Modifier, ⬅️ ➡️ |
+   | 📁 4/6 La catégorie | où les tickets de ce type sont créés | Choisir, ⬅️ ➡️ |
+   | 🛡️ 5/6 Les rôles staff | qui voit et traite ce type (**plusieurs possibles**) | Ajouter / Retirer, ⬅️ ➡️ |
+   | ✅ 6/6 Récapitulatif | résumé complet du type | Supprimer, ⬅️, Terminer |
+
+   Chaque étape affiche une **explication** (💡) pour savoir exactement ce que
+   tu règles, la **valeur actuelle**, et des boutons **⬅️ Retour / ➡️ Suivant**
+   pour naviguer dans l'ordre sans te perdre.
 3. **🎨 Textes du panneau** → titre du panneau, texte du panneau, et texte du
    sélecteur (« Choisissez le type de ticket... »).
 4. **✅ Terminer** → publie le panneau dans le salon du panneau : un embed avec
