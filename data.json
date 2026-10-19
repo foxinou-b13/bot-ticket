@@ -1,0 +1,31 @@
+{
+  "guilds": {
+    "g-verif": {
+      "categoryId": null,
+      "staffRoleIds": [],
+      "logChannelId": null,
+      "panelChannelId": null,
+      "panelSent": false,
+      "panelMessageId": null,
+      "counter": 0,
+      "open": {},
+      "panelMode": "menu",
+      "panel": {
+        "titre": null,
+        "description": null,
+        "selecteur": null,
+        "image": null
+      },
+      "types": [
+        {
+          "id": "x1",
+          "nom": "Test Sauvegarde",
+          "emoji": "✅",
+          "description": null,
+          "categoryId": null,
+          "staffRoleIds": []
+        }
+      ]
+    }
+  }
+}
