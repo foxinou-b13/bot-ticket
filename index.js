@@ -109,8 +109,20 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 // ─── Connexion à Discord (après chargement des données) ───
 store
   .initAsync()
-  .then(() => client.login(token))
+  .then(() => {
+    console.log('🔑 Connexion à Discord en cours...');
+
+    // Filet de sécurité : si le bot n'est pas connecté après 60 s, on redémarre
+    // (l'hébergeur relancera le processus tout seul).
+    const watchdog = setTimeout(() => {
+      console.error('⏱️ Connexion à Discord impossible après 60 s → redémarrage automatique...');
+      process.exit(1);
+    }, 60000);
+    client.once(Events.ClientReady, () => clearTimeout(watchdog));
+
+    return client.login(token);
+  })
   .catch(error => {
-    console.error('Erreur d\'initialisation :', error);
+    console.error("Erreur d'initialisation :", error);
     process.exit(1);
   });
