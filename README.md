@@ -107,8 +107,8 @@ Cet assistant (réservé à ceux qui ont « Gérer le serveur ») permet de cré
    pour naviguer dans l'ordre sans te perdre.
 3. **🎨 Textes du panneau** → titre du panneau, texte du panneau, et texte du
    sélecteur (« Choisissez le type de ticket... »).
-4. **✅ Terminer** → publie le panneau dans le salon du panneau : un embed avec
-   tes textes + un **menu déroulant des types**.
+4. **✅ Terminer** → tu **sélectionnes le salon** où envoyer le panneau : un embed
+   avec tes textes + un **menu déroulant des types** y est publié.
 
 Quand un membre choisit un type dans le menu :
 - le ticket est créé dans **la catégorie de ce type** ;

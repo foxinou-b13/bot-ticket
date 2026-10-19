@@ -53,6 +53,13 @@ client.once(Events.ClientReady, readyClient => {
 // ─── Toutes les interactions : commandes, boutons, formulaires ───
 client.on(Events.InteractionCreate, async interaction => {
   try {
+    // ─── Sécurité : tout se passe sur un serveur, jamais en MP ───
+    if (!interaction.guild) {
+      const rep = { content: '❌ Ce système de tickets fonctionne uniquement sur un serveur, pas en MP.', ephemeral: true };
+      if (interaction.replied || interaction.deferred) return interaction.followUp(rep).catch(() => {});
+      return interaction.reply(rep).catch(() => {});
+    }
+
     if (interaction.isButton()) return await ticket.handleButton(interaction);
     if (interaction.isAnySelectMenu()) return await ticket.handleSelectMenu(interaction);
     if (interaction.isModalSubmit()) return await ticket.handleModal(interaction);
@@ -61,6 +68,10 @@ client.on(Events.InteractionCreate, async interaction => {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
     await command.execute(interaction);
+    // ─── Sécurité : toute commande DOIT répondre (évite « l'application ne répond pas ») ───
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❓ Cette commande n\'a rien à afficher.', ephemeral: true }).catch(() => {});
+    }
   } catch (error) {
     console.error('Erreur :', error);
     const reponse = { content: '❌ Une erreur est survenue.', ephemeral: true };

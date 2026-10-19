@@ -133,12 +133,17 @@ async function envoyerPanel(guild, config, options = {}) {
     message = await channel.messages.fetch(config.panelMessageId).catch(() => null);
   }
   const contenu = construirePanneau(config, options);
-  if (message) {
-    await message.edit(contenu).catch(async () => {
+  try {
+    if (message) {
+      await message.edit(contenu).catch(async () => {
+        message = await channel.send(contenu);
+      });
+    } else {
       message = await channel.send(contenu);
-    });
-  } else {
-    message = await channel.send(contenu);
+    }
+  } catch (erreur) {
+    console.error('Erreur envoi du panneau :', erreur.message);
+    return null;
   }
   store.setGuild(guild.id, { panelMessageId: message.id, panelSent: true });
   return channel;
@@ -200,9 +205,15 @@ async function configBouton(interaction) {
   }
   await interaction.deferReply({ ephemeral: true });
   const guild = interaction.guild;
-  await preparerInfra(guild);
-  store.setGuild(guild.id, { panelMode: 'bouton' });
-  const config = store.getGuild(guild.id);
+  let config;
+  try {
+    config = await preparerInfra(guild);
+    store.setGuild(guild.id, { panelMode: 'bouton' });
+    config = store.getGuild(guild.id);
+  } catch (erreur) {
+    console.error('Erreur infrastructure :', erreur.message);
+    return interaction.editReply({ content: '❌ Le bot a besoin de la permission **« Gérer les salons »** pour créer la catégorie et les salons. Donne-la lui, puis retape `/setup ticket bouton`.' });
+  }
 
   // Il manque les rôles staff → on les demande (une seule étape)
   if (!config.staffRoleIds.length) {
@@ -259,7 +270,7 @@ function embedAssistant(config) {
         ...lignes,
         '',
         '🎨 **Textes du panneau** : titre, description et texte du sélecteur.',
-        '✅ **Terminer** : publie le panneau (avec le menu des types) dans le salon du panneau.',
+        '✅ **Terminer** : choisis le salon, et le panneau (menu des types) y est publié.',
       ].join('\n')
     );
 }
@@ -621,12 +632,18 @@ async function creerTicket(interaction, sujet, typeId) {
     });
   }
 
-  const salon = await guild.channels.create({
-    name: coupe(`ticket-${numero}${suffixe}`, 95),
-    type: ChannelType.GuildText,
-    parent: categoryId,
-    permissionOverwrites: permissions,
-  });
+  let salon;
+  try {
+    salon = await guild.channels.create({
+      name: coupe(`ticket-${numero}${suffixe}`, 95),
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites: permissions,
+    });
+  } catch (erreur) {
+    console.error('Erreur création du ticket :', erreur.message);
+    return { erreur: 'Le bot n\'a pas pu créer le salon du ticket. Il lui faut la permission « Gérer les salons ».' };
+  }
 
   const infos = {
     numero,
@@ -846,9 +863,17 @@ async function handleButton(interaction) {
 
     // Terminer : retour au menu principal
     if (action === 'wiz-done') {
-      return afficherMenu(interaction, `✅ Type « ${type.nom} » prêt ! Crée d'autres types ou clique sur « ✅ Terminer » pour publier le panneau.`);
+      return afficherMenu(interaction, `✅ Type « ${type.nom} » prêt ! Crée d'autres types, ou clique sur « ✅ Terminer » pour choisir le salon du panneau.`);
     }
   }
+
+  // Retour depuis le choix du salon du panneau
+  if (id === 'tkt:panel-cancel') {
+    return afficherMenu(interaction, null);
+  }
+
+  // ─── Sécurité : bouton inconnu ou expiré → on répond quand même ───
+  return interaction.reply({ content: '❌ Ce bouton est expiré ou inconnu.', ephemeral: true }).catch(() => {});
 }
 
 // ════════════════════════════════════════════════════════
@@ -862,7 +887,13 @@ async function handleSelectMenu(interaction) {
   if (id === 'ticket:select-roles') {
     const roles = interaction.values;
     store.setGuild(guild.id, { staffRoleIds: roles });
-    const cfg = await preparerInfra(guild);
+    let cfg;
+    try {
+      cfg = await preparerInfra(guild);
+    } catch (erreur) {
+      console.error('Erreur infrastructure :', erreur.message);
+      return interaction.update({ content: '❌ Le bot a besoin de la permission **« Gérer les salons »** pour créer les salons. Donne-la lui, puis retape la commande.', components: [] });
+    }
     const channel = await envoyerPanel(guild, cfg);
     const mode = modePanneau(cfg);
     const liste = roles.map(r => `<@&${r}>`).join(', ');
@@ -918,7 +949,7 @@ async function handleSelectMenu(interaction) {
     if (valeur === '__panel__') return interaction.showModal(modalPanel(config));
 
     if (valeur === '__done__') {
-      let cfg = store.getGuild(guild.id);
+      const cfg = store.getGuild(guild.id);
       if (!cfg.types.length) {
         return interaction.update({
           content: '❌ Crée au moins un type avant de publier le panneau (« ➕ Nouveau type »).',
@@ -926,17 +957,23 @@ async function handleSelectMenu(interaction) {
           components: [rowAssistant(cfg)],
         });
       }
-      // Infrastructure manquante → créée automatiquement
-      if (!cfg.panelChannelId || !cfg.categoryId) {
-        cfg = await preparerInfra(guild);
-      }
-      store.setGuild(guild.id, { panelMode: 'menu' });
-      cfg = store.getGuild(guild.id);
-      const channel = await envoyerPanel(guild, cfg);
+      // On demande DANS QUEL SALON envoyer le panneau menu
       return interaction.update({
-        content: `📋 **Panneau MENU publié dans ${channel}** avec ${cfg.types.length} type(s) de tickets.\nTu peux continuer à modifier les types : reclique sur « ✅ Terminer » pour mettre le panneau à jour.`,
-        embeds: [embedAssistant(cfg)],
-        components: [rowAssistant(cfg)],
+        content: '📬 **Sélectionne le salon où envoyer le panneau du ticket menu :**',
+        embeds: [],
+        components: [
+          new ActionRowBuilder().addComponents(
+            new ChannelSelectMenuBuilder()
+              .setCustomId('tkt:panel-channel')
+              .setPlaceholder('📬 Salon du panneau...')
+              .setChannelTypes([ChannelType.GuildText])
+              .setMinValues(1)
+              .setMaxValues(1)
+          ),
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('tkt:panel-cancel').setLabel('Retour').setEmoji('⬅️').setStyle(ButtonStyle.Secondary)
+          ),
+        ],
       });
     }
 
@@ -962,17 +999,34 @@ async function handleSelectMenu(interaction) {
     return afficherWizard(interaction, typeId, 'roles', `✅ ${interaction.values.length} rôle(s) ajouté(s).`);
   }
 
-  // ── Assistant : retrait de rôles staff d'un type ──
-  if (id.startsWith('tkt:delroles:')) {
-    const typeId = id.split(':')[2];
-    const type = store.getType(guild.id, typeId);
-    if (!type) return afficherMenu(interaction, '❌ Ce type n\'existe plus.');
-    const aRetirer = new Set(interaction.values);
-    store.updateType(guild.id, typeId, {
-      staffRoleIds: (type.staffRoleIds || []).filter(r => !aRetirer.has(r)),
+  // ── Assistant : choix du salon où envoyer le panneau menu ──
+  if (id === 'tkt:panel-channel') {
+    if (!estAdmin(interaction.member)) {
+      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+    }
+    const channelId = interaction.values[0];
+    store.setGuild(guild.id, { panelChannelId: channelId, panelMode: 'menu', panelMessageId: null });
+    let cfg = store.getGuild(guild.id);
+    // Catégorie / salon de logs manquants → créés automatiquement
+    if (!cfg.categoryId || !cfg.logChannelId) {
+      try {
+        cfg = await preparerInfra(guild);
+      } catch (erreur) {
+        console.error('Erreur infrastructure :', erreur.message);
+      }
+    }
+    const channel = await envoyerPanel(guild, cfg);
+    return interaction.update({
+      content: channel
+        ? `📋 **Panneau MENU publié dans <#${channelId}>** avec ${cfg.types.length} type(s) de tickets.\nLes membres peuvent maintenant ouvrir leurs tickets !`
+        : `❌ Impossible d'envoyer le panneau dans <#${channelId}>. Vérifie que le bot a la permission d'y écrire.`,
+      embeds: [embedAssistant(cfg)],
+      components: [rowAssistant(cfg)],
     });
-    return afficherWizard(interaction, typeId, 'roles', `✅ ${interaction.values.length} rôle(s) retiré(s).`);
   }
+
+  // ── Sécurité : menu inconnu ou expiré → on répond quand même ──
+  return interaction.reply({ content: '❌ Ce menu est expiré ou inconnu.', ephemeral: true }).catch(() => {});
 }
 
 // ════════════════════════════════════════════════════════
@@ -1065,6 +1119,9 @@ async function handleModal(interaction) {
       components: [rowAssistant(config)],
     });
   }
+
+  // ─── Sécurité : formulaire inconnu ou expiré → on répond quand même ───
+  return interaction.reply({ content: '❌ Ce formulaire est expiré ou inconnu.', ephemeral: true }).catch(() => {});
 }
 
 module.exports = {
