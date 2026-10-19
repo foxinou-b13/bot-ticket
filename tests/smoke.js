@@ -54,7 +54,7 @@ test('bannière auto-générée dans l\'embed + plus de ligne bleue + séparateu
   if (!p.files || p.files[0].name !== 'banniere.png') throw new Error('bannière absente');
   const e = p.embeds[0].data;
   if (!e.image || e.image.url !== 'attachment://banniere.png') throw new Error('image absente de l\'embed');
-  if (e.color !== 0) throw new Error('ligne bleue encore présente (couleur ' + e.color + ')');
+  if (e.color !== 0x2B2D31) throw new Error('bordure visible détectée (couleur ' + e.color + ')');
   if (!e.description.includes('───')) throw new Error('séparateurs absents');
 });
 test('panneau menu sans types → retombe en bouton', () => {

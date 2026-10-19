@@ -98,7 +98,9 @@ function embedPanneau(config, options = {}, guildName = null) {
     '⏳ Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.',
   ].join('\n');
   const embed = new EmbedBuilder()
-    .setColor(0x000000)
+    // Bordure de l'embed = couleur du fond du thème sombre Discord :
+    // aucune ligne colorée visible, ni à gauche ni ailleurs.
+    .setColor(0x2B2D31)
     .setTitle(coupe(options.titre || p.titre || (guildName ? `👑 Support | ${guildName}` : '🎫 Support'), 256))
     .setDescription(
       coupe(
