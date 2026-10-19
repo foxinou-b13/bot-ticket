@@ -39,6 +39,7 @@ function getGuild(guildId) {
       panelMessageId: null,
       counter: 0,
       open: {},
+      panelMode: null, // 'bouton' ou 'menu' : le choix du serveur
       panel: { titre: null, description: null, selecteur: null }, // textes du panneau
       types: [], // types de tickets : { id, nom, emoji, description, categoryId, staffRoleIds[] }
     };
@@ -55,6 +56,7 @@ function getGuild(guildId) {
   if (!g.open) g.open = {};
   if (!g.panel) g.panel = { titre: null, description: null, selecteur: null };
   if (!Array.isArray(g.types)) g.types = [];
+  if (g.panelMode !== 'bouton' && g.panelMode !== 'menu') g.panelMode = null;
   return g;
 }
 

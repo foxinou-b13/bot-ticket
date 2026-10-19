@@ -202,10 +202,16 @@ module.exports = {
       const description = interaction.options.getString('description');
       const channel = await handler.envoyerPanel(guild, cfg, { titre, description });
       if (!channel) {
-        return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup`.', ephemeral: true });
+        return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup` ou `/setup ticket bouton`.', ephemeral: true });
       }
       store.setGuild(guild.id, { panelSent: true });
-      return interaction.reply({ content: `✅ Panneau envoyé dans ${channel}.`, ephemeral: true });
+      const cfg2 = store.getGuild(guild.id);
+      const mode = handler.modePanneau(cfg2);
+      let msg = `✅ Panneau ${mode === 'menu' ? '📋 MENU (types de tickets)' : '🔘 BOUTON (« 🎫 Ouvrir un ticket »)'} publié dans ${channel}.`;
+      if (cfg2.panelMode === 'menu' && !cfg2.types.length) {
+        msg += '\n⚠️ Mode menu choisi mais aucun type créé : le panneau bouton a été envoyé. Crée des types avec `/setup ticket menu`.';
+      }
+      return interaction.reply({ content: msg, ephemeral: true });
     }
 
     // ════════════════════════════════════════════════════
@@ -226,6 +232,7 @@ module.exports = {
           `👥 Rôles staff (${config.staffRoleIds.length}) : ${roles}`,
           `📜 Salon de logs : ${config.logChannelId ? `<#${config.logChannelId}>` : '—'}`,
           `🎫 Salon du panneau : ${config.panelChannelId ? `<#${config.panelChannelId}>` : '—'}`,
+          `🎛️ Système choisi : ${config.panelMode === 'menu' ? '📋 MENU (types de tickets)' : config.panelMode === 'bouton' ? '🔘 BOUTON (« Ouvrir un ticket »)' : 'aucun pour l\'instant — `/setup ticket bouton` ou `/setup ticket menu`'}`,
           `🧩 Types de tickets (${config.types.length}) :`,
           ...lignesTypes,
           `🎨 Textes du panneau : ${p.titre || p.description || p.selecteur ? 'personnalisés' : 'par défaut'}`,

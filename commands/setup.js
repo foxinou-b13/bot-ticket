@@ -1,9 +1,12 @@
 /**
  * commands/setup.js — la commande /setup et ses sous-commandes
  *
- * /setup ticket menu → assistant des types de tickets :
- *   crée/modifie les types (nom, emoji, description, catégorie, rôles staff),
- *   personnalise les textes du panneau, puis publie le panneau.
+ * /setup ticket bouton → système BOUTON : panneau avec « 🎫 Ouvrir un ticket »
+ *                        (tout est créé automatiquement : catégorie, salons, rôles)
+ * /setup ticket menu   → système MENU : assistant des types de tickets
+ *                        (nom, emoji, description, catégorie, rôles staff par type)
+ *
+ * Chaque serveur CHOISIT son système : les deux existent et sont indépendants.
  */
 const { SlashCommandBuilder } = require('discord.js');
 const handler = require('../handlers/ticketHandler');
@@ -18,8 +21,13 @@ module.exports = {
         .setDescription('Configuration des tickets')
         .addSubcommand(sub =>
           sub
+            .setName('bouton')
+            .setDescription('Système BOUTON : panneau « 🎫 Ouvrir un ticket » (configuration automatique)')
+        )
+        .addSubcommand(sub =>
+          sub
             .setName('menu')
-            .setDescription('Assistant : types de tickets, textes du panneau, catégories, rôles staff')
+            .setDescription('Système MENU : types de tickets personnalisés (assistant guidé)')
         )
     ),
 
@@ -27,6 +35,9 @@ module.exports = {
     const groupe = interaction.options.getSubcommandGroup();
     const sub = interaction.options.getSubcommand();
 
+    if (groupe === 'ticket' && sub === 'bouton') {
+      return handler.configBouton(interaction);
+    }
     if (groupe === 'ticket' && sub === 'menu') {
       return handler.menuPrincipal(interaction);
     }

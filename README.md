@@ -53,7 +53,17 @@ fonctionne sur tous les serveurs où est le bot (jusqu'à 1 h d'attente).
 
 ## ⚙️ Configurer le système de tickets sur ton serveur
 
-**Tout est automatique** : une seule commande suffit.
+**Deux systèmes au choix** — chaque serveur prend celui qui lui plaît :
+
+| Ton choix | Commande à taper | Résultat |
+|---|---|---|
+| 🔘 **BOUTON** | `/setup ticket bouton` | Le bot crée tout (catégorie 🎫 Tickets, salon #ouvrir-un-ticket, salon #tickets-logs), te fait choisir le(s) rôle(s) staff, puis publie le panneau avec le bouton « 🎫 Ouvrir un ticket » |
+| 📋 **MENU** | `/setup ticket menu` | L'assistant s'ouvre : tu crées tes types de tickets (nom, emoji, description, catégorie, rôles staff), puis le panneau avec le menu déroulant des types est publié |
+
+Une seule de ces deux commandes suffit : **tout le reste est automatique**.
+Tu peux changer d'avis à tout moment en tapant l'autre commande.
+
+### Configuration automatique complète (avancé)
 
 ```
 /ticket setup
@@ -113,7 +123,8 @@ tu recliques sur « ✅ Terminer » (ou avec `/ticket panel`).
 
 | Commande | Qui | Effet |
 |---|---|---|
-| `/setup ticket menu` | Admin | Assistant des types de tickets + textes du panneau |
+| `/setup ticket bouton` | Admin | Système BOUTON : tout créer + panneau « 🎫 Ouvrir un ticket » |
+| `/setup ticket menu` | Admin | Système MENU : assistant des types de tickets + textes du panneau |
 | `/ticket panel [salon] [titre] [description]` | Admin | Renvoie le panneau |
 | `/ticket config` | Staff | Affiche la configuration |
 | `/ticket claim` | Staff | Prend en charge le ticket |

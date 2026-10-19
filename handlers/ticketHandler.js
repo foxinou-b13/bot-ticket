@@ -105,8 +105,15 @@ function rowTypes(config) {
   return new ActionRowBuilder().addComponents(menu);
 }
 
+// Le mode du panneau dépend du CHOIX du serveur : 'bouton' ou 'menu'
+function modePanneau(config) {
+  if (config.panelMode === 'menu') return config.types.length ? 'menu' : 'bouton';
+  if (config.panelMode === 'bouton') return 'bouton';
+  return config.types.length ? 'menu' : 'bouton';
+}
+
 function construirePanneau(config, options = {}) {
-  if (config.types.length > 0) {
+  if (modePanneau(config) === 'menu') {
     return { embeds: [embedPanneau(config, options)], components: [rowTypes(config)] };
   }
   return { embeds: [embedPanneau(config, options)], components: [boutonOuvrir()] };
@@ -146,6 +153,88 @@ function menuRoles() {
       .setMinValues(1)
       .setMaxValues(10)
   );
+}
+
+// ─── Infrastructure automatique : catégorie + salon du panneau + salon de logs ───
+async function preparerInfra(guild) {
+  const config = store.getGuild(guild.id);
+  let categoryId = config.categoryId;
+  if (!categoryId) {
+    const categorie = await guild.channels.create({ name: '🎫 Tickets', type: ChannelType.GuildCategory });
+    categoryId = categorie.id;
+  }
+  let panelChannelId = config.panelChannelId;
+  if (!panelChannelId) {
+    const salon = await guild.channels.create({
+      name: 'ouvrir-un-ticket',
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites: [{ id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel] }],
+    });
+    panelChannelId = salon.id;
+  }
+  let logChannelId = config.logChannelId;
+  if (!logChannelId) {
+    const permissions = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+    for (const roleId of config.staffRoleIds || []) {
+      permissions.push({
+        id: roleId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      });
+    }
+    const logs = await guild.channels.create({
+      name: 'tickets-logs',
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      permissionOverwrites: permissions,
+    });
+    logChannelId = logs.id;
+  }
+  return store.setGuild(guild.id, { categoryId, panelChannelId, logChannelId });
+}
+
+// ─── /setup ticket bouton : le système BOUTON, configuré en une commande ───
+async function configBouton(interaction) {
+  if (!estAdmin(interaction.member)) {
+    return interaction.reply({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', ephemeral: true });
+  }
+  await interaction.deferReply({ ephemeral: true });
+  const guild = interaction.guild;
+  await preparerInfra(guild);
+  store.setGuild(guild.id, { panelMode: 'bouton' });
+  const config = store.getGuild(guild.id);
+
+  // Il manque les rôles staff → on les demande (une seule étape)
+  if (!config.staffRoleIds.length) {
+    return interaction.editReply({
+      content: [
+        '🔘 **Mode BOUTON choisi !** Le panneau aura un bouton « 🎫 Ouvrir un ticket ».',
+        '',
+        `📁 Catégorie : <#${config.categoryId}>`,
+        `🎫 Salon du panneau : <#${config.panelChannelId}>`,
+        `📜 Salon de logs : <#${config.logChannelId}>`,
+        '',
+        '👥 **Dernière étape : choisis le(s) rôle(s) du staff** dans le menu ci-dessous.',
+        'Tu peux sélectionner **plusieurs rôles** en même temps.',
+      ].join('\n'),
+      components: [menuRoles()],
+    });
+  }
+
+  const channel = await envoyerPanel(guild, config);
+  return interaction.editReply({
+    content: [
+      '🔘 **Système BOUTON configuré !**',
+      '',
+      `👥 Rôles staff (${config.staffRoleIds.length}) : ${config.staffRoleIds.map(id => `<@&${id}>`).join(', ')}`,
+      `📁 Catégorie : <#${config.categoryId}>`,
+      `📜 Salon de logs : <#${config.logChannelId}>`,
+      `🎫 Panneau bouton : publié dans ${channel}`,
+      '',
+      '💡 Pour passer au **menu des types** plus tard : `/setup ticket menu`.',
+    ].join('\n'),
+    components: [],
+  });
 }
 
 // ════════════════════════════════════════════════════════
@@ -617,6 +706,7 @@ async function fermerTicket(interaction, t, raison) {
 async function handleButton(interaction) {
   const guild = interaction.guild;
   const config = store.getGuild(guild.id);
+  const id = interaction.customId;
 
   // Bouton du panneau → on demande le sujet
   if (interaction.customId === 'ticket:ouvrir') {
@@ -772,47 +862,25 @@ async function handleSelectMenu(interaction) {
   if (id === 'ticket:select-roles') {
     const roles = interaction.values;
     store.setGuild(guild.id, { staffRoleIds: roles });
-    const config = store.getGuild(guild.id);
-
-    let logChannelId = config.logChannelId;
-    if (!logChannelId && config.categoryId) {
-      const permissions = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
-      for (const roleId of roles) {
-        permissions.push({
-          id: roleId,
-          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-        });
-      }
-      const logs = await guild.channels.create({
-        name: 'tickets-logs',
-        type: ChannelType.GuildText,
-        parent: config.categoryId,
-        permissionOverwrites: permissions,
-      });
-      logChannelId = logs.id;
-      store.setGuild(guild.id, { logChannelId });
-    }
-
-    let panelEnvoye = false;
-    if (!config.panelSent) {
-      const channel = await envoyerPanel(guild, store.getGuild(guild.id));
-      if (channel) panelEnvoye = true;
-    }
-
+    const cfg = await preparerInfra(guild);
+    const channel = await envoyerPanel(guild, cfg);
+    const mode = modePanneau(cfg);
     const liste = roles.map(r => `<@&${r}>`).join(', ');
-    const cfg = store.getGuild(guild.id);
 
     return interaction.update({
       content: [
-        '✅ **Système de tickets configuré automatiquement !**',
+        mode === 'bouton'
+          ? '🔘 **Système BOUTON configuré !**'
+          : '📋 **Système MENU configuré !**',
         '',
         `👥 Rôles staff (${roles.length}) : ${liste}`,
         `📁 Catégorie : <#${cfg.categoryId}>`,
         `📜 Salon de logs : ${cfg.logChannelId ? `<#${cfg.logChannelId}>` : '—'}`,
-        `🎫 Panneau : ${panelEnvoye ? 'envoyé ✅' : 'déjà en place (utilise `/ticket panel` pour le renvoyer)'}`,
+        `🎫 Panneau : ${channel ? `publié dans ${channel}` : '❌ salon introuvable, fais `/ticket panel`'}`,
         '',
-        '🧩 **Prochaine étape (facultative mais recommandée) :** `/setup ticket menu`',
-        '→ crée tes **types de tickets** (emoji, catégorie, rôles staff par type) et personnalise le panneau.',
+        mode === 'bouton'
+          ? '💡 Pour passer au **menu des types** plus tard : `/setup ticket menu`.'
+          : '💡 Pour revenir au **panneau bouton** plus tard : `/setup ticket bouton`.',
       ].join('\n'),
       components: [],
     });
@@ -850,7 +918,7 @@ async function handleSelectMenu(interaction) {
     if (valeur === '__panel__') return interaction.showModal(modalPanel(config));
 
     if (valeur === '__done__') {
-      const cfg = store.getGuild(guild.id);
+      let cfg = store.getGuild(guild.id);
       if (!cfg.types.length) {
         return interaction.update({
           content: '❌ Crée au moins un type avant de publier le panneau (« ➕ Nouveau type »).',
@@ -858,16 +926,15 @@ async function handleSelectMenu(interaction) {
           components: [rowAssistant(cfg)],
         });
       }
-      if (!cfg.panelChannelId) {
-        return interaction.update({
-          content: '❌ Aucun salon de panneau configuré. Fais d\'abord `/ticket setup`.',
-          embeds: [embedAssistant(cfg)],
-          components: [rowAssistant(cfg)],
-        });
+      // Infrastructure manquante → créée automatiquement
+      if (!cfg.panelChannelId || !cfg.categoryId) {
+        cfg = await preparerInfra(guild);
       }
+      store.setGuild(guild.id, { panelMode: 'menu' });
+      cfg = store.getGuild(guild.id);
       const channel = await envoyerPanel(guild, cfg);
       return interaction.update({
-        content: `✅ **Panneau publié dans ${channel}** avec ${cfg.types.length} type(s) de tickets.\nTu peux continuer à modifier les types : le panneau se mettra à jour automatiquement.`,
+        content: `📋 **Panneau MENU publié dans ${channel}** avec ${cfg.types.length} type(s) de tickets.\nTu peux continuer à modifier les types : reclique sur « ✅ Terminer » pour mettre le panneau à jour.`,
         embeds: [embedAssistant(cfg)],
         components: [rowAssistant(cfg)],
       });
@@ -1013,6 +1080,8 @@ module.exports = {
   estStaffTicket,
   rafraichirMessageTicket,
   menuPrincipal,
+  configBouton,
+  modePanneau,
   handleButton,
   handleSelectMenu,
   handleModal,
