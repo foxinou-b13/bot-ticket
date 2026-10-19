@@ -36,17 +36,25 @@ function getGuild(guildId) {
       logChannelId: null,
       panelChannelId: null,
       panelSent: false,
+      panelMessageId: null,
       counter: 0,
       open: {},
+      panel: { titre: null, description: null, selecteur: null }, // textes du panneau
+      types: [], // types de tickets : { id, nom, emoji, description, categoryId, staffRoleIds[] }
     };
     sauvegarder();
   }
   const g = data.guilds[guildId];
   // Compatibilité avec les anciennes versions (un seul rôle staff)
-  if (g.staffRoleId && g.staffRoleIds.length === 0) {
+  if (g.staffRoleId && (!g.staffRoleIds || g.staffRoleIds.length === 0)) {
     g.staffRoleIds = [g.staffRoleId];
     sauvegarder();
   }
+  // Compatibilité : champs ajoutés par la version "types de tickets"
+  if (!g.staffRoleIds) g.staffRoleIds = [];
+  if (!g.open) g.open = {};
+  if (!g.panel) g.panel = { titre: null, description: null, selecteur: null };
+  if (!Array.isArray(g.types)) g.types = [];
   return g;
 }
 
@@ -56,6 +64,33 @@ function setGuild(guildId, modifications) {
   data.guilds[guildId] = { ...actuelle, ...modifications };
   sauvegarder();
   return data.guilds[guildId];
+}
+
+// ─── Types de tickets ───
+function getType(guildId, typeId) {
+  return getGuild(guildId).types.find(t => t.id === typeId) || null;
+}
+
+function addType(guildId, type) {
+  const g = getGuild(guildId);
+  g.types.push(type);
+  sauvegarder();
+  return type;
+}
+
+function updateType(guildId, typeId, modifications) {
+  const g = getGuild(guildId);
+  const type = g.types.find(t => t.id === typeId);
+  if (!type) return null;
+  Object.assign(type, modifications);
+  sauvegarder();
+  return type;
+}
+
+function removeType(guildId, typeId) {
+  const g = getGuild(guildId);
+  g.types = g.types.filter(t => t.id !== typeId);
+  sauvegarder();
 }
 
 // ─── Tickets ouverts ───
@@ -104,6 +139,10 @@ module.exports = {
   charger,
   getGuild,
   setGuild,
+  getType,
+  addType,
+  updateType,
+  removeType,
   addTicket,
   removeTicket,
   getTicket,

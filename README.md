@@ -71,10 +71,44 @@ Tu peux aussi personnaliser si tu le souhaites :
 `/ticket setup categorie:… salon:… salon_logs:… role_staff:…`
 (tout est facultatif — ce que tu ne précises pas est créé automatiquement)
 
+## 🧩 Les types de tickets (comme Ticket Tool)
+
+```
+/setup ticket menu
+```
+
+Cet assistant (réservé à ceux qui ont « Gérer le serveur ») permet de créer
+**plusieurs types de tickets**, exactement comme sur les gros serveurs :
+
+1. **➕ Nouveau type** → tu donnes le nom du type (ex : « Problème Live »).
+2. Pour chaque type, un menu **Action...** permet de régler :
+   - ✏️ Renommer
+   - 😄 Changer l'emoji (affiché devant le nom dans le menu)
+   - 📝 Description du type (affichée dans le menu déroulant)
+   - 📁 Changer la catégorie (où les tickets de ce type sont créés)
+   - ➕ Ajouter un rôle staff (**plusieurs rôles possibles**)
+   - ➖ Retirer un rôle staff
+   - 🗑️ Supprimer ce type
+   - ⬅️ Retour
+3. **🎨 Textes du panneau** → titre du panneau, texte du panneau, et texte du
+   sélecteur (« Choisissez le type de ticket... »).
+4. **✅ Terminer** → publie le panneau dans le salon du panneau : un embed avec
+   tes textes + un **menu déroulant des types**.
+
+Quand un membre choisit un type dans le menu :
+- le ticket est créé dans **la catégorie de ce type** ;
+- seuls le membre, **les rôles staff de ce type** et le bot le voient
+  (si le type n'a aucun rôle, les rôles staff du serveur sont utilisés) ;
+- le nom du salon est `ticket-NUMERO-nom-du-type`.
+
+Le panneau se met à jour tout seul à chaque fois que tu modifies un type et que
+tu recliques sur « ✅ Terminer » (ou avec `/ticket panel`).
+
 ### Les autres commandes
 
 | Commande | Qui | Effet |
 |---|---|---|
+| `/setup ticket menu` | Admin | Assistant des types de tickets + textes du panneau |
 | `/ticket panel [salon] [titre] [description]` | Admin | Renvoie le panneau |
 | `/ticket config` | Staff | Affiche la configuration |
 | `/ticket claim` | Staff | Prend en charge le ticket |

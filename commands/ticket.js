@@ -37,7 +37,7 @@ module.exports = {
     .addSubcommand(sub =>
       sub
         .setName('panel')
-        .setDescription('Envoyer le panneau "Ouvrir un ticket"')
+        .setDescription('Envoyer le panneau (menu des types si des types existent)')
         .addChannelOption(o => o.setName('salon').setDescription('Salon où envoyer le panneau').addChannelTypes(ChannelType.GuildText))
         .addStringOption(o => o.setName('titre').setDescription('Titre du panneau'))
         .addStringOption(o => o.setName('description').setDescription('Description du panneau'))
@@ -160,7 +160,8 @@ module.exports = {
           `📜 Salon de logs : ${logChannelId ? `<#${logChannelId}>` : '—'}`,
           `🎫 Panneau : ${panelInfo}`,
           '',
-          '🎉 Les membres peuvent cliquer sur **🎫 Ouvrir un ticket**.',
+          '🧩 **Étape suivante (recommandée) :** `/setup ticket menu`',
+          '→ crée tes **types de tickets** (emoji, catégorie, rôles staff par type) et personnalise le panneau.',
         ].join('\n'));
       }
 
@@ -175,6 +176,8 @@ module.exports = {
           '',
           '👥 **Dernière étape : choisis le(s) rôle(s) du staff** dans le menu ci-dessous.',
           'Tu peux sélectionner **plusieurs rôles** en même temps.',
+          '',
+          '🧩 **Ensuite (recommandé) :** `/setup ticket menu` pour créer tes **types de tickets**.',
         ].join('\n'),
         components: [handler.menuRoles()],
       });
@@ -212,6 +215,10 @@ module.exports = {
       const roles = config.staffRoleIds.length > 0
         ? config.staffRoleIds.map(id => `<@&${id}>`).join(', ')
         : '❌ aucun (fais `/ticket setup`)';
+      const lignesTypes = config.types.length
+        ? config.types.map(t => `   ${t.emoji || '🔹'} **${t.nom}** — 📁 ${t.categoryId ? `<#${t.categoryId}>` : 'par défaut'} — 🛡️ ${(t.staffRoleIds || []).length} rôle(s)`)
+        : ['   aucun — crée-les avec `/setup ticket menu`'];
+      const p = config.panel || {};
       return interaction.reply({
         content: [
           '⚙️ Configuration des tickets :',
@@ -219,6 +226,9 @@ module.exports = {
           `👥 Rôles staff (${config.staffRoleIds.length}) : ${roles}`,
           `📜 Salon de logs : ${config.logChannelId ? `<#${config.logChannelId}>` : '—'}`,
           `🎫 Salon du panneau : ${config.panelChannelId ? `<#${config.panelChannelId}>` : '—'}`,
+          `🧩 Types de tickets (${config.types.length}) :`,
+          ...lignesTypes,
+          `🎨 Textes du panneau : ${p.titre || p.description || p.selecteur ? 'personnalisés' : 'par défaut'}`,
           `🎫 Tickets ouverts : ${Object.keys(config.open).length}`,
           `🔢 Dernier numéro attribué : #${config.counter}`,
         ].join('\n'),
