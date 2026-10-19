@@ -30,7 +30,7 @@ const client = new Client({
 });
 
 // ─── Chargement des données sauvegardées ───
-store.charger();
+// (Mongo en ligne si MONGODB_URI est défini, sinon fichier local data.json)
 
 // ─── Chargement des commandes ───
 client.commands = new Collection();
@@ -106,5 +106,11 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
-// ─── Connexion à Discord ───
-client.login(token);
+// ─── Connexion à Discord (après chargement des données) ───
+store
+  .initAsync()
+  .then(() => client.login(token))
+  .catch(error => {
+    console.error('Erreur d\'initialisation :', error);
+    process.exit(1);
+  });

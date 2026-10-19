@@ -1,14 +1,25 @@
 /**
- * store.js — petite base de données dans un fichier data.json
- * Elle garde la configuration des tickets de chaque serveur,
- * même si le bot redémarre.
+ * store.js — base de données du bot
+ * - Sauvegarde LOCALE dans data.json (toujours, en secours)
+ * - Sauvegarde EN LIGNE MongoDB si MONGODB_URI est défini (recommandé sur
+ *   Render, car le disque y est effacé à chaque redéploiement)
  */
 const fs = require('node:fs');
 const path = require('node:path');
 
+let MongoClient = null;
+try {
+  MongoClient = require('mongodb').MongoClient;
+} catch {
+  // Dépendance optionnelle : le bot fonctionne sans (sauvegarde locale)
+}
+
 const fichier = path.join(__dirname, '..', 'data.json');
 
 let data = { guilds: {} };
+let collection = null;
+let mongoOk = false;
+let saveTimer = null;
 
 function charger() {
   try {
@@ -23,8 +34,43 @@ function charger() {
   return data;
 }
 
+// Initialisation : Mongo en ligne si possible, sinon fichier local
+async function initAsync() {
+  const uri = (process.env.MONGODB_URI || '').trim();
+  if (uri && MongoClient) {
+    try {
+      const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10000 });
+      await client.connect();
+      const db = client.db('bot-tickets');
+      collection = db.collection('config');
+      const doc = await collection.findOne({ _id: 'guilds' });
+      if (doc && doc.guilds) data = { guilds: doc.guilds };
+      mongoOk = true;
+      console.log('💾 Base Mongo connectée : la configuration survivra aux redéploiements.');
+      return data;
+    } catch (error) {
+      console.error('⚠️ Mongo injoignable, sauvegarde locale uniquement :', error.message);
+    }
+  }
+  return charger();
+}
+
 function sauvegarder() {
-  fs.writeFileSync(fichier, JSON.stringify(data, null, 2));
+  // Locale : toujours (secours)
+  try {
+    fs.writeFileSync(fichier, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Erreur écriture data.json :', error.message);
+  }
+  // En ligne : debouncée (1,5 s) pour ne pas spammer la base
+  if (mongoOk && collection) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      collection
+        .replaceOne({ _id: 'guilds' }, { _id: 'guilds', guilds: data.guilds }, { upsert: true })
+        .catch(error => console.error('Erreur sauvegarde Mongo :', error.message));
+    }, 1500);
+  }
 }
 
 // Récupère (ou crée) la configuration d'un serveur
@@ -40,7 +86,7 @@ function getGuild(guildId) {
       counter: 0,
       open: {},
       panelMode: null, // 'bouton' ou 'menu' : le choix du serveur
-      panel: { titre: null, description: null, selecteur: null }, // textes du panneau
+      panel: { titre: null, description: null, selecteur: null, image: null }, // textes du panneau
       types: [], // types de tickets : { id, nom, emoji, description, categoryId, staffRoleIds[] }
     };
     sauvegarder();
@@ -51,7 +97,7 @@ function getGuild(guildId) {
     g.staffRoleIds = [g.staffRoleId];
     sauvegarder();
   }
-  // Compatibilité : champs ajoutés par la version "types de tickets"
+  // Compatibilité : champs ajoutés par les versions successives
   if (!g.staffRoleIds) g.staffRoleIds = [];
   if (!g.open) g.open = {};
   if (!g.panel) g.panel = { titre: null, description: null, selecteur: null, image: null };
@@ -140,6 +186,7 @@ function prochainNumero(guildId) {
 
 module.exports = {
   charger,
+  initAsync,
   getGuild,
   setGuild,
   getType,
