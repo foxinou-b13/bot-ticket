@@ -10,6 +10,7 @@ const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, ActivityType } = require('discord.js');
 const { MessageFlags } = require('discord.js');
 const store = require('./utils/store');
+const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Vérification de la configuration ───
@@ -89,14 +90,55 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// ─── Petit serveur web (utile pour l'hébergement en ligne) ───
+// ─── Mini site web : page d'invitation (comme DraftBot) + santé ───
 const port = process.env.PORT || 3000;
+const LIEN_INVITATION =
+  'https://discord.com/oauth2/authorize?client_id=' +
+  (process.env.CLIENT_ID || '1528495720158593074') +
+  '&scope=bot+applications.commands&permissions=8';
+const banniereSite = genererBanniere('SUPPORT FRENCH VOICE');
+
+const PAGE_ACCUEIL = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support French Voice — Bot Tickets pour Discord</title>
+</head>
+<body style="margin:0;background:#0d1426;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#f2f4f6;">
+<div style="max-width:640px;margin:0 auto;padding:28px 18px 40px;">
+  <img src="/banniere.png" alt="Support French Voice" style="width:100%;border-radius:10px;border:1px solid #7a2430;display:block;">
+  <h1 style="font-size:26px;margin:22px 0 6px;">Support French Voice</h1>
+  <p style="color:#9aa7b8;margin:0 0 20px;font-size:15px;">Le bot de tickets professionnel, entièrement en français, pour votre serveur Discord.</p>
+  <ul style="color:#c6cfda;font-size:15px;line-height:1.9;margin:0 0 26px;padding-left:22px;">
+    <li>🎫 Tickets privés avec raison obligatoire à l'ouverture et à la fermeture</li>
+    <li>📋 Panneau avec menu déroulant par type de demande</li>
+    <li>📜 Transcription complète + rapport dans un salon de logs</li>
+    <li>️ Installation automatique en 2 minutes avec /setup</li>
+    <li>🔒 Hébergé 24h/24, 7j/7 — gratuit, sans carte bancaire</li>
+  </ul>
+  <a href="${LIEN_INVITATION}" style="display:block;background:#b2303d;color:#fff;text-align:center;text-decoration:none;font-weight:700;font-size:17px;padding:16px 10px;border-radius:10px;">🎫 Ajouter à Discord</a>
+  <p style="color:#7d8899;font-size:13px;text-align:center;margin:14px 0 0;">Discord s'ouvre : choisissez votre serveur → Continuer → Autoriser. C'est tout.</p>
+  <p style="color:#5f6b7c;font-size:12px;text-align:center;margin:30px 0 0;">🟢 Statut : en ligne • Système de tickets v2</p>
+</div>
+</body>
+</html>`;
+
 http
   .createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Bot Discord en ligne');
+    const url = (req.url || '/').split('?')[0];
+    if (url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end('Bot Discord en ligne');
+    }
+    if (url === '/banniere.png') {
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+      return res.end(banniereSite);
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(PAGE_ACCUEIL);
   })
-  .listen(port, () => console.log(`🌐 Serveur de santé démarré sur le port ${port}`));
+  .listen(port, () => console.log(`🌐 Serveur web démarré sur le port ${port} (page d'invitation + santé)`));
 
 // ─── Sécurité : le bot ne plante pas sur une erreur isolée ───
 process.on('unhandledRejection', error => {
