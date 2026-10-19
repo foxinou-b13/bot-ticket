@@ -1,17 +1,20 @@
 /**
  * store.js — base de données du bot
- * - Sauvegarde LOCALE dans data.json (toujours, en secours)
- * - Sauvegarde EN LIGNE MongoDB si MONGODB_URI est défini (recommandé sur
- *   Render, car le disque y est effacé à chaque redéploiement)
+ * Ordre de sauvegarde (du meilleur au secours) :
+ *  1. GitHub (branche DATA_BRANCH, ex: data) si DATA_TOKEN est défini
+ *     → survit aux redéploiements Render, sans compte supplémentaire
+ *  2. MongoDB si MONGODB_URI est défini
+ *  3. Fichier local data.json (toujours, en secours)
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const https = require('node:https');
 
 let MongoClient = null;
 try {
   MongoClient = require('mongodb').MongoClient;
 } catch {
-  // Dépendance optionnelle : le bot fonctionne sans (sauvegarde locale)
+  // Dépendance optionnelle
 }
 
 const fichier = path.join(__dirname, '..', 'data.json');
@@ -19,7 +22,78 @@ const fichier = path.join(__dirname, '..', 'data.json');
 let data = { guilds: {} };
 let collection = null;
 let mongoOk = false;
+let gitOk = false;
 let saveTimer = null;
+
+// ─── Réglages sauvegarde GitHub ───
+const DATA_REPO = (process.env.DATA_REPO || '').trim();
+const DATA_BRANCH = (process.env.DATA_BRANCH || 'data').trim();
+const DATA_TOKEN = (process.env.DATA_TOKEN || '').trim();
+
+function gitApi(method, chemin, body) {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const headers = {
+      Authorization: `Bearer ${DATA_TOKEN}`,
+      'User-Agent': 'bot-tickets',
+      Accept: 'application/vnd.github+json',
+    };
+    if (payload) {
+      headers['Content-Type'] = 'application/json';
+      headers['Content-Length'] = Buffer.byteLength(payload);
+    }
+    const req = https.request({ hostname: 'api.github.com', path: chemin, method, headers }, res => {
+      let brut = '';
+      res.on('data', c => { brut += c; });
+      res.on('end', () => resolve({ status: res.statusCode, body: brut }));
+    });
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+async function gitEnsureBranch() {
+  const ref = await gitApi('GET', `/repos/${DATA_REPO}/git/ref/heads/${DATA_BRANCH}`);
+  if (ref.status === 200) return;
+  const main = await gitApi('GET', `/repos/${DATA_REPO}/git/ref/heads/main`);
+  if (main.status !== 200) return;
+  const sha = JSON.parse(main.body).object.sha;
+  await gitApi('POST', `/repos/${DATA_REPO}/git/refs`, { ref: `refs/heads/${DATA_BRANCH}`, sha });
+}
+
+async function gitCharger() {
+  const r = await gitApi('GET', `/repos/${DATA_REPO}/contents/data.json?ref=${DATA_BRANCH}`);
+  if (r.status === 200) {
+    const j = JSON.parse(r.body);
+    const contenu = JSON.parse(Buffer.from(j.content, 'base64').toString('utf8'));
+    if (contenu && contenu.guilds) data = contenu;
+  } else if (r.status === 404) {
+    await gitEnsureBranch();
+  }
+}
+
+function gitSauvegarder() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      const contenu = Buffer.from(JSON.stringify(data, null, 2)).toString('base64');
+      const actuel = await gitApi('GET', `/repos/${DATA_REPO}/contents/data.json?ref=${DATA_BRANCH}`);
+      const body = {
+        message: 'sauvegarde config bot',
+        content: contenu,
+        branch: DATA_BRANCH,
+      };
+      if (actuel.status === 200) body.sha = JSON.parse(actuel.body).sha;
+      const r = await gitApi('PUT', `/repos/${DATA_REPO}/contents/data.json`, body);
+      if (r.status !== 200 && r.status !== 201) {
+        console.error('Erreur sauvegarde GitHub :', r.status, r.body.slice(0, 200));
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde GitHub :', error.message);
+    }
+  }, 2000);
+}
 
 function charger() {
   try {
@@ -34,8 +108,18 @@ function charger() {
   return data;
 }
 
-// Initialisation : Mongo en ligne si possible, sinon fichier local
+// Initialisation : GitHub en ligne > Mongo > fichier local
 async function initAsync() {
+  if (DATA_TOKEN && DATA_REPO) {
+    try {
+      await gitCharger();
+      gitOk = true;
+      console.log(`💾 Sauvegarde GitHub activée (branche ${DATA_BRANCH}) : la config survivra aux redéploiements.`);
+      return data;
+    } catch (error) {
+      console.error('⚠️ GitHub injoignable :', error.message);
+    }
+  }
   const uri = (process.env.MONGODB_URI || '').trim();
   if (uri && MongoClient) {
     try {
@@ -62,7 +146,7 @@ function sauvegarder() {
   } catch (error) {
     console.error('Erreur écriture data.json :', error.message);
   }
-  // En ligne : debouncée (1,5 s) pour ne pas spammer la base
+  if (gitOk) return gitSauvegarder();
   if (mongoOk && collection) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
