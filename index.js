@@ -106,11 +106,33 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
+// ─── Diagnostic réseau au démarrage (pour voir dans les logs de l'hébergeur) ───
+const https = require('https');
+const net = require('net');
+
+function diagReseau() {
+  const t0 = Date.now();
+
+  const req = https.get('https://discord.com/api/v10/gateway', r => {
+    let b = '';
+    r.on('data', c => (b += c));
+    r.on('end', () => console.log(`🩺 REST discord.com → ${r.statusCode} ${b.slice(0, 70)} (${Date.now() - t0} ms)`));
+  });
+  req.on('error', e => console.log('🩺 REST discord.com → ERREUR :', e.message));
+  req.setTimeout(15000, () => { console.log('🩺 REST discord.com → TIMEOUT 15 s'); req.destroy(); });
+
+  const s = net.connect({ host: 'gateway.discord.gg', port: 443 });
+  s.on('connect', () => { console.log(`🩺 TCP gateway.discord.gg:443 → OK (${Date.now() - t0} ms)`); s.destroy(); });
+  s.on('error', e => console.log('🩺 TCP gateway.discord.gg:443 → ERREUR :', e.message));
+  s.setTimeout(15000, () => { console.log('🩺 TCP gateway.discord.gg:443 → TIMEOUT 15 s'); s.destroy(); });
+}
+
 // ─── Connexion à Discord (après chargement des données) ───
 store
   .initAsync()
   .then(() => {
     console.log('🔑 Connexion à Discord en cours...');
+    diagReseau();
 
     // Filet de sécurité : si le bot n'est pas connecté après 60 s, on redémarre
     // (l'hébergeur relancera le processus tout seul).
