@@ -18,6 +18,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
 } = require('discord.js');
+const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
 const handler = require('../handlers/ticketHandler');
 
@@ -82,11 +83,11 @@ module.exports = {
     // ════════════════════════════════════════════════════
     if (sub === 'setup') {
       if (!estAdmin) {
-        return interaction.reply({ content: '❌ Tu dois avoir la permission "Gérer le serveur".', ephemeral: true });
+        return interaction.reply({ content: '❌ Tu dois avoir la permission "Gérer le serveur".', flags: MessageFlags.Ephemeral });
       }
 
       // La création des salons peut prendre quelques secondes
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       // ── 1. La catégorie (créée automatiquement) ──
       let categoryId = config.categoryId;
@@ -140,6 +141,16 @@ module.exports = {
             parent: categoryId,
             permissionOverwrites: [
               { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+              {
+                id: interaction.client.user.id,
+                allow: [
+                  PermissionFlagsBits.ViewChannel,
+                  PermissionFlagsBits.SendMessages,
+                  PermissionFlagsBits.ReadMessageHistory,
+                  PermissionFlagsBits.AttachFiles,
+                  PermissionFlagsBits.EmbedLinks,
+                ],
+              },
               {
                 id: roleOption.id,
                 allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
@@ -196,14 +207,14 @@ module.exports = {
     // ════════════════════════════════════════════════════
     if (sub === 'panel') {
       if (!estAdmin) {
-        return interaction.reply({ content: '❌ Tu dois avoir la permission "Gérer le serveur".', ephemeral: true });
+        return interaction.reply({ content: '❌ Tu dois avoir la permission "Gérer le serveur".', flags: MessageFlags.Ephemeral });
       }
       const salon = interaction.options.getChannel('salon');
       if (salon) store.setGuild(guild.id, { panelChannelId: salon.id });
 
       const cfg = store.getGuild(guild.id);
       if (!cfg.categoryId) {
-        return interaction.reply({ content: '❌ Fais d\'abord `/ticket setup`.', ephemeral: true });
+        return interaction.reply({ content: '❌ Fais d\'abord `/ticket setup`.', flags: MessageFlags.Ephemeral });
       }
 
       const titre = interaction.options.getString('titre');
@@ -216,7 +227,7 @@ module.exports = {
       }
       const channel = await handler.envoyerPanel(guild, cfgPan, { titre, description });
       if (!channel) {
-        return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup` ou `/setup ticket bouton`.', ephemeral: true });
+        return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup` ou `/setup ticket bouton`.', flags: MessageFlags.Ephemeral });
       }
       store.setGuild(guild.id, { panelSent: true });
       const cfg2 = store.getGuild(guild.id);
@@ -225,7 +236,7 @@ module.exports = {
       if (cfg2.panelMode === 'menu' && !cfg2.types.length) {
         msg += '\n⚠️ Mode menu choisi mais aucun type créé : le panneau bouton a été envoyé. Crée des types avec `/setup ticket menu`.';
       }
-      return interaction.reply({ content: msg, ephemeral: true });
+      return interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
     }
 
     // ════════════════════════════════════════════════════
@@ -253,7 +264,7 @@ module.exports = {
           `🎫 Tickets ouverts : ${Object.keys(config.open).length}`,
           `🔢 Dernier numéro attribué : #${config.counter}`,
         ].join('\n'),
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -263,12 +274,12 @@ module.exports = {
     const t = store.getTicket(guild.id, interaction.channel.id);
 
     if (sub === 'claim') {
-      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', ephemeral: true });
+      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', flags: MessageFlags.Ephemeral });
       if (!handler.estStaff(interaction.member, config)) {
-        return interaction.reply({ content: '❌ Seul le staff peut prendre en charge un ticket.', ephemeral: true });
+        return interaction.reply({ content: '❌ Seul le staff peut prendre en charge un ticket.', flags: MessageFlags.Ephemeral });
       }
       if (t.claimedBy) {
-        return interaction.reply({ content: `Ce ticket est déjà pris en charge par <@${t.claimedBy}>.`, ephemeral: true });
+        return interaction.reply({ content: `Ce ticket est déjà pris en charge par <@${t.claimedBy}>.`, flags: MessageFlags.Ephemeral });
       }
       const maj = store.updateTicket(guild.id, interaction.channel.id, { claimedBy: interaction.user.id });
       await handler.rafraichirMessageTicket(interaction, maj);
@@ -276,27 +287,31 @@ module.exports = {
     }
 
     if (sub === 'add') {
-      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', ephemeral: true });
+      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', flags: MessageFlags.Ephemeral });
       const membre = interaction.options.getMember('membre');
-      if (!membre) return interaction.reply({ content: '❌ Membre introuvable sur le serveur.', ephemeral: true });
-      await interaction.channel.permissionOverwrites.edit(membre.id, {
-        ViewChannel: true,
-        SendMessages: true,
-        ReadMessageHistory: true,
-      });
+      if (!membre) return interaction.reply({ content: '❌ Membre introuvable sur le serveur.', flags: MessageFlags.Ephemeral });
+      try {
+        await interaction.channel.permissionOverwrites.edit(membre.id, {
+          ViewChannel: true,
+          SendMessages: true,
+          ReadMessageHistory: true,
+        });
+      } catch {
+        return interaction.reply({ content: '❌ Impossible de modifier les permissions de ce salon. Vérifie que mon rôle est tout en haut de la liste des rôles.', flags: MessageFlags.Ephemeral });
+      }
       return interaction.reply(`✅ <@${membre.id}> a été ajouté au ticket.`);
     }
 
     if (sub === 'remove') {
-      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', ephemeral: true });
+      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', flags: MessageFlags.Ephemeral });
       const membre = interaction.options.getMember('membre');
-      if (!membre) return interaction.reply({ content: '❌ Membre introuvable sur le serveur.', ephemeral: true });
+      if (!membre) return interaction.reply({ content: '❌ Membre introuvable sur le serveur.', flags: MessageFlags.Ephemeral });
       await interaction.channel.permissionOverwrites.delete(membre.id).catch(() => {});
       return interaction.reply(`✅ <@${membre.id}> a été retiré du ticket.`);
     }
 
     if (sub === 'close') {
-      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', ephemeral: true });
+      if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', flags: MessageFlags.Ephemeral });
       const raison = interaction.options.getString('raison');
       // Pas de raison donnée → on la demande dans un formulaire
       if (!raison) {

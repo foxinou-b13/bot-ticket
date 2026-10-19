@@ -20,6 +20,7 @@ const {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
 } = require('discord.js');
+const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
 
 // ─── Anti double-clic (comme les bots pro) : un seul ticket créé à la fois par membre ───
@@ -137,12 +138,28 @@ function construirePanneau(config, options = {}, guildName = null) {
 }
 
 // Envoie (ou met à jour) le panneau dans le salon configuré
+// Garantit que le bot peut voir et écrire dans un salon (auto-réparation des permissions)
+async function assurerAccesBot(channel) {
+  try {
+    await channel.permissionOverwrites.edit(channel.guild.members.me.id, {
+      ViewChannel: true,
+      SendMessages: true,
+      ReadMessageHistory: true,
+      AttachFiles: true,
+      EmbedLinks: true,
+    });
+  } catch {
+    // Le bot n'a pas le droit de modifier ce salon : on tentera l'envoi quand même.
+  }
+}
+
 async function envoyerPanel(guild, config, options = {}) {
   let channel = null;
   if (config.panelChannelId) {
     channel = await guild.channels.fetch(config.panelChannelId).catch(() => null);
   }
   if (!channel) return null;
+  await assurerAccesBot(channel);
 
   // Si un panneau existe déjà, on le met à jour au lieu d'en empiler
   let message = null;
@@ -197,7 +214,19 @@ async function preparerInfra(guild) {
   }
   let logChannelId = config.logChannelId;
   if (!logChannelId) {
-    const permissions = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+    const permissions = [
+      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+      {
+        id: guild.members.me.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.EmbedLinks,
+        ],
+      },
+    ];
     for (const roleId of config.staffRoleIds || []) {
       permissions.push({
         id: roleId,
@@ -218,9 +247,9 @@ async function preparerInfra(guild) {
 // ─── /setup ticket bouton : le système BOUTON, configuré en une commande ───
 async function configBouton(interaction) {
   if (!estAdmin(interaction.member)) {
-    return interaction.reply({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', ephemeral: true });
+    return interaction.reply({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', flags: MessageFlags.Ephemeral });
   }
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const guild = interaction.guild;
   let config;
   try {
@@ -335,13 +364,13 @@ function rowAssistant(config) {
 
 async function menuPrincipal(interaction) {
   if (!estAdmin(interaction.member)) {
-    return interaction.reply({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', ephemeral: true });
+    return interaction.reply({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', flags: MessageFlags.Ephemeral });
   }
   const config = store.getGuild(interaction.guild.id);
   return interaction.reply({
     embeds: [embedAssistant(config)],
     components: [rowAssistant(config)],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -654,6 +683,17 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
   const permissions = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     {
+      id: interaction.client.user.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.EmbedLinks,
+        PermissionFlagsBits.ManageChannels,
+      ],
+    },
+    {
       id: interaction.user.id,
       allow: [
         PermissionFlagsBits.ViewChannel,
@@ -700,11 +740,26 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
   };
 
   const mentions = staffRoleIds.map(id => `<@&${id}>`).join(' ');
-  const message = await salon.send({
+  const paquet = {
     content: `<@${interaction.user.id}> ${mentions}`,
     embeds: [embedTicket(infos)],
     components: [boutonsTicket(infos)],
-  });
+  };
+  let message;
+  try {
+    message = await salon.send(paquet);
+  } catch {
+    // Les permissions peuvent mettre une seconde à se propager : on répare et on réessaie.
+    await new Promise(r => setTimeout(r, 800));
+    await assurerAccesBot(salon);
+    try {
+      message = await salon.send(paquet);
+    } catch (seconde) {
+      console.error('Erreur message de bienvenue du ticket :', seconde.message);
+      salon.delete().catch(() => {});
+      return { erreur: "Je n'ai pas pu écrire dans le salon du ticket. Place mon rôle tout en haut de la liste des rôles (Paramètres du serveur → Rôles), puis réessaie." };
+    }
+  }
   infos.messageId = message.id;
   store.addTicket(guild.id, salon.id, infos);
 
@@ -727,6 +782,7 @@ async function fermerTicket(interaction, t, raison) {
       .join('\n');
     const logChannel = await guild.channels.fetch(config.logChannelId).catch(() => null);
     if (logChannel) {
+      await assurerAccesBot(logChannel);
       const embed = new EmbedBuilder()
         .setColor(0xED4245)
         .setTitle(`🔒 Ticket #${t.numero} fermé`)
@@ -755,7 +811,7 @@ async function fermerTicket(interaction, t, raison) {
   }
 
   store.removeTicket(guild.id, interaction.channel.id);
-  await interaction.channel.send('🔒 Fermeture du ticket dans 5 secondes...');
+  await interaction.channel.send('🔒 Fermeture du ticket dans 5 secondes...').catch(() => {});
   setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
 }
 
@@ -784,12 +840,12 @@ async function handleButton(interaction) {
   // Prise en charge par le staff
   if (interaction.customId === 'ticket:reclamer') {
     const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', ephemeral: true });
+    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', flags: MessageFlags.Ephemeral });
     if (!estStaffTicket(interaction.member, config, t)) {
-      return interaction.reply({ content: '❌ Seul le staff peut prendre en charge un ticket.', ephemeral: true });
+      return interaction.reply({ content: '❌ Seul le staff peut prendre en charge un ticket.', flags: MessageFlags.Ephemeral });
     }
     if (t.claimedBy) {
-      return interaction.reply({ content: `Ce ticket est déjà pris en charge par <@${t.claimedBy}>.`, ephemeral: true });
+      return interaction.reply({ content: `Ce ticket est déjà pris en charge par <@${t.claimedBy}>.`, flags: MessageFlags.Ephemeral });
     }
     const maj = store.updateTicket(guild.id, interaction.channel.id, { claimedBy: interaction.user.id });
     await interaction.update({ embeds: [embedTicket(maj)], components: [boutonsTicket(maj)] });
@@ -799,7 +855,7 @@ async function handleButton(interaction) {
   // Demande de fermeture → on demande la raison (obligatoire)
   if (interaction.customId === 'ticket:fermer') {
     const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', ephemeral: true });
+    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', flags: MessageFlags.Ephemeral });
     const modal = new ModalBuilder().setCustomId('ticket:raison-fermeture').setTitle('🔒 Fermer le ticket');
     const champ = new TextInputBuilder()
       .setCustomId('raison')
@@ -917,7 +973,7 @@ async function handleButton(interaction) {
   }
 
   // ─── Sécurité : bouton inconnu ou expiré → on répond quand même ───
-  return interaction.reply({ content: '❌ Ce bouton est expiré ou inconnu.', ephemeral: true }).catch(() => {});
+  return interaction.reply({ content: '❌ Ce bouton est expiré ou inconnu.', flags: MessageFlags.Ephemeral }).catch(() => {});
 }
 
 // ════════════════════════════════════════════════════════
@@ -966,7 +1022,7 @@ async function handleSelectMenu(interaction) {
     const typeId = interaction.values[0];
     const type = store.getType(guild.id, typeId);
     if (!type) {
-      return interaction.reply({ content: '❌ Ce type de ticket n\'existe plus. Le panneau va être mis à jour.', ephemeral: true });
+      return interaction.reply({ content: '❌ Ce type de ticket n\'existe plus. Le panneau va être mis à jour.', flags: MessageFlags.Ephemeral });
     }
     const modal = new ModalBuilder()
       .setCustomId(`tkt:sujet:${typeId}`)
@@ -1083,7 +1139,7 @@ async function handleSelectMenu(interaction) {
   }
 
   // ── Sécurité : menu inconnu ou expiré → on répond quand même ──
-  return interaction.reply({ content: '❌ Ce menu est expiré ou inconnu.', ephemeral: true }).catch(() => {});
+  return interaction.reply({ content: '❌ Ce menu est expiré ou inconnu.', flags: MessageFlags.Ephemeral }).catch(() => {});
 }
 
 // ════════════════════════════════════════════════════════
@@ -1096,9 +1152,9 @@ async function handleModal(interaction) {
   // ── Fermeture d'un ticket : raison demandée dans le formulaire ──
   if (id === 'ticket:raison-fermeture') {
     const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', ephemeral: true });
+    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', flags: MessageFlags.Ephemeral });
     const raison = (interaction.fields.getTextInputValue('raison') || '').trim();
-    await interaction.reply({ content: '🔒 Fermeture en cours...', ephemeral: true });
+    await interaction.reply({ content: '🔒 Fermeture en cours...', flags: MessageFlags.Ephemeral });
     return fermerTicket(interaction, t, raison || 'Fermeture via le bouton');
   }
 
@@ -1106,8 +1162,8 @@ async function handleModal(interaction) {
   if (id === 'ticket:sujet') {
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
     const resultat = await creerTicket(interaction, sujet, null);
-    if (resultat.erreur) return interaction.reply({ content: `❌ ${resultat.erreur}`, ephemeral: true });
-    return interaction.reply({ content: `✅ Ton ticket est ouvert : ${resultat.salon}`, ephemeral: true });
+    if (resultat.erreur) return interaction.reply({ content: `❌ ${resultat.erreur}`, flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: `✅ Ton ticket est ouvert : ${resultat.salon}`, flags: MessageFlags.Ephemeral });
   }
 
   // ── Ouverture d'un ticket par type ──
@@ -1115,8 +1171,8 @@ async function handleModal(interaction) {
     const typeId = id.split(':')[2];
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
     const resultat = await creerTicket(interaction, sujet, typeId);
-    if (resultat.erreur) return interaction.reply({ content: `❌ ${resultat.erreur}`, ephemeral: true });
-    return interaction.reply({ content: `✅ Ton ticket est ouvert : ${resultat.salon}`, ephemeral: true });
+    if (resultat.erreur) return interaction.reply({ content: `❌ ${resultat.erreur}`, flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: `✅ Ton ticket est ouvert : ${resultat.salon}`, flags: MessageFlags.Ephemeral });
   }
 
   // ── Assistant : nouveau type ──
@@ -1189,7 +1245,7 @@ async function handleModal(interaction) {
   }
 
   // ─── Sécurité : formulaire inconnu ou expiré → on répond quand même ───
-  return interaction.reply({ content: '❌ Ce formulaire est expiré ou inconnu.', ephemeral: true }).catch(() => {});
+  return interaction.reply({ content: '❌ Ce formulaire est expiré ou inconnu.', flags: MessageFlags.Ephemeral }).catch(() => {});
 }
 
 module.exports = {

@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits, ActivityType } = require('discord.js');
+const { MessageFlags } = require('discord.js');
 const store = require('./utils/store');
 const ticket = require('./handlers/ticketHandler');
 
@@ -55,7 +56,7 @@ client.on(Events.InteractionCreate, async interaction => {
   try {
     // ─── Sécurité : tout se passe sur un serveur, jamais en MP ───
     if (!interaction.guild) {
-      const rep = { content: '❌ Ce système de tickets fonctionne uniquement sur un serveur, pas en MP.', ephemeral: true };
+      const rep = { content: '❌ Ce système de tickets fonctionne uniquement sur un serveur, pas en MP.', flags: MessageFlags.Ephemeral };
       if (interaction.replied || interaction.deferred) return interaction.followUp(rep).catch(() => {});
       return interaction.reply(rep).catch(() => {});
     }
@@ -70,11 +71,16 @@ client.on(Events.InteractionCreate, async interaction => {
     await command.execute(interaction);
     // ─── Sécurité : toute commande DOIT répondre (évite « l'application ne répond pas ») ───
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❓ Cette commande n\'a rien à afficher.', ephemeral: true }).catch(() => {});
+      await interaction.reply({ content: '❓ Cette commande n\'a rien à afficher.', flags: MessageFlags.Ephemeral }).catch(() => {});
     }
   } catch (error) {
     console.error('Erreur :', error);
-    const reponse = { content: '❌ Une erreur est survenue.', ephemeral: true };
+    const code = error && error.code;
+    let texte = '❌ Une erreur est survenue.';
+    if (code === 50001 || code === 50013) {
+      texte = '❌ Il me manque des permissions pour faire ça. Place mon rôle tout en haut de la liste des rôles du serveur (Paramètres du serveur → Rôles), puis réessaie.';
+    }
+    const reponse = { content: texte, flags: MessageFlags.Ephemeral };
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp(reponse).catch(() => {});
     } else {

@@ -7,6 +7,7 @@ const guild = {
   id: 'g-test',
   name: 'Serveur Test',
   roles: { everyone: { id: 'everyone' } },
+  members: { me: { id: 'bot-1' } },
   channels: {
     create: async opts => {
       if (!opts.name || !opts.parent) throw new Error('salon invalide');
@@ -17,6 +18,10 @@ const guild = {
     },
   },
 };
+// Auto-nettoyage : repartir d'un état vierge à chaque exécution
+const gTest = store.getGuild('g-test');
+for (const channelId of Object.keys((gTest && gTest.open) || {})) store.removeTicket('g-test', channelId);
+
 store.setGuild('g-test', {
   categoryId: 'cat-1',
   staffRoleIds: ['role-1'],
@@ -59,6 +64,7 @@ async function test(nom, fn) {
     const inter = {
       customId: 'tkt:sujet:t1',
       guild,
+      client: { user: { id: 'bot-1' } },
       user: { id: 'u2' },
       fields: { getTextInputValue: () => 'Ma raison' },
       reply: r => { reponse = r; },
@@ -72,6 +78,7 @@ async function test(nom, fn) {
     const inter = {
       customId: 'tkt:sujet:t1',
       guild,
+      client: { user: { id: 'bot-1' } },
       user: { id: 'u2' },
       fields: { getTextInputValue: () => 'encore' },
       reply: r => { reponse = r; },
