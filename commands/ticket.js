@@ -9,7 +9,15 @@
  * /ticket remove   → retirer un membre du ticket
  * /ticket close    → fermer le ticket
  */
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+  ChannelType,
+  ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} = require('discord.js');
 const store = require('../utils/store');
 const handler = require('../handlers/ticketHandler');
 
@@ -284,8 +292,21 @@ module.exports = {
     if (sub === 'close') {
       if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', ephemeral: true });
       const raison = interaction.options.getString('raison');
+      // Pas de raison donnée → on la demande dans un formulaire
+      if (!raison) {
+        const modal = new ModalBuilder().setCustomId('ticket:raison-fermeture').setTitle('🔒 Fermer le ticket');
+        const champ = new TextInputBuilder()
+          .setCustomId('raison')
+          .setLabel('Raison de la fermeture *')
+          .setPlaceholder('Exemple : problème réglé, ticket inactif...')
+          .setStyle(TextInputStyle.Short)
+          .setMaxLength(200)
+          .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(champ));
+        return interaction.showModal(modal);
+      }
       await interaction.reply('🔒 Fermeture en cours...');
-      return handler.fermerTicket(interaction, t, raison || 'Fermeture via /ticket close');
+      return handler.fermerTicket(interaction, t, raison);
     }
   },
 };

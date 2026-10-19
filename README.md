@@ -105,8 +105,12 @@ Cet assistant (réservé à ceux qui ont « Gérer le serveur ») permet de cré
    Chaque étape affiche une **explication** (💡) pour savoir exactement ce que
    tu règles, la **valeur actuelle**, et des boutons **⬅️ Retour / ➡️ Suivant**
    pour naviguer dans l'ordre sans te perdre.
-3. **🎨 Textes du panneau** → titre du panneau, texte du panneau, et texte du
-   sélecteur (« Choisissez le type de ticket... »).
+3. **🎨 Textes du panneau** → titre du panneau, texte du panneau (plusieurs
+   lignes possibles), texte du sélecteur (« Choisissez le type de ticket... »),
+   et même un **lien d'image bannière**.
+   Le panneau final = **un seul message** : le titre + ton texte en plusieurs
+   lignes + l'image (si tu en mets une) + **le sélecteur de types juste en
+   dessous**, exactement comme les panneaux des gros serveurs.
 4. **✅ Terminer** → tu **sélectionnes le salon** où envoyer le panneau : un embed
    avec tes textes + un **menu déroulant des types** y est publié.
 
@@ -134,14 +138,16 @@ tu recliques sur « ✅ Terminer » (ou avec `/ticket panel`).
 
 ### Comment ça marche, concrètement
 
-1. Un membre clique sur **🎫 Ouvrir un ticket** → une petite fenêtre lui demande
-   son problème (facultatif).
+1. Un membre clique sur **🎫 Ouvrir un ticket** (ou choisit un type dans le
+   menu) → une petite fenêtre lui demande la **raison de sa demande**
+   (obligatoire).
 2. Le bot crée un salon privé `#ticket-1-…` dans la catégorie : **seul le membre,
    tous les rôles staff et le bot** le voient.
 3. Le staff clique sur **🔔 Prendre en charge** (ou fait `/ticket claim`).
-4. Le staff aide le membre, puis clique sur **🔒 Fermer le ticket** puis
-   confirme → le bot envoie la transcription dans le salon de logs, prévient le
-   membre en MP, et supprime le salon 5 secondes après.
+4. Le staff aide le membre, puis clique sur **🔒 Fermer le ticket** → le bot
+   demande la **raison de la fermeture** (obligatoire) → envoie la transcription
+   dans le salon de logs, prévient le membre en MP, et supprime le salon
+   5 secondes après.
 5. Un membre ne peut avoir qu'**un seul ticket ouvert** à la fois.
 
 ---

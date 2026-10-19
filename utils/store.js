@@ -54,7 +54,8 @@ function getGuild(guildId) {
   // Compatibilité : champs ajoutés par la version "types de tickets"
   if (!g.staffRoleIds) g.staffRoleIds = [];
   if (!g.open) g.open = {};
-  if (!g.panel) g.panel = { titre: null, description: null, selecteur: null };
+  if (!g.panel) g.panel = { titre: null, description: null, selecteur: null, image: null };
+  if (g.panel.image === undefined) g.panel.image = null;
   if (!Array.isArray(g.types)) g.types = [];
   if (g.panelMode !== 'bouton' && g.panelMode !== 'menu') g.panelMode = null;
   return g;

@@ -112,11 +112,11 @@ function modePanneau(config) {
   return config.types.length ? 'menu' : 'bouton';
 }
 
-function construirePanneau(config, options = {}) {
+function construirePanneau(config, options = {}, guildName = null) {
   if (modePanneau(config) === 'menu') {
-    return { embeds: [embedPanneau(config, options)], components: [rowTypes(config)] };
+    return { embeds: [embedPanneau(config, options, guildName)], components: [rowTypes(config)] };
   }
-  return { embeds: [embedPanneau(config, options)], components: [boutonOuvrir()] };
+  return { embeds: [embedPanneau(config, options, guildName)], components: [boutonOuvrir()] };
 }
 
 // Envoie (ou met à jour) le panneau dans le salon configuré
@@ -132,7 +132,7 @@ async function envoyerPanel(guild, config, options = {}) {
   if (config.panelMessageId) {
     message = await channel.messages.fetch(config.panelMessageId).catch(() => null);
   }
-  const contenu = construirePanneau(config, options);
+  const contenu = construirePanneau(config, options, guild.name);
   try {
     if (message) {
       await message.edit(contenu).catch(async () => {
@@ -528,10 +528,18 @@ function modalPanel(config) {
     .setValue(p.selecteur || '')
     .setMaxLength(90)
     .setRequired(false);
+  const image = new TextInputBuilder()
+    .setCustomId('image')
+    .setLabel('Lien d\'une image bannière (facultatif)')
+    .setStyle(TextInputStyle.Short)
+    .setValue(p.image || '')
+    .setMaxLength(300)
+    .setRequired(false);
   modal.addComponents(
     new ActionRowBuilder().addComponents(titre),
     new ActionRowBuilder().addComponents(description),
-    new ActionRowBuilder().addComponents(selecteur)
+    new ActionRowBuilder().addComponents(selecteur),
+    new ActionRowBuilder().addComponents(image)
   );
   return modal;
 }
@@ -725,15 +733,16 @@ async function handleButton(interaction) {
   const config = store.getGuild(guild.id);
   const id = interaction.customId;
 
-  // Bouton du panneau → on demande le sujet
+  // Bouton du panneau → on demande la raison (obligatoire)
   if (interaction.customId === 'ticket:ouvrir') {
     const modal = new ModalBuilder().setCustomId('ticket:sujet').setTitle('🎫 Ouvrir un ticket');
     const champ = new TextInputBuilder()
       .setCustomId('sujet')
-      .setLabel('Quel est ton problème ? (facultatif)')
+      .setLabel('Raison de ta demande *')
+      .setPlaceholder('Explique ton problème en quelques mots')
       .setStyle(TextInputStyle.Short)
-      .setMaxLength(50)
-      .setRequired(false);
+      .setMaxLength(100)
+      .setRequired(true);
     modal.addComponents(new ActionRowBuilder().addComponents(champ));
     return interaction.showModal(modal);
   }
@@ -753,19 +762,20 @@ async function handleButton(interaction) {
     return interaction.channel.send(`🔔 <@${interaction.user.id}> a pris en charge ce ticket.`);
   }
 
-  // Demande de fermeture → confirmation
+  // Demande de fermeture → on demande la raison (obligatoire)
   if (interaction.customId === 'ticket:fermer') {
     const t = store.getTicket(guild.id, interaction.channel.id);
     if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', ephemeral: true });
-    const ligne = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ticket:confirmer-fermeture').setLabel('Oui, fermer').setEmoji('🔒').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('ticket:annuler').setLabel('Annuler').setStyle(ButtonStyle.Secondary)
-    );
-    return interaction.reply({
-      content: '⚠️ Fermer ce ticket ? Le salon sera supprimé.',
-      components: [ligne],
-      ephemeral: true,
-    });
+    const modal = new ModalBuilder().setCustomId('ticket:raison-fermeture').setTitle('🔒 Fermer le ticket');
+    const champ = new TextInputBuilder()
+      .setCustomId('raison')
+      .setLabel('Raison de la fermeture *')
+      .setPlaceholder('Exemple : problème réglé, ticket inactif...')
+      .setStyle(TextInputStyle.Short)
+      .setMaxLength(200)
+      .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(champ));
+    return interaction.showModal(modal);
   }
 
   if (interaction.customId === 'ticket:confirmer-fermeture') {
@@ -929,10 +939,11 @@ async function handleSelectMenu(interaction) {
       .setTitle(coupe(`🎫 ${type.nom}`, 45));
     const champ = new TextInputBuilder()
       .setCustomId('sujet')
-      .setLabel('Décris ta demande (facultatif)')
+      .setLabel('Raison de ta demande *')
+      .setPlaceholder('Explique ta demande en quelques mots')
       .setStyle(TextInputStyle.Short)
       .setMaxLength(100)
-      .setRequired(false);
+      .setRequired(true);
     modal.addComponents(new ActionRowBuilder().addComponents(champ));
     return interaction.showModal(modal);
   }
@@ -1036,6 +1047,15 @@ async function handleModal(interaction) {
   const guild = interaction.guild;
   const id = interaction.customId;
 
+  // ── Fermeture d'un ticket : raison demandée dans le formulaire ──
+  if (id === 'ticket:raison-fermeture') {
+    const t = store.getTicket(guild.id, interaction.channel.id);
+    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', ephemeral: true });
+    const raison = (interaction.fields.getTextInputValue('raison') || '').trim();
+    await interaction.reply({ content: '🔒 Fermeture en cours...', ephemeral: true });
+    return fermerTicket(interaction, t, raison || 'Fermeture via le bouton');
+  }
+
   // ── Ouverture d'un ticket simple (bouton) ──
   if (id === 'ticket:sujet') {
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
@@ -1105,11 +1125,13 @@ async function handleModal(interaction) {
     const titre = (interaction.fields.getTextInputValue('titre') || '').trim();
     const description = (interaction.fields.getTextInputValue('description') || '').trim();
     const selecteur = (interaction.fields.getTextInputValue('selecteur') || '').trim();
+    const image = (interaction.fields.getTextInputValue('image') || '').trim();
     store.setGuild(guild.id, {
       panel: {
         titre: titre || null,
         description: description || null,
         selecteur: selecteur || null,
+        image: /^https?:\/\//.test(image) ? image : null,
       },
     });
     const config = store.getGuild(guild.id);
