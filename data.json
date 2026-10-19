@@ -50,7 +50,9 @@
           "emoji": "🎄",
           "description": "ouvri ce ticket si vous rencantrer des bug",
           "categoryId": "1511366977632075817",
-          "staffRoleIds": []
+          "staffRoleIds": [
+            "1511382517385527466"
+          ]
         }
       ]
     }
