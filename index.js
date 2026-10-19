@@ -54,6 +54,7 @@ client.once(Events.ClientReady, readyClient => {
 client.on(Events.InteractionCreate, async interaction => {
   try {
     if (interaction.isButton()) return await ticket.handleButton(interaction);
+    if (interaction.isAnySelectMenu()) return await ticket.handleSelectMenu(interaction);
     if (interaction.isModalSubmit()) return await ticket.handleModal(interaction);
 
     if (!interaction.isChatInputCommand()) return;

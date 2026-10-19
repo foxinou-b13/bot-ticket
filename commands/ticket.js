@@ -1,6 +1,7 @@
 /**
  * commands/ticket.js — la commande /ticket et toutes ses sous-commandes
- * /ticket setup    → configurer le système (administrateurs)
+ *
+ * /ticket setup    → configuration 100% automatique (catégorie, salons, panneau)
  * /ticket panel    → envoyer le panneau "Ouvrir un ticket"
  * /ticket config   → voir la configuration
  * /ticket claim    → prendre en charge un ticket
@@ -19,29 +20,30 @@ module.exports = {
     .addSubcommand(sub =>
       sub
         .setName('setup')
-        .setDescription('Configurer le système de tickets (administrateurs)')
+        .setDescription('Configure tout automatiquement (catégorie, salons, panneau, rôles staff)')
         .addChannelOption(o =>
-          o.setName('categorie').setDescription('Catégorie où créer les salons de tickets').addChannelTypes(ChannelType.GuildCategory)
+          o.setName('categorie').setDescription('Catégorie des tickets (créée automatiquement si vide)').addChannelTypes(ChannelType.GuildCategory)
         )
-        .addRoleOption(o => o.setName('role_staff').setDescription('Rôle du staff qui voit les tickets'))
         .addChannelOption(o =>
-          o.setName('salon_logs').setDescription('Salon où envoyer les transcriptions').addChannelTypes(ChannelType.GuildText)
+          o.setName('salon').setDescription('Salon du panneau (créé automatiquement si vide)').addChannelTypes(ChannelType.GuildText)
+        )
+        .addChannelOption(o =>
+          o.setName('salon_logs').setDescription('Salon des transcriptions (créé automatiquement si vide)').addChannelTypes(ChannelType.GuildText)
+        )
+        .addRoleOption(o =>
+          o.setName('role_staff').setDescription('Rôle staff (sinon, un menu permettra d\'en choisir plusieurs)')
         )
     )
     .addSubcommand(sub =>
       sub
         .setName('panel')
-        .setDescription('Envoyer le panneau "Ouvrir un ticket" (administrateurs)')
+        .setDescription('Envoyer le panneau "Ouvrir un ticket"')
         .addChannelOption(o => o.setName('salon').setDescription('Salon où envoyer le panneau').addChannelTypes(ChannelType.GuildText))
         .addStringOption(o => o.setName('titre').setDescription('Titre du panneau'))
         .addStringOption(o => o.setName('description').setDescription('Description du panneau'))
     )
     .addSubcommand(sub => sub.setName('config').setDescription('Voir la configuration actuelle des tickets'))
-    .addSubcommand(sub =>
-      sub
-        .setName('claim')
-        .setDescription('Prendre en charge le ticket actuel (staff)')
-    )
+    .addSubcommand(sub => sub.setName('claim').setDescription('Prendre en charge le ticket actuel (staff)'))
     .addSubcommand(sub =>
       sub
         .setName('add')
@@ -67,64 +69,156 @@ module.exports = {
     const config = store.getGuild(guild.id);
     const estAdmin = interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
 
-    // ═══ /ticket setup ═══
+    // ════════════════════════════════════════════════════
+    // /ticket setup — CONFIGURATION 100% AUTOMATIQUE
+    // ════════════════════════════════════════════════════
     if (sub === 'setup') {
       if (!estAdmin) {
         return interaction.reply({ content: '❌ Tu dois avoir la permission "Gérer le serveur".', ephemeral: true });
       }
-      const categorie = interaction.options.getChannel('categorie');
-      const role = interaction.options.getRole('role_staff');
-      const logs = interaction.options.getChannel('salon_logs');
 
-      const modifications = {};
-      if (categorie) modifications.categoryId = categorie.id;
-      if (role) modifications.staffRoleId = role.id;
-      if (logs) modifications.logChannelId = logs.id;
+      // La création des salons peut prendre quelques secondes
+      await interaction.deferReply({ ephemeral: true });
 
-      if (Object.keys(modifications).length === 0) {
-        return interaction.reply({
-          content: '❌ Précise au moins une option : la catégorie, le rôle staff ou le salon de logs.',
-          ephemeral: true,
+      // ── 1. La catégorie (créée automatiquement) ──
+      let categoryId = config.categoryId;
+      const categorieOption = interaction.options.getChannel('categorie');
+      if (categorieOption) {
+        categoryId = categorieOption.id;
+      } else if (!categoryId) {
+        const categorie = await guild.channels.create({
+          name: '🎫 Tickets',
+          type: ChannelType.GuildCategory,
         });
+        categoryId = categorie.id;
       }
 
-      store.setGuild(guild.id, modifications);
-      const apres = store.getGuild(guild.id);
+      // ── 2. Le salon du panneau (créé automatiquement, visible par tous) ──
+      let panelChannelId = config.panelChannelId;
+      const salonOption = interaction.options.getChannel('salon');
+      if (salonOption) {
+        panelChannelId = salonOption.id;
+      } else if (!panelChannelId) {
+        const salon = await guild.channels.create({
+          name: 'ouvrir-un-ticket',
+          type: ChannelType.GuildText,
+          parent: categoryId,
+          permissionOverwrites: [
+            { id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel] },
+          ],
+        });
+        panelChannelId = salon.id;
+      }
 
-      return interaction.reply({
-        content: [
-          '✅ Configuration enregistrée :',
-          `📁 Catégorie : ${apres.categoryId ? `<#${apres.categoryId}>` : '❌ non définie'}`,
-          `👥 Rôle staff : ${apres.staffRoleId ? `<@&${apres.staffRoleId}>` : '❌ non défini'}`,
-          `📜 Salon de logs : ${apres.logChannelId ? `<#${apres.logChannelId}>` : '—'}`,
+      // ── 3. Le salon de logs (si fourni en option) ──
+      let logChannelId = config.logChannelId;
+      const logsOption = interaction.options.getChannel('salon_logs');
+      if (logsOption) logChannelId = logsOption.id;
+
+      store.setGuild(guild.id, { categoryId, panelChannelId, logChannelId });
+
+      // ── 4. Les rôles staff ──
+      const roleOption = interaction.options.getRole('role_staff');
+
+      // Cas A : un rôle est donné en option → on termine tout de suite
+      if (roleOption) {
+        store.setGuild(guild.id, { staffRoleIds: [roleOption.id] });
+
+        // Salon de logs automatique s'il n'existe pas encore
+        if (!logChannelId) {
+          const logs = await guild.channels.create({
+            name: 'tickets-logs',
+            type: ChannelType.GuildText,
+            parent: categoryId,
+            permissionOverwrites: [
+              { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+              {
+                id: roleOption.id,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+              },
+            ],
+          });
+          logChannelId = logs.id;
+          store.setGuild(guild.id, { logChannelId });
+        }
+
+        // Envoi du panneau
+        let panelInfo = 'déjà en place';
+        if (!config.panelSent) {
+          const channel = await handler.envoyerPanel(guild, store.getGuild(guild.id));
+          if (channel) {
+            store.setGuild(guild.id, { panelSent: true });
+            panelInfo = `envoyé dans ${channel}`;
+          }
+        }
+
+        return interaction.editReply([
+          '✅ **Système de tickets configuré !**',
           '',
-          'Étape suivante : `/ticket panel` pour envoyer le panneau.',
+          `👥 Rôle staff : <@&${roleOption.id}>`,
+          `📁 Catégorie : <#${categoryId}>`,
+          `📜 Salon de logs : ${logChannelId ? `<#${logChannelId}>` : '—'}`,
+          `🎫 Panneau : ${panelInfo}`,
+          '',
+          '🎉 Les membres peuvent cliquer sur **🎫 Ouvrir un ticket**.',
+        ].join('\n'));
+      }
+
+      // Cas B : aucun rôle donné → menu de sélection (PLUSIEURS rôles possibles)
+      return interaction.editReply({
+        content: [
+          '⚙️ **Configuration automatique terminée !**',
+          '',
+          `📁 Catégorie : <#${categoryId}>`,
+          `🎫 Salon du panneau : <#${panelChannelId}>`,
+          `📜 Salon de logs : ${logChannelId ? `<#${logChannelId}>` : 'sera créé à l\'étape suivante'}`,
+          '',
+          '👥 **Dernière étape : choisis le(s) rôle(s) du staff** dans le menu ci-dessous.',
+          'Tu peux sélectionner **plusieurs rôles** en même temps.',
         ].join('\n'),
-        ephemeral: true,
+        components: [handler.menuRoles()],
       });
     }
 
-    // ═══ /ticket panel ═══
+    // ════════════════════════════════════════════════════
+    // /ticket panel
+    // ════════════════════════════════════════════════════
     if (sub === 'panel') {
       if (!estAdmin) {
         return interaction.reply({ content: '❌ Tu dois avoir la permission "Gérer le serveur".', ephemeral: true });
       }
-      const salon = interaction.options.getChannel('salon') || interaction.channel;
+      const salon = interaction.options.getChannel('salon');
+      if (salon) store.setGuild(guild.id, { panelChannelId: salon.id });
+
+      const cfg = store.getGuild(guild.id);
+      if (!cfg.categoryId) {
+        return interaction.reply({ content: '❌ Fais d\'abord `/ticket setup`.', ephemeral: true });
+      }
+
       const titre = interaction.options.getString('titre');
       const description = interaction.options.getString('description');
-
-      await salon.send({ embeds: [handler.embedPanel(titre, description)], components: [handler.boutonOuvrir()] });
-      return interaction.reply({ content: `✅ Panneau envoyé dans ${salon}.`, ephemeral: true });
+      const channel = await handler.envoyerPanel(guild, cfg, { titre, description });
+      if (!channel) {
+        return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup`.', ephemeral: true });
+      }
+      store.setGuild(guild.id, { panelSent: true });
+      return interaction.reply({ content: `✅ Panneau envoyé dans ${channel}.`, ephemeral: true });
     }
 
-    // ═══ /ticket config ═══
+    // ════════════════════════════════════════════════════
+    // /ticket config
+    // ════════════════════════════════════════════════════
     if (sub === 'config') {
+      const roles = config.staffRoleIds.length > 0
+        ? config.staffRoleIds.map(id => `<@&${id}>`).join(', ')
+        : '❌ aucun (fais `/ticket setup`)';
       return interaction.reply({
         content: [
           '⚙️ Configuration des tickets :',
           `📁 Catégorie : ${config.categoryId ? `<#${config.categoryId}>` : '❌ non définie'}`,
-          `👥 Rôle staff : ${config.staffRoleId ? `<@&${config.staffRoleId}>` : '❌ non défini'}`,
+          `👥 Rôles staff (${config.staffRoleIds.length}) : ${roles}`,
           `📜 Salon de logs : ${config.logChannelId ? `<#${config.logChannelId}>` : '—'}`,
+          `🎫 Salon du panneau : ${config.panelChannelId ? `<#${config.panelChannelId}>` : '—'}`,
           `🎫 Tickets ouverts : ${Object.keys(config.open).length}`,
           `🔢 Dernier numéro attribué : #${config.counter}`,
         ].join('\n'),
@@ -132,12 +226,14 @@ module.exports = {
       });
     }
 
-    // ═══ Commandes suivantes : uniquement dans un ticket ouvert ═══
+    // ════════════════════════════════════════════════════
+    // Commandes suivantes : uniquement dans un ticket ouvert
+    // ════════════════════════════════════════════════════
     const t = store.getTicket(guild.id, interaction.channel.id);
 
     if (sub === 'claim') {
       if (!t) return interaction.reply({ content: '❌ Cette commande marche uniquement dans un ticket ouvert.', ephemeral: true });
-      if (!interaction.member.roles.cache.has(config.staffRoleId)) {
+      if (!handler.estStaff(interaction.member, config)) {
         return interaction.reply({ content: '❌ Seul le staff peut prendre en charge un ticket.', ephemeral: true });
       }
       if (t.claimedBy) {

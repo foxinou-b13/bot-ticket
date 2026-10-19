@@ -53,28 +53,45 @@ fonctionne sur tous les serveurs où est le bot (jusqu'à 1 h d'attente).
 
 ## ⚙️ Configurer le système de tickets sur ton serveur
 
-Tout se fait avec la commande `/ticket` :
+**Tout est automatique** : une seule commande suffit.
+
+```
+/ticket setup
+```
+
+En une commande, le bot :
+1. 📁 Crée la catégorie **🎫 Tickets**
+2. 🎫 Crée le salon **#ouvrir-un-ticket** (avec le bouton)
+3. 📜 Crée le salon **#tickets-logs** (transcriptions, réservé au staff)
+4. 👥 Te demande ensuite de choisir le(s) rôle(s) du staff dans un menu —
+   **tu peux sélectionner plusieurs rôles** (jusqu'à 10)
+5. 🎉 Envoie le panneau et affiche le récapitulatif
+
+Tu peux aussi personnaliser si tu le souhaites :
+`/ticket setup categorie:… salon:… salon_logs:… role_staff:…`
+(tout est facultatif — ce que tu ne précises pas est créé automatiquement)
+
+### Les autres commandes
 
 | Commande | Qui | Effet |
 |---|---|---|
-| `/ticket setup categorie:… role_staff:… [salon_logs:…]` | Admin | Choisit la catégorie des tickets, le rôle staff, le salon des transcriptions |
-| `/ticket panel [salon:…]` | Admin | Envoie le message avec le bouton 🎫 |
+| `/ticket panel [salon] [titre] [description]` | Admin | Renvoie le panneau |
 | `/ticket config` | Staff | Affiche la configuration |
 | `/ticket claim` | Staff | Prend en charge le ticket |
 | `/ticket add membre:…` | Staff | Ajoute quelqu'un au ticket |
 | `/ticket remove membre:…` | Staff | Retire quelqu'un du ticket |
-| `/ticket close [raison:…]` | Staff | Ferme le ticket |
+| `/ticket close [raison]` | Staff | Ferme le ticket |
 
 ### Comment ça marche, concrètement
 
 1. Un membre clique sur **🎫 Ouvrir un ticket** → une petite fenêtre lui demande
    son problème (facultatif).
-2. Le bot crée un salon privé `#ticket-1-…` dans la catégorie choisie :
-   **seul le membre, le staff et le bot** le voient.
+2. Le bot crée un salon privé `#ticket-1-…` dans la catégorie : **seul le membre,
+   tous les rôles staff et le bot** le voient.
 3. Le staff clique sur **🔔 Prendre en charge** (ou fait `/ticket claim`).
 4. Le staff aide le membre, puis clique sur **🔒 Fermer le ticket** puis
-   confirme → le bot envoie la transcription dans le salon de logs (si défini),
-   prévient le membre en MP, et supprime le salon 5 secondes après.
+   confirme → le bot envoie la transcription dans le salon de logs, prévient le
+   membre en MP, et supprime le salon 5 secondes après.
 5. Un membre ne peut avoir qu'**un seul ticket ouvert** à la fois.
 
 ---

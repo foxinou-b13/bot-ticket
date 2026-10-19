@@ -13,6 +13,7 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  RoleSelectMenuBuilder,
 } = require('discord.js');
 const store = require('../utils/store');
 
@@ -37,6 +38,31 @@ function embedPanel(titre, description) {
         'Un salon privé sera créé pour toi et notre équipe.'
     )
     .setFooter({ text: 'Système de tickets' });
+}
+
+// Envoie le panneau dans le salon configuré
+async function envoyerPanel(guild, config, options = {}) {
+  let channel = null;
+  if (config.panelChannelId) {
+    channel = await guild.channels.fetch(config.panelChannelId).catch(() => null);
+  }
+  if (!channel) return null;
+  await channel.send({
+    embeds: [embedPanel(options.titre, options.description)],
+    components: [boutonOuvrir()],
+  });
+  return channel;
+}
+
+// Menu de sélection des rôles staff (PLUSIEURS rôles possibles)
+function menuRoles() {
+  return new ActionRowBuilder().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId('ticket:select-roles')
+      .setPlaceholder('👥 Choisis le(s) rôle(s) du staff')
+      .setMinValues(1)
+      .setMaxValues(10)
+  );
 }
 
 // ─── À l'intérieur d'un ticket ───
@@ -74,6 +100,11 @@ function embedTicket(t) {
   return embed;
 }
 
+// Vérifie si un membre fait partie du staff (un des rôles choisis)
+function estStaff(member, config) {
+  return config.staffRoleIds.some(roleId => member.roles.cache.has(roleId));
+}
+
 // Met à jour le message d'accroche du ticket (embed + boutons)
 async function rafraichirMessageTicket(interaction, t) {
   try {
@@ -89,7 +120,7 @@ async function creerTicket(interaction, sujet) {
   const guild = interaction.guild;
   const config = store.getGuild(guild.id);
 
-  if (!config.categoryId || !config.staffRoleId) {
+  if (!config.categoryId || config.staffRoleIds.length === 0) {
     return {
       erreur: "Le système de tickets n'est pas configuré. Un administrateur doit faire `/ticket setup`.",
     };
@@ -105,31 +136,35 @@ async function creerTicket(interaction, sujet) {
     ? `-${sujet.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20)}`
     : '';
 
-  // Salon privé : seul le membre, le staff et le bot le voient
+  // Salon privé : seul le membre, TOUS les rôles staff et le bot le voient
+  const permissions = [
+    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: interaction.user.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.AttachFiles,
+      ],
+    },
+  ];
+  for (const roleId of config.staffRoleIds) {
+    permissions.push({
+      id: roleId,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+      ],
+    });
+  }
+
   const salon = await guild.channels.create({
     name: `ticket-${numero}${suffixe}`,
     type: ChannelType.GuildText,
     parent: config.categoryId,
-    permissionOverwrites: [
-      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-      {
-        id: interaction.user.id,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AttachFiles,
-        ],
-      },
-      {
-        id: config.staffRoleId,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-        ],
-      },
-    ],
+    permissionOverwrites: permissions,
   });
 
   const infos = {
@@ -140,8 +175,9 @@ async function creerTicket(interaction, sujet) {
     createdAt: Date.now(),
   };
 
+  const mentions = config.staffRoleIds.map(id => `<@&${id}>`).join(' ');
   const message = await salon.send({
-    content: `<@${interaction.user.id}> <@&${config.staffRoleId}>`,
+    content: `<@${interaction.user.id}> ${mentions}`,
     embeds: [embedTicket(infos)],
     components: [boutonsTicket(infos)],
   });
@@ -221,7 +257,7 @@ async function handleButton(interaction) {
   if (interaction.customId === 'ticket:reclamer') {
     const t = store.getTicket(guild.id, interaction.channel.id);
     if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', ephemeral: true });
-    if (!interaction.member.roles.cache.has(config.staffRoleId)) {
+    if (!estStaff(interaction.member, config)) {
       return interaction.reply({ content: '❌ Seul le staff peut prendre en charge un ticket.', ephemeral: true });
     }
     if (t.claimedBy) {
@@ -259,6 +295,63 @@ async function handleButton(interaction) {
   }
 }
 
+// ─── Menu de sélection des rôles staff ───
+async function handleSelectMenu(interaction) {
+  if (interaction.customId !== 'ticket:select-roles') return;
+
+  const guild = interaction.guild;
+  const roles = interaction.values; // IDs des rôles sélectionnés (plusieurs possibles)
+  store.setGuild(guild.id, { staffRoleIds: roles });
+  const config = store.getGuild(guild.id);
+
+  // Salon de logs : création automatique si pas encore défini
+  let logChannelId = config.logChannelId;
+  if (!logChannelId && config.categoryId) {
+    const permissions = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+    for (const roleId of roles) {
+      permissions.push({
+        id: roleId,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      });
+    }
+    const logs = await guild.channels.create({
+      name: 'tickets-logs',
+      type: ChannelType.GuildText,
+      parent: config.categoryId,
+      permissionOverwrites: permissions,
+    });
+    logChannelId = logs.id;
+    store.setGuild(guild.id, { logChannelId });
+  }
+
+  // Envoi du panneau (une seule fois)
+  let panelEnvoye = false;
+  if (!config.panelSent) {
+    const channel = await envoyerPanel(guild, store.getGuild(guild.id));
+    if (channel) {
+      store.setGuild(guild.id, { panelSent: true });
+      panelEnvoye = true;
+    }
+  }
+
+  const liste = roles.map(id => `<@&${id}>`).join(', ');
+  const cfg = store.getGuild(guild.id);
+
+  await interaction.update({
+    content: [
+      '✅ **Système de tickets configuré automatiquement !**',
+      '',
+      `👥 Rôles staff (${roles.length}) : ${liste}`,
+      `📁 Catégorie : <#${cfg.categoryId}>`,
+      `📜 Salon de logs : ${cfg.logChannelId ? `<#${cfg.logChannelId}>` : '—'}`,
+      `🎫 Panneau : ${panelEnvoye ? 'envoyé ✅' : 'déjà en place (utilise `/ticket panel` pour le renvoyer)'}`,
+      '',
+      '🎉 **C\'est terminé !** Les membres peuvent maintenant cliquer sur le bouton **🎫 Ouvrir un ticket**.',
+    ].join('\n'),
+    components: [],
+  });
+}
+
 // ─── Formulaire "sujet du ticket" ───
 async function handleModal(interaction) {
   if (interaction.customId !== 'ticket:sujet') return;
@@ -275,7 +368,11 @@ module.exports = {
   boutonOuvrir,
   embedTicket,
   boutonsTicket,
+  envoyerPanel,
+  menuRoles,
+  estStaff,
   rafraichirMessageTicket,
   handleButton,
+  handleSelectMenu,
   handleModal,
 };

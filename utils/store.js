@@ -32,14 +32,22 @@ function getGuild(guildId) {
   if (!data.guilds[guildId]) {
     data.guilds[guildId] = {
       categoryId: null,
-      staffRoleId: null,
+      staffRoleIds: [], // plusieurs rôles de staff possibles
       logChannelId: null,
+      panelChannelId: null,
+      panelSent: false,
       counter: 0,
       open: {},
     };
     sauvegarder();
   }
-  return data.guilds[guildId];
+  const g = data.guilds[guildId];
+  // Compatibilité avec les anciennes versions (un seul rôle staff)
+  if (g.staffRoleId && g.staffRoleIds.length === 0) {
+    g.staffRoleIds = [g.staffRoleId];
+    sauvegarder();
+  }
+  return g;
 }
 
 // Modifie la configuration d'un serveur
