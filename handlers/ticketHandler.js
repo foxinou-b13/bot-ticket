@@ -20,6 +20,11 @@ const {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   AttachmentBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
 } = require('discord.js');
 const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
@@ -158,24 +163,74 @@ function modePanneau(config) {
 }
 
 function construirePanneau(config, options = {}, guildName = null) {
-  const embed = embedPanneau(config, options, guildName);
-  const contenu =
-    modePanneau(config) === 'menu'
-      ? { embeds: [embed], components: [rowTypes(config)] }
-      : { embeds: [embed], components: [boutonOuvrir()] };
-
-  // Bannière générée automatiquement avec le nom du serveur,
-  // affichée DANS l'embed (comme les bots de support pro).
+  // Structure IDENTIQUE à la référence : components v2 Discord
+  // (blocs de texte + séparateurs gris + galerie d'image + menu),
+  // PAS d'embed → aucune bordure colorée nulle part.
   const p = config.panel || {};
-  const imagePerso = p.image && /^https?:\/\//.test(p.image);
-  if (!imagePerso && guildName) {
-    // Nom de fichier UNIQUE : sinon Discord garde l'ancienne image
-    // quand le message du panneau est mis à jour (edit).
+  const nom = guildName || 'ce serveur';
+  const fichiers = [];
+
+  const galerie = (() => {
+    if (p.image && /^https?:\/\//.test(p.image)) {
+      return new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.image));
+    }
+    if (!guildName) return null;
     const nomFichier = `banniere-${Date.now()}.png`;
-    embed.setImage(`attachment://${nomFichier}`);
-    contenu.files = [new AttachmentBuilder(genererBanniere(guildName), { name: nomFichier })];
+    fichiers.push(new AttachmentBuilder(genererBanniere(guildName), { name: nomFichier }));
+    return new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${nomFichier}`));
+  })();
+
+  const components = [];
+  components.push(
+    new TextDisplayBuilder().setContent(options.titre || p.titre || `**👑 ${serifBold('Support | ' + nom)}**`)
+  );
+
+  if (modePanneau(config) === 'menu') {
+    components.push(
+      new TextDisplayBuilder().setContent(
+        options.description ||
+          p.description ||
+          [
+            `Bienvenue sur le support officiel de ${serifBold(nom)}`,
+            '',
+            'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
+          ].join('\n')
+      )
+    );
+    components.push(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large));
+    components.push(
+      new TextDisplayBuilder().setContent(
+        [
+          'ⓘ\uFE0E __**Informations importantes :**__',
+          '• Soyez clairs et précis dans vos demandes.',
+          '• Le manque de respect envers le staff est strictement interdit.',
+          '• Évitez les mentions inutiles.',
+          '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
+        ].join('\n')
+      )
+    );
+    components.push(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large));
+    components.push(
+      new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.*')
+    );
+  } else {
+    components.push(
+      new TextDisplayBuilder().setContent(
+        options.description ||
+          p.description ||
+          "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.\nUn salon privé sera créé pour toi et notre équipe te répondra."
+      )
+    );
+    components.push(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large));
+    components.push(
+      new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.*')
+    );
   }
-  return contenu;
+
+  if (galerie) components.push(galerie);
+  components.push(modePanneau(config) === 'menu' ? rowTypes(config) : boutonOuvrir());
+
+  return { components, files: fichiers };
 }
 
 // Envoie (ou met à jour) le panneau dans le salon configuré

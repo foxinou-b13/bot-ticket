@@ -18,13 +18,14 @@ if (!GlobalFonts.families.some(f => f.family === 'SansRef')) {
 }
 
 // Palette mesurée sur la bannière de référence
-const CADRE = [110, 30, 42];
-const LISERE = [178, 48, 61];
-const FOND = '#1b2430';
-const ROUGE = '#b2303d';
-const POINTS = '#cd5c66';
-const CARRE = '#232f3d';
-const CARRE_BORD = '#7c93a8';
+// Couleurs MESURÉES pixel par pixel sur la bannière de référence
+const LISERE = '#b62f43';
+const FOND_HAUT = '#142a46';
+const FOND_BAS = '#1a314e';
+const ROUGE = '#b62f43';
+const POINTS = '#c65263';
+const CARRE = '#193f67';
+const CARRE_BORD = '#51779b';
 const BLANC = '#f2f4f6';
 
 function nettoyerNom(nom) {
@@ -44,8 +45,11 @@ function genererBanniere(nomServeur) {
   const ctx = canvas.getContext('2d');
   const nom = nettoyerNom(nomServeur);
 
-  // Fond bleu nuit
-  ctx.fillStyle = FOND;
+  // Fond bleu nuit dégradé (mesuré : plus clair vers le bas)
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, FOND_HAUT);
+  grad.addColorStop(1, FOND_BAS);
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
   // Bande rouge inclinée à droite
@@ -62,7 +66,7 @@ function genererBanniere(nomServeur) {
   ctx.fillStyle = POINTS;
   for (let gy = 0; gy < 4; gy++) {
     for (let gx = 0; gx < 3; gx++) {
-      ctx.fillRect(726 + gx * 15, 172 + gy * 15, 6, 6);
+      ctx.fillRect(715 + gx * 15, 205 + gy * 15, 6, 6);
     }
   }
 
@@ -71,7 +75,7 @@ function genererBanniere(nomServeur) {
   ctx.strokeStyle = CARRE_BORD;
   ctx.lineWidth = 3.5;
   ctx.beginPath();
-  ctx.roundRect(762, 92, 190, 190, 22);
+  ctx.roundRect(752, 90, 192, 192, 22);
   ctx.fill();
   ctx.stroke();
 
@@ -106,14 +110,14 @@ function genererBanniere(nomServeur) {
 
   // Trait rouge au-dessus de SUPPORT
   ctx.fillStyle = ROUGE;
-  ctx.fillRect(75, 66, 48, 8);
+  ctx.fillRect(72, 70, 52, 7);
 
   // SUPPORT (sans-sérif gras, espacé)
   ctx.fillStyle = BLANC;
-  ctx.font = '26px SansRef';
+  ctx.font = '28px SansRef';
   if ('letterSpacing' in ctx) ctx.letterSpacing = '9px';
   ctx.textBaseline = 'top';
-  ctx.fillText('SUPPORT', 75, 98);
+  ctx.fillText('SUPPORT', 72, 106);
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
 
   // Nom du serveur (vraie sérif gras, taille adaptée)
@@ -123,16 +127,11 @@ function genererBanniere(nomServeur) {
     taille -= 4;
     ctx.font = `${taille}px SerifRef`;
   }
-  ctx.fillText(nom, 75, 148);
+  ctx.fillText(nom, 72, 170);
 
-  // Cadre bordeaux + liseré rouge à gauche
-  ctx.fillStyle = `rgb(${CADRE.join(',')})`;
-  ctx.fillRect(0, 0, W, 4);
-  ctx.fillRect(0, H - 4, W, 4);
-  ctx.fillRect(0, 0, 4, H);
-  ctx.fillRect(W - 4, 0, 4, H);
-  ctx.fillStyle = `rgb(${LISERE.join(',')})`;
-  ctx.fillRect(4, 4, 7, H - 8);
+  // Liseré rouge à gauche seulement (la référence n'a PAS de cadre)
+  ctx.fillStyle = LISERE;
+  ctx.fillRect(6, 0, 16, H);
 
   return canvas.toBuffer('image/png');
 }

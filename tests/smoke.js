@@ -35,33 +35,40 @@ function test(nom, fn) {
 }
 
 console.log('── Panneaux ──');
-test('panneau MENU (embed + selecteur)', () => {
+test('panneau MENU (components v2 : textes + séparateurs + image + menu)', () => {
   const p = h.construirePanneau(config, {}, 'Serveur Test');
-  if (!p.embeds[0] || !p.components[0]) throw new Error('composants manquants');
-  if (!p.embeds[0].data.description.includes('Informations importantes')) throw new Error('texte par défaut absent');
+  const j = JSON.stringify(p.components);
+  if (!j.includes('Informations importantes')) throw new Error('texte par défaut absent');
+  if (!j.includes('tkt:type-ouvrir')) throw new Error('menu déroulant absent');
+  if ((j.match(/"type":14/g) || []).length < 2) throw new Error('séparateurs gris absents');
+  if ((j.match(/"type":10/g) || []).length < 3) throw new Error('blocs de texte absents');
+  if (j.includes('ℹ️')) throw new Error('emoji bleu présent (la référence utilise ⓘ monochrome)');
+  if (j.includes('__**Informations')) {} else throw new Error('souligné absent');
+  if (!j.includes('*Merci de votre patience')) throw new Error('italique absent');
 });
 test('panneau BOUTON', () => {
   const p = h.construirePanneau({ ...config, panelMode: 'bouton' }, {}, 'Serveur Test');
-  if (!p.components[0].components[0].data.label) throw new Error('bouton absent');
+  const j = JSON.stringify(p.components);
+  if (!j.includes('Ouvrir un ticket')) throw new Error('bouton absent');
 });
 test('panneau avec textes perso + image', () => {
   const p = h.construirePanneau({ ...config, panel: { titre: 'Mon titre', description: 'Mon texte', selecteur: 'Choisis...', image: 'https://x.fr/i.png' } }, {}, 'S');
-  if (p.embeds[0].data.title !== 'Mon titre') throw new Error('titre perso ignoré');
-  if (!p.embeds[0].data.image) throw new Error('image ignorée');
+  const j = JSON.stringify(p.components);
+  if (!j.includes('Mon titre')) throw new Error('titre perso ignoré');
+  if (!j.includes('Mon texte')) throw new Error('description perso ignorée');
+  if (!j.includes('https://x.fr/i.png')) throw new Error('image perso ignorée');
+  if (p.files.length) throw new Error('pas de bannière auto quand image perso');
 });
-test('bannière auto-générée dans l\'embed + plus de ligne bleue + séparateurs', () => {
+test('bannière auto-générée (components v2) + aucune bordure embed', () => {
   const p = h.construirePanneau({ ...config, panel: {} }, {}, 'Mon Serveur');
   if (!p.files || !p.files[0].name.startsWith('banniere-')) throw new Error('bannière absente');
-  const e = p.embeds[0].data;
-  if (!e.image || e.image.url !== 'attachment://' + p.files[0].name) throw new Error('image absente de l\'embed');
-  if (e.color !== 0x2B2D31) throw new Error('bordure visible détectée (couleur ' + e.color + ')');
-  if (!e.description.includes('───')) throw new Error('séparateurs absents (l\'exemple en a)');
-  if (e.description.includes('ℹ️')) throw new Error('emoji bleu présent (l\'exemple utilise ⓘ monochrome)');
-  if (e.footer) throw new Error('footer présent (l\'exemple n\'en a pas)');
+  const j = JSON.stringify(p.components);
+  if (!j.includes('attachment://' + p.files[0].name)) throw new Error('image absente des components');
+  if (p.embeds) throw new Error('encore un embed (la référence n\'en a pas)');
 });
 test('panneau menu sans types → retombe en bouton', () => {
   const p = h.construirePanneau({ ...config, types: [] }, {}, 'S');
-  if (p.components[0].components[0].data.label !== 'Ouvrir un ticket') throw new Error('mauvais repli');
+  if (!JSON.stringify(p.components).includes('Ouvrir un ticket')) throw new Error('mauvais repli');
 });
 
 console.log('── Assistant ──');
