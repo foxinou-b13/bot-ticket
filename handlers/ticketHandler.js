@@ -380,6 +380,15 @@ function chercherSalonLogs(guild, categorieId) {
   );
 }
 
+// Tous les rôles staff du serveur (niveau serveur + niveau type)
+function rolesStaffComplets(config) {
+  const roles = new Set(config.staffRoleIds || []);
+  for (const type of config.types || []) {
+    for (const roleId of type.staffRoleIds || []) roles.add(roleId);
+  }
+  return [...roles];
+}
+
 function permsLogs(guild, staffRoleIds) {
   const permissions = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
@@ -434,17 +443,34 @@ async function preparerInfra(guild) {
     let logs = await assoirSalon(guild, config.logChannelId);
     if (logs && logs.type !== ChannelType.GuildText) logs = null;
     if (!logs) logs = chercherSalonLogs(guild, categorie.id);
+    const rolesStaff = rolesStaffComplets(config);
     if (!logs) {
       logs = await guild.channels.create({
         name: '🔒・logs-tickets',
         type: ChannelType.GuildText,
         parent: categorie.id,
-        permissionOverwrites: permsLogs(guild, config.staffRoleIds),
+        permissionOverwrites: permsLogs(guild, rolesStaff),
         reason: 'Salon de transcriptions des tickets (créé une seule fois par le bot)',
       });
       recrees.push('salon 🔒・logs-tickets');
-    } else if (logs.parentId !== categorie.id && typeof logs.setParent === 'function') {
-      await logs.setParent(categorie.id, { lockPermissions: false }).catch(() => {});
+    } else {
+      if (logs.parentId !== categorie.id && typeof logs.setParent === 'function') {
+        await logs.setParent(categorie.id, { lockPermissions: false }).catch(() => {});
+      }
+      // Le staff doit VOIR les logs : on ajoute les rôles manquants (auto-réparation)
+      for (const roleId of rolesStaff) {
+        const deja = logs.permissionOverwrites?.cache?.has?.(roleId);
+        if (!deja && typeof logs.permissionOverwrites?.edit === 'function') {
+          await logs.permissionOverwrites
+            .edit(roleId, {
+              ViewChannel: true,
+              SendMessages: true,
+              ReadMessageHistory: true,
+              AttachFiles: true,
+            })
+            .catch(() => {});
+        }
+      }
     }
 
     // ── 3. Le salon du panneau ──
