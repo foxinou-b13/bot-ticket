@@ -55,7 +55,8 @@ test('bannière auto-générée dans l\'embed + plus de ligne bleue + séparateu
   const e = p.embeds[0].data;
   if (!e.image || e.image.url !== 'attachment://banniere.png') throw new Error('image absente de l\'embed');
   if (e.color !== 0x2B2D31) throw new Error('bordure visible détectée (couleur ' + e.color + ')');
-  if (e.description.includes('───')) throw new Error('séparateurs présents (l\'exemple n\'en a pas)');
+  if (!e.description.includes('───')) throw new Error('séparateurs absents (l\'exemple en a)');
+  if (e.description.includes('ℹ️')) throw new Error('emoji bleu présent (l\'exemple utilise ⓘ monochrome)');
   if (e.footer) throw new Error('footer présent (l\'exemple n\'en a pas)');
 });
 test('panneau menu sans types → retombe en bouton', () => {

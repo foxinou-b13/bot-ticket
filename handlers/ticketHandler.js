@@ -72,36 +72,50 @@ function boutonOuvrir() {
   );
 }
 
-const SEP = '─────────────────────────────────────────';
+const SEP = '──────────────────────────────────';
+
+// Convertit en gras sérif (caractères Unicode) comme les panneaux pro
+function serifBold(texte) {
+  return String(texte).replace(/[A-Za-z0-9]/g, c => {
+    if (c >= 'A' && c <= 'Z') return String.fromCodePoint(0x1d400 + c.charCodeAt(0) - 65);
+    if (c >= 'a' && c <= 'z') return String.fromCodePoint(0x1d41a + c.charCodeAt(0) - 97);
+    return String.fromCodePoint(0x1d7ce + c.charCodeAt(0) - 48);
+  });
+}
 
 function embedPanneau(config, options = {}, guildName = null) {
   const p = config.panel || {};
   // Texte par défaut du panneau MENU : style des bots de support pro
   // (paragraphs, séparateurs fins, puces décoratives)
   const defautMenu = [
-    `Bienvenue sur le support officiel de ${guildName || 'ce serveur'}`,
-    '',
+    `Bienvenue sur le support officiel de ${serifBold(guildName || 'ce serveur')}`,
+    SEP,
     'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
-    '',
-    'ℹ️ **Informations importantes :**',
+    SEP,
+    'ⓘ\uFE0E __**Informations importantes :**__',
     '• Soyez clairs et précis dans vos demandes.',
     '• Le manque de respect envers le staff est strictement interdit.',
     '• Évitez les mentions inutiles.',
     '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
-    '',
-    '⏳ Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.',
+    SEP,
+    '⏳ *Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.*',
   ].join('\n');
   const defautBouton = [
     "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.",
     'Un salon privé sera créé pour toi et notre équipe te répondra.',
-    '',
-    '⏳ Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.',
+    SEP,
+    '⏳ *Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.*',
   ].join('\n');
   const embed = new EmbedBuilder()
     // Bordure de l'embed = couleur du fond du thème sombre Discord :
     // aucune ligne colorée visible, ni à gauche ni ailleurs.
     .setColor(0x2B2D31)
-    .setTitle(coupe(options.titre || p.titre || (guildName ? `👑 Support | ${guildName}` : '🎫 Support'), 256))
+    .setTitle(
+      coupe(
+        options.titre || p.titre || (guildName ? `👑 ${serifBold('Support | ' + guildName)}` : '🎫 Support'),
+        256
+      )
+    )
     .setDescription(
       coupe(
         options.description ||
