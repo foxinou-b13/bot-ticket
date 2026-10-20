@@ -21,6 +21,7 @@ const {
   StringSelectMenuOptionBuilder,
   AttachmentBuilder,
   TextDisplayBuilder,
+  ContainerBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
   MediaGalleryBuilder,
@@ -180,13 +181,16 @@ function construirePanneau(config, options = {}, guildName = null) {
     return new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${nomFichier}`));
   })();
 
-  const components = [];
-  components.push(
+  // CARTE arrondie (conteneur v2, fond gris natif Discord) : mesurée sur la
+  // référence — textes + séparateurs FINS serrés + bannière DEDANS.
+  // Pas de couleur d'accent → aucune bordure/liseré coloré sur la carte.
+  const carte = new ContainerBuilder();
+  carte.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(options.titre || p.titre || `**👑 ${serifBold('Support | ' + nom)}**`)
   );
 
   if (modePanneau(config) === 'menu') {
-    components.push(
+    carte.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         options.description ||
           p.description ||
@@ -197,8 +201,8 @@ function construirePanneau(config, options = {}, guildName = null) {
           ].join('\n')
       )
     );
-    components.push(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large));
-    components.push(
+    carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+    carte.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         [
           'ⓘ\uFE0E __**Informations importantes :**__',
@@ -209,26 +213,28 @@ function construirePanneau(config, options = {}, guildName = null) {
         ].join('\n')
       )
     );
-    components.push(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large));
-    components.push(
+    carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+    carte.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.*')
     );
   } else {
-    components.push(
+    carte.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         options.description ||
           p.description ||
           "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.\nUn salon privé sera créé pour toi et notre équipe te répondra."
       )
     );
-    components.push(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Large));
-    components.push(
+    carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+    carte.addTextDisplayComponents(
       new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.*')
     );
   }
 
-  if (galerie) components.push(galerie);
-  components.push(modePanneau(config) === 'menu' ? rowTypes(config) : boutonOuvrir());
+  if (galerie) carte.addMediaGalleryComponents(galerie);
+
+  // Le menu / bouton reste SOUS la carte (hors conteneur), comme la référence.
+  const components = [carte, modePanneau(config) === 'menu' ? rowTypes(config) : boutonOuvrir()];
 
   // FLAG OBLIGATOIRE components v2 : sans lui Discord refuse le message
   // (« type must be one of (1,) ») car TextDisplay/Separator/MediaGallery

@@ -46,6 +46,17 @@ test('panneau MENU (components v2 : textes + séparateurs + image + menu)', () =
   if (j.includes('__**Informations')) {} else throw new Error('souligné absent');
   if (!j.includes('*Merci de votre patience')) throw new Error('italique absent');
 });
+test('structure référence : carte conteneur (17) + sélecteur hors carte + séparateurs serrés', () => {
+  const p = h.construirePanneau(config, {}, 'Serveur Test');
+  const j = p.components.map(c => c.toJSON());
+  if (j[0].type !== 17) throw new Error('pas de carte conteneur en premier : ' + j[0].type);
+  if (j[0].accent_color) throw new Error('accent coloré sur la carte (la référence n’en a pas)');
+  const internes = j[0].components.map(c => c.type).join(',');
+  if (internes !== '10,10,14,10,14,10,12') throw new Error('contenu carte : ' + internes);
+  const seps = j[0].components.filter(c => c.type === 14);
+  if (seps.some(sep => sep.spacing !== 1)) throw new Error('séparateurs pas serrés (Small)');
+  if (j[1].type !== 1) throw new Error('le menu doit être SOUS la carte, hors conteneur');
+});
 test('panneau BOUTON', () => {
   const p = h.construirePanneau({ ...config, panelMode: 'bouton' }, {}, 'Serveur Test');
   const j = JSON.stringify(p.components);

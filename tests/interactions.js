@@ -132,7 +132,8 @@ async function test(nom, fn) {
     await h.handleSelectMenu(inter);
     if (!payload) throw new Error('channel.send jamais appelé');
     if (payload.flags !== 32768) throw new Error('flags absent ou faux : ' + payload.flags);
-    if (!payload.components || payload.components.length < 5) throw new Error('components v2 incomplets');
+    const types = payload.components.map(c => (c.toJSON ? c.toJSON() : c).type);
+    if (types[0] !== 17 || types[1] !== 1) throw new Error('structure attendue [carte 17, ligne 1] : ' + types.join(','));
     if (!maj || !String(maj.content).includes('Panneau MENU publié')) throw new Error('confirmation absente : ' + JSON.stringify(maj && maj.content));
   });
 
