@@ -67,22 +67,7 @@
       "panelSent": true,
       "panelMessageId": "1562104819257180211",
       "counter": 1,
-      "open": {
-        "1562104908721815682": {
-          "numero": 1,
-          "userId": "1497375017980137534",
-          "sujet": "Pour test",
-          "typeId": "tmvgrade3zfrl",
-          "typeNom": "Test Tiktok",
-          "typeEmoji": "🥴",
-          "staffRoleIds": [
-            "1562104406986592401"
-          ],
-          "claimedBy": null,
-          "createdAt": 1792505232870,
-          "messageId": "1562104912601423962"
-        }
-      },
+      "open": {},
       "panelMode": "menu",
       "panel": {
         "titre": null,
