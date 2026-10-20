@@ -230,7 +230,10 @@ function construirePanneau(config, options = {}, guildName = null) {
   if (galerie) components.push(galerie);
   components.push(modePanneau(config) === 'menu' ? rowTypes(config) : boutonOuvrir());
 
-  return { components, files: fichiers };
+  // FLAG OBLIGATOIRE components v2 : sans lui Discord refuse le message
+  // (« type must be one of (1,) ») car TextDisplay/Separator/MediaGallery
+  // ne sont acceptés qu'avec IS_COMPONENTS_V2 (1 << 15).
+  return { components, files: fichiers, flags: MessageFlags.IsComponentsV2 };
 }
 
 // Envoie (ou met à jour) le panneau dans le salon configuré
@@ -265,7 +268,8 @@ async function envoyerPanel(guild, config, options = {}) {
   const contenu = construirePanneau(config, options, guild.name);
   try {
     if (message) {
-      await message.edit(contenu).catch(async () => {
+      // embeds: [] → retire l'ancien embed (interdit avec le flag v2)
+      await message.edit({ ...contenu, embeds: [] }).catch(async () => {
         message = await channel.send(contenu);
       });
     } else {

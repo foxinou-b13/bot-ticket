@@ -105,5 +105,59 @@ async function test(nom, fn) {
     if (!modalVu2) throw new Error('pas de formulaire de raison');
   });
 
+  console.log('── Assistant : choix du salon → envoi du panneau v2 ──');
+  await test('le panneau part AVEC le flag IS_COMPONENTS_V2 (32768)', async () => {
+    let payload = null;
+    const canal = {
+      id: 'pan-wiz',
+      permissionOverwrites: { edit: async () => {} },
+      messages: { fetch: async () => null },
+      send: async p => { payload = p; return { id: 'm-wiz' }; },
+    };
+    const g = {
+      id: 'g-test', name: 'Serveur Test',
+      roles: { everyone: { id: 'everyone' } },
+      members: { me: { id: 'bot-1' } },
+      channels: { fetch: async id => (id === 'pan-wiz' ? canal : null) },
+    };
+    store.setGuild('g-test', { panelChannelId: 'pan-wiz', panelMessageId: null, panelMode: 'menu' });
+    let maj = null;
+    const inter = {
+      customId: 'tkt:panel-channel',
+      values: ['pan-wiz'],
+      guild: g,
+      member: { permissions: { has: () => true }, roles: { cache: new Map() } },
+      update: r => { maj = r; },
+    };
+    await h.handleSelectMenu(inter);
+    if (!payload) throw new Error('channel.send jamais appelé');
+    if (payload.flags !== 32768) throw new Error('flags absent ou faux : ' + payload.flags);
+    if (!payload.components || payload.components.length < 5) throw new Error('components v2 incomplets');
+    if (!maj || !String(maj.content).includes('Panneau MENU publié')) throw new Error('confirmation absente : ' + JSON.stringify(maj && maj.content));
+  });
+
+  await test('édition d’un panneau existant : flag v2 + embeds retirés', async () => {
+    let payload = null;
+    const msg = { id: 'm-old', edit: async p => { payload = p; return msg; } };
+    const canal = {
+      id: 'pan-edit',
+      permissionOverwrites: { edit: async () => {} },
+      messages: { fetch: async () => msg },
+      send: async () => { throw new Error('ne doit pas créer de doublon'); },
+    };
+    const g = {
+      id: 'g-test', name: 'Serveur Test',
+      roles: { everyone: { id: 'everyone' } },
+      members: { me: { id: 'bot-1' } },
+      channels: { fetch: async id => (id === 'pan-edit' ? canal : null) },
+    };
+    const channel = await h.envoyerPanel(g, { panelChannelId: 'pan-edit', panelMessageId: 'm-old', panelMode: 'menu', types: [{ id: 't1', nom: 'Problème', emoji: '🔴' }] });
+    if (!channel) throw new Error('envoyerPanel a échoué');
+    if (payload.flags !== 32768) throw new Error('flags absent sur l’édition : ' + payload.flags);
+    if (!Array.isArray(payload.embeds) || payload.embeds.length !== 0) throw new Error('anciens embeds non retirés');
+  });
+
+  store.setGuild('g-test', { panelChannelId: 'pan-1', panelMessageId: null });
+
   console.log(`\n${ok} tests d'interaction OK${process.exitCode ? ' — ÉCHEC' : ' ✅'}`);
 })();

@@ -110,4 +110,15 @@ test('modePanneau', () => {
   if (h.modePanneau({ ...config, panelMode: null }) !== 'menu') throw new Error('auto menu');
 });
 
+console.log('── components v2 : flag IS_COMPONENTS_V2 ──');
+test('panneau MENU porte le flag v2 (32768)', () => {
+  const p = h.construirePanneau(config, {}, 'Serveur Test');
+  if (p.flags !== 32768) throw new Error('flags = ' + p.flags);
+  if (!p.components.length) throw new Error('components vides');
+});
+test('panneau BOUTON porte le flag v2 (32768)', () => {
+  const p = h.construirePanneau({ ...config, panelMode: 'bouton', types: [] }, {}, 'Serveur Test');
+  if (p.flags !== 32768) throw new Error('flags = ' + p.flags);
+});
+
 console.log(`\n${ok} tests OK${process.exitCode ? ' — DES TESTS ONT ÉCHOUÉ' : ' — tout est propre ✅'}`);
