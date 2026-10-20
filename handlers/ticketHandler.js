@@ -169,8 +169,11 @@ function construirePanneau(config, options = {}, guildName = null) {
   const p = config.panel || {};
   const imagePerso = p.image && /^https?:\/\//.test(p.image);
   if (!imagePerso && guildName) {
-    embed.setImage('attachment://banniere.png');
-    contenu.files = [new AttachmentBuilder(genererBanniere(guildName), { name: 'banniere.png' })];
+    // Nom de fichier UNIQUE : sinon Discord garde l'ancienne image
+    // quand le message du panneau est mis à jour (edit).
+    const nomFichier = `banniere-${Date.now()}.png`;
+    embed.setImage(`attachment://${nomFichier}`);
+    contenu.files = [new AttachmentBuilder(genererBanniere(guildName), { name: nomFichier })];
   }
   return contenu;
 }
