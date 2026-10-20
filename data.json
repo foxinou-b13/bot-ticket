@@ -60,15 +60,15 @@
       ]
     },
     "1562104315043385394": {
-      "categoryId": null,
+      "categoryId": "1562104813456728104",
       "staffRoleIds": [],
-      "logChannelId": null,
-      "panelChannelId": null,
-      "panelSent": false,
-      "panelMessageId": null,
+      "logChannelId": "1562104814685651048",
+      "panelChannelId": "1562104315768741941",
+      "panelSent": true,
+      "panelMessageId": "1562104819257180211",
       "counter": 0,
       "open": {},
-      "panelMode": null,
+      "panelMode": "menu",
       "panel": {
         "titre": null,
         "description": null,
