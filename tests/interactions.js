@@ -159,5 +159,93 @@ async function test(nom, fn) {
 
   store.setGuild('g-test', { panelChannelId: 'pan-1', panelMessageId: null });
 
+  console.log('── /ticket panel : sélecteur MENU / BOUTON ──');
+  const cmd = require('../commands/ticket');
+  function mockGuildPanel(fetchFn) {
+    return {
+      id: 'g-test', name: 'Serveur Test',
+      roles: { everyone: { id: 'everyone' } },
+      members: { me: { id: 'bot-1' } },
+      channels: { fetch: fetchFn },
+    };
+  }
+  await test('/ticket panel sans option affiche le sélecteur (2 choix)', async () => {
+    let rep = null;
+    const inter = {
+      options: { getSubcommand: () => 'panel', getChannel: () => null, getString: () => null },
+      guild: mockGuildPanel(async () => null),
+      member: { permissions: { has: () => true } },
+      reply: r => { rep = r; },
+    };
+    await cmd.execute(inter);
+    const sel = rep && rep.components && rep.components[0].components[0];
+    if (!sel) throw new Error('sélecteur absent : ' + JSON.stringify(rep && rep.content));
+    const selJson = sel.toJSON();
+    if (selJson.custom_id !== 'tkt:panel-choix') throw new Error('mauvais custom_id : ' + selJson.custom_id);
+    if (!selJson.options || selJson.options.length !== 2) throw new Error('options : ' + JSON.stringify(selJson.options));
+  });
+
+  await test('clic « Panneau MENU » → panneau v2 envoyé + confirmation', async () => {
+    let payload = null;
+    const canal = { id: 'pan-sel', permissionOverwrites: { edit: async () => {} }, messages: { fetch: async () => null }, send: async p => { payload = p; return { id: 'm-sel' }; } };
+    store.setGuild('g-test', { panelChannelId: 'pan-sel', panelMessageId: null });
+    let maj = null;
+    const inter = {
+      customId: 'tkt:panel-choix', values: ['menu'],
+      guild: mockGuildPanel(async id => (id === 'pan-sel' ? canal : null)),
+      member: { permissions: { has: () => true }, roles: { cache: new Map() } },
+      update: r => { maj = r; },
+    };
+    await h.handleSelectMenu(inter);
+    if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé ou sans flag');
+    const last = payload.components[payload.components.length - 1].toJSON();
+    if (!last.components || last.components[0].type !== 3) throw new Error('dernière ligne pas un menu déroulant : ' + JSON.stringify(last).slice(0, 120));
+    if (!String(maj.content).includes('MENU publié')) throw new Error('confirmation : ' + maj.content);
+  });
+
+  await test('clic « Panneau BOUTON » → panneau bouton envoyé + confirmation', async () => {
+    let payload = null;
+    const canal = { id: 'pan-sel2', permissionOverwrites: { edit: async () => {} }, messages: { fetch: async () => null }, send: async p => { payload = p; return { id: 'm-sel2' }; } };
+    store.setGuild('g-test', { panelChannelId: 'pan-sel2', panelMessageId: null });
+    let maj = null;
+    const inter = {
+      customId: 'tkt:panel-choix', values: ['bouton'],
+      guild: mockGuildPanel(async id => (id === 'pan-sel2' ? canal : null)),
+      member: { permissions: { has: () => true }, roles: { cache: new Map() } },
+      update: r => { maj = r; },
+    };
+    await h.handleSelectMenu(inter);
+    if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé ou sans flag');
+    const last = payload.components[payload.components.length - 1].toJSON();
+    if (!last.components || last.components[0].type !== 2) throw new Error('dernière ligne pas un bouton : ' + JSON.stringify(last).slice(0, 120));
+    if (!String(maj.content).includes('BOUTON publié')) throw new Error('confirmation : ' + maj.content);
+  });
+
+  await test('sans salon configuré → sélecteur de salon puis envoi', async () => {
+    let payload = null;
+    const canal = { id: 'pan-sel3', permissionOverwrites: { edit: async () => {} }, messages: { fetch: async () => null }, send: async p => { payload = p; return { id: 'm-sel3' }; } };
+    store.setGuild('g-test', { panelChannelId: null, panelMessageId: null });
+    let maj1 = null;
+    await h.handleSelectMenu({
+      customId: 'tkt:panel-choix', values: ['menu'],
+      guild: mockGuildPanel(async id => (id === 'pan-sel3' ? canal : null)),
+      member: { permissions: { has: () => true }, roles: { cache: new Map() } },
+      update: r => { maj1 = r; },
+    });
+    const sel = maj1.components[0].components[0].toJSON();
+    if (sel.custom_id !== 'tkt:panel-chan-choix') throw new Error('sélecteur de salon absent : ' + sel.custom_id);
+    let maj2 = null;
+    await h.handleSelectMenu({
+      customId: 'tkt:panel-chan-choix', values: ['pan-sel3'],
+      guild: mockGuildPanel(async id => (id === 'pan-sel3' ? canal : null)),
+      member: { permissions: { has: () => true }, roles: { cache: new Map() } },
+      update: r => { maj2 = r; },
+    });
+    if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé après choix du salon');
+    if (!String(maj2.content).includes('publié')) throw new Error('confirmation : ' + maj2.content);
+  });
+
+  store.setGuild('g-test', { panelChannelId: 'pan-1', panelMessageId: null, panelMode: 'menu' });
+
   console.log(`\n${ok} tests d'interaction OK${process.exitCode ? ' — ÉCHEC' : ' ✅'}`);
 })();

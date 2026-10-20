@@ -2,7 +2,7 @@
  * commands/ticket.js — la commande /ticket et toutes ses sous-commandes
  *
  * /ticket setup    → configuration 100% automatique (catégorie, salons, panneau)
- * /ticket panel    → envoyer le panneau "Ouvrir un ticket"
+ * /ticket panel    → sélecteur : envoyer le panneau MENU ou le panneau BOUTON
  * /ticket config   → voir la configuration
  * /ticket claim    → prendre en charge un ticket
  * /ticket add      → ajouter un membre au ticket
@@ -46,7 +46,7 @@ module.exports = {
     .addSubcommand(sub =>
       sub
         .setName('panel')
-        .setDescription('Envoyer le panneau (menu des types si des types existent)')
+        .setDescription('Envoyer un panneau : choix MENU ou BOUTON dans un sélecteur')
         .addChannelOption(o => o.setName('salon').setDescription('Salon où envoyer le panneau').addChannelTypes(ChannelType.GuildText))
         .addStringOption(o => o.setName('titre').setDescription('Titre du panneau'))
         .addStringOption(o => o.setName('description').setDescription('Description du panneau'))
@@ -219,24 +219,29 @@ module.exports = {
 
       const titre = interaction.options.getString('titre');
       const description = interaction.options.getString('description');
-      const image = interaction.options.getAttachment('image');
-      let cfgPan = cfg;
-      if (image) {
-        store.setGuild(guild.id, { panel: { ...cfg.panel, image: image.url } });
-        cfgPan = store.getGuild(guild.id);
+
+      // Option(s) remplie(s) → envoi direct (comportement avancé conservé)
+      if (titre || description) {
+        const channel = await handler.envoyerPanel(guild, cfg, { titre, description });
+        if (!channel) {
+          return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup` ou `/setup ticket bouton`.', flags: MessageFlags.Ephemeral });
+        }
+        store.setGuild(guild.id, { panelSent: true });
+        const cfg2 = store.getGuild(guild.id);
+        const mode = handler.modePanneau(cfg2);
+        let msg = `✅ Panneau ${mode === 'menu' ? '📋 MENU (types de tickets)' : '🔘 BOUTON (« 🎫 Ouvrir un ticket »)'} publié dans ${channel}.`;
+        if (cfg2.panelMode === 'menu' && !cfg2.types.length) {
+          msg += '\n⚠️ Mode menu choisi mais aucun type créé : le panneau bouton a été envoyé. Crée des types avec `/setup ticket menu`.';
+        }
+        return interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
       }
-      const channel = await handler.envoyerPanel(guild, cfgPan, { titre, description });
-      if (!channel) {
-        return interaction.reply({ content: '❌ Salon du panneau introuvable. Refais `/ticket setup` ou `/setup ticket bouton`.', flags: MessageFlags.Ephemeral });
-      }
-      store.setGuild(guild.id, { panelSent: true });
-      const cfg2 = store.getGuild(guild.id);
-      const mode = handler.modePanneau(cfg2);
-      let msg = `✅ Panneau ${mode === 'menu' ? '📋 MENU (types de tickets)' : '🔘 BOUTON (« 🎫 Ouvrir un ticket »)'} publié dans ${channel}.`;
-      if (cfg2.panelMode === 'menu' && !cfg2.types.length) {
-        msg += '\n⚠️ Mode menu choisi mais aucun type créé : le panneau bouton a été envoyé. Crée des types avec `/setup ticket menu`.';
-      }
-      return interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
+
+      // Sans option → SÉLECTEUR : on choisit le panneau, un clic = envoi
+      return interaction.reply({
+        content: '🎛️ **Quel panneau veux-tu envoyer ?**\nChoisis dans le menu ci-dessous : le panneau sera publié immédiatement dans le salon configuré.',
+        flags: MessageFlags.Ephemeral,
+        components: [handler.menuChoixPanneau()],
+      });
     }
 
     // ════════════════════════════════════════════════════

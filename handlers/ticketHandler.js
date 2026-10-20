@@ -283,6 +283,49 @@ async function envoyerPanel(guild, config, options = {}) {
   return channel;
 }
 
+// Sélecteur du /ticket panel : quel panneau envoyer ?
+function menuChoixPanneau() {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('tkt:panel-choix')
+      .setPlaceholder('🎛️ Choisis le panneau à envoyer...')
+      .addOptions(
+        { value: 'menu', label: '📋 Panneau MENU', description: 'Bannière + menu déroulant des types de tickets (recommandé)' },
+        { value: 'bouton', label: '🔘 Panneau BOUTON', description: 'Panneau simple avec un bouton « Ouvrir un ticket »' }
+      )
+  );
+}
+
+// Sélecteur de salon pour le flux /ticket panel (si aucun salon configuré)
+function rowSalonChoix() {
+  return new ActionRowBuilder().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('tkt:panel-chan-choix')
+      .setPlaceholder('📬 Salon du panneau...')
+      .setChannelTypes([ChannelType.GuildText])
+      .setMinValues(1)
+      .setMaxValues(1)
+  );
+}
+
+// Publication + confirmation après choix dans le sélecteur du /ticket panel
+async function publierDepuisChoix(interaction, cfg) {
+  const channel = await envoyerPanel(interaction.guild, cfg);
+  const mode = modePanneau(cfg);
+  let texte;
+  if (!channel) {
+    texte = `❌ Impossible d'envoyer le panneau dans <#${cfg.panelChannelId}>. Vérifie que le bot a la permission d'y écrire.`;
+  } else if (mode === 'menu') {
+    texte = `✅ **Panneau 📋 MENU publié dans ${channel}** — bannière + menu déroulant (${cfg.types.length} type(s) de tickets).`;
+  } else {
+    texte = `✅ **Panneau 🔘 BOUTON publié dans ${channel}** — bouton « 🎫 Ouvrir un ticket ».`;
+  }
+  if (cfg.panelMode === 'menu' && !cfg.types.length) {
+    texte += '\n⚠️ Aucun type de ticket créé : c\'est le panneau BOUTON qui est parti. Crée des types avec `/setup ticket menu`.';
+  }
+  return interaction.update({ content: texte, components: [] });
+}
+
 // Menu de sélection des rôles staff (étape finale de /ticket setup)
 function menuRoles() {
   return new ActionRowBuilder().addComponents(
@@ -1212,6 +1255,33 @@ async function handleSelectMenu(interaction) {
     return afficherWizard(interaction, typeId, 'roles', `✅ ${interaction.values.length} rôle(s) ajouté(s).`);
   }
 
+  // ── /ticket panel : choix du panneau (MENU ou BOUTON) ──
+  if (id === 'tkt:panel-choix') {
+    if (!estAdmin(interaction.member)) {
+      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+    }
+    const mode = interaction.values[0];
+    store.setGuild(guild.id, { panelMode: mode });
+    const cfg = store.getGuild(guild.id);
+    if (!cfg.panelChannelId) {
+      return interaction.update({
+        content: `📬 **Dans quel salon envoyer le panneau ${mode === 'menu' ? '📋 MENU' : '🔘 BOUTON'} ?**`,
+        components: [rowSalonChoix()],
+      });
+    }
+    return publierDepuisChoix(interaction, cfg);
+  }
+
+  // ── /ticket panel : choix du salon (si aucun salon configuré) ──
+  if (id === 'tkt:panel-chan-choix') {
+    if (!estAdmin(interaction.member)) {
+      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+    }
+    const channelId = interaction.values[0];
+    store.setGuild(guild.id, { panelChannelId: channelId, panelMessageId: null });
+    return publierDepuisChoix(interaction, store.getGuild(guild.id));
+  }
+
   // ── Assistant : choix du salon où envoyer le panneau menu ──
   if (id === 'tkt:panel-channel') {
     if (!estAdmin(interaction.member)) {
@@ -1358,6 +1428,7 @@ module.exports = {
   embedTicket,
   boutonsTicket,
   envoyerPanel,
+  menuChoixPanneau,
   menuRoles,
   estStaff,
   estStaffTicket,
