@@ -105,12 +105,12 @@ const PAGE_ACCUEIL = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ONE Assist — Bot Tickets pour Discord</title>
+<title>One Assist — Bot Tickets pour Discord</title>
 </head>
 <body style="margin:0;background:#0d1426;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#f2f4f6;">
 <div style="max-width:640px;margin:0 auto;padding:28px 18px 40px;">
-  <img src="/banniere.png" alt="ONE Assist" style="width:100%;border-radius:10px;border:1px solid #7a2430;display:block;">
-  <h1 style="font-size:26px;margin:22px 0 6px;">ONE Assist</h1>
+  <img src="/banniere.png" alt="One Assist" style="width:100%;border-radius:10px;border:1px solid #7a2430;display:block;">
+  <h1 style="font-size:26px;margin:22px 0 6px;">One Assist</h1>
   <p style="color:#9aa7b8;margin:0 0 20px;font-size:15px;">Le bot de tickets professionnel, entièrement en français, pour votre serveur Discord.</p>
   <ul style="color:#c6cfda;font-size:15px;line-height:1.9;margin:0 0 26px;padding-left:22px;">
     <li>🎫 Tickets privés avec raison obligatoire à l'ouverture et à la fermeture</li>
