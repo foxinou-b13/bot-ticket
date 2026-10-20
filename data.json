@@ -1,29 +1,14 @@
 {
   "guilds": {
     "1510643183728595035": {
-      "categoryId": "1561841231489798335",
+      "categoryId": "1511366977632075817",
       "staffRoleIds": [],
-      "logChannelId": "1561841232760545344",
+      "logChannelId": "1562098657115902014",
       "panelChannelId": "1511368265996308591",
       "panelSent": true,
       "panelMessageId": "1562027684718977095",
       "counter": 3,
-      "open": {
-        "1561882012351205506": {
-          "numero": 3,
-          "userId": "1497375017980137534",
-          "sujet": "Bonjour",
-          "typeId": "tmvfptavd3ha8",
-          "typeNom": "bug",
-          "typeEmoji": "🎄",
-          "staffRoleIds": [
-            "1511382517385527466"
-          ],
-          "claimedBy": null,
-          "createdAt": 1792452090304,
-          "messageId": "1561882013848305695"
-        }
-      },
+      "open": {},
       "panelMode": "menu",
       "panel": {
         "titre": null,
@@ -45,9 +30,9 @@
       ]
     },
     "1558915513634005024": {
-      "categoryId": "1561890514708725770",
+      "categoryId": "1562098660010098771",
       "staffRoleIds": [],
-      "logChannelId": "1561890516193247333",
+      "logChannelId": "1562098662434410576",
       "panelChannelId": "1558958817868259448",
       "panelSent": true,
       "panelMessageId": "1562043600131330050",
