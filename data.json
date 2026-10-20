@@ -36,8 +36,24 @@
       "panelChannelId": "1558958817868259448",
       "panelSent": true,
       "panelMessageId": "1562043600131330050",
-      "counter": 1,
-      "open": {},
+      "counter": 2,
+      "open": {
+        "1562103138914275458": {
+          "numero": 2,
+          "userId": "1497375017980137534",
+          "sujet": "Test",
+          "typeId": "tmvfwvyqrxu64",
+          "typeNom": "Test",
+          "typeEmoji": "🧠",
+          "staffRoleIds": [
+            "1558960935006249071",
+            "1558960872448204960"
+          ],
+          "claimedBy": null,
+          "createdAt": 1792504810974,
+          "messageId": "1562103141233594399"
+        }
+      },
       "panelMode": "menu",
       "panel": {
         "titre": null,
