@@ -134,4 +134,27 @@ test('panneau BOUTON porte le flag v2 (32768)', () => {
   if (p.flags !== 32768) throw new Error('flags = ' + p.flags);
 });
 
+console.log('── Bannière : noms de serveur « exotiques » ──');
+const banniere = require('../utils/banniere');
+test('caractères fancy (gras mathématique) → caractères normaux', () => {
+  const r = banniere.nettoyerNom('\u{1D407}\u{1D400}\u{1D411}\u{1D404}\u{1D40A}\u{1D400}\u{1D413} \u{1D7D0} - \u{1D400}\u{1D405}\u{1D411}\u{1D408}\u{1D402}\u{1D400}');
+  if (r !== 'HAREKAT 2 - AFRICA') throw new Error('obtenu : ' + r);
+});
+test('arabe/emoji non dessinables → retirés, fallback SERVEUR', () => {
+  if (banniere.nettoyerNom('هاركات افريقيا') !== 'SERVEUR') throw new Error('fallback arabe KO');
+  if (banniere.nettoyerNom('🎮 Serveur 🎮') !== 'SERVEUR') throw new Error('fallback emoji KO : ' + banniere.nettoyerNom('🎮 Serveur 🎮'));
+});
+test('nom mixte : le latin est conservé', () => {
+  const r = banniere.nettoyerNom('Serv𝐞ur ★ ١٢');
+  if (r !== 'SERVEUR') throw new Error('obtenu : ' + r);
+});
+test('nom normal et accents inchangés', () => {
+  if (banniere.nettoyerNom('[ ONE | ONE ] CHEAT') !== '[ ONE | ONE ] CHEAT') throw new Error('nom normal modifié');
+  if (banniere.nettoyerNom('Éléphant Àoû') !== 'ÉLÉPHANT ÀOÛ') throw new Error('accents cassés');
+});
+test('la bannière se génère sans carrés pour un nom fancy', () => {
+  const buf = banniere.genererBanniere('𝐇𝐀𝐑𝐄𝐊𝐀𝐓 𝟐 - 𝐀𝐅𝐑𝐈𝐂𝐀');
+  if (!buf || buf.length < 5000) throw new Error('png trop petit');
+});
+
 console.log(`\n${ok} tests OK${process.exitCode ? ' — DES TESTS ONT ÉCHOUÉ' : ' — tout est propre ✅'}`);

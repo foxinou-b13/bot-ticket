@@ -29,13 +29,21 @@ const CARRE_BORD = '#51779b';
 const BLANC = '#f2f4f6';
 
 function nettoyerNom(nom) {
-  return String(nom || 'SERVEUR')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
+  // 1) NFKC : les caractères « fancy » (gras mathématique 𝐀𝐁𝐂, pleine largeur,
+  //    exposants...) redeviennent des caractères NORMAUX que la police possède.
+  // 2) On retire ce que les polices embarquées ne savent PAS dessiner
+  //    (arabe, chinois, emoji, symboles rares) → plus jamais de carrés □.
+  // 3) Le titre du panneau, lui, garde le nom d'origine (Discord l'affiche très bien).
+  const nfkc = String(nom || 'SERVEUR')
+    .normalize('NFKC')
+    .replace(/[\u0300-\u036f]/g, '');
+  const propre = nfkc
+    .replace(/[^\u0020-\u007E\u00A0-\u024F\u0370-\u03FF\u0400-\u04FF\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026\u20AC]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
+    .toUpperCase()
     .slice(0, 34);
+  return propre || 'SERVEUR';
 }
 
 function genererBanniere(nomServeur) {
@@ -136,4 +144,4 @@ function genererBanniere(nomServeur) {
   return canvas.toBuffer('image/png');
 }
 
-module.exports = { genererBanniere };
+module.exports = { genererBanniere, nettoyerNom };
