@@ -75,7 +75,16 @@
         "selecteur": null,
         "image": null
       },
-      "types": []
+      "types": [
+        {
+          "id": "tmvgrade3zfrl",
+          "nom": "Test Tiktok",
+          "emoji": null,
+          "description": null,
+          "categoryId": null,
+          "staffRoleIds": []
+        }
+      ]
     }
   }
 }
