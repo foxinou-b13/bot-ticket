@@ -31,6 +31,43 @@ store.setGuild('g-test', {
   types: [{ id: 't1', nom: 'Problème', emoji: '🔴', description: null, categoryId: null, staffRoleIds: [] }],
 });
 
+
+// ─── Lecture des réponses en composants v2 (cartes arrondies) ───
+function texteDe(p) {
+  if (!p) return '';
+  if (typeof p === 'string') return p;
+  const morceaux = [];
+  const voir = c => {
+    if (!c) return;
+    if (Array.isArray(c)) return c.forEach(voir);
+    const j = typeof c.toJSON === 'function' ? c.toJSON() : c;
+    if (j.content) morceaux.push(String(j.content));
+    if (j.placeholder) morceaux.push(String(j.placeholder));
+    if (j.label) morceaux.push(String(j.label));
+    if (j.title) morceaux.push(String(j.title));
+    if (j.description) morceaux.push(String(j.description));
+    if (j.fields) j.fields.forEach(f => morceaux.push(`${f.name} ${f.value}`));
+    if (j.options) j.options.forEach(o => morceaux.push(`${o.label || ''} ${o.value || ''}`));
+    if (j.components) voir(j.components);
+  };
+  voir(p.components);
+  voir(p.embeds);
+  if (p.content) morceaux.push(String(p.content));
+  return morceaux.join('\n');
+}
+function idsDe(p) {
+  const ids = [];
+  const voir = c => {
+    if (!c) return;
+    if (Array.isArray(c)) return c.forEach(voir);
+    const j = typeof c.toJSON === 'function' ? c.toJSON() : c;
+    if (j.custom_id || j.customId) ids.push(j.custom_id || j.customId);
+    if (j.components) voir(j.components);
+  };
+  voir(p && p.components);
+  return ids;
+}
+
 let ok = 0;
 async function test(nom, fn) {
   try {
@@ -70,7 +107,7 @@ async function test(nom, fn) {
       reply: r => { reponse = r; },
     };
     await h.handleModal(inter);
-    if (!reponse || !String(reponse.content).includes('✅')) throw new Error('réponse: ' + JSON.stringify(reponse));
+    if (!reponse || !texteDe(reponse).includes('ticket est ouvert')) throw new Error('réponse: ' + texteDe(reponse));
   });
 
   await test('deuxième ticket du même membre refusé', async () => {
@@ -84,7 +121,7 @@ async function test(nom, fn) {
       reply: r => { reponse = r; },
     };
     await h.handleModal(inter);
-    if (!String(reponse.content).includes('❌')) throw new Error('limite non appliquée');
+    if (!texteDe(reponse).includes('❌')) throw new Error('limite non appliquée : ' + texteDe(reponse));
   });
 
   console.log('── Bouton fermer (raison demandée) ──');
@@ -134,7 +171,7 @@ async function test(nom, fn) {
     if (payload.flags !== 32768) throw new Error('flags absent ou faux : ' + payload.flags);
     const types = payload.components.map(c => (c.toJSON ? c.toJSON() : c).type);
     if (types.join(',') !== '17') throw new Error('tout doit être dans la carte (17) : ' + types.join(','));
-    if (!maj || !String(maj.content).includes('Panneau MENU publié')) throw new Error('confirmation absente : ' + JSON.stringify(maj && maj.content));
+    if (!maj || !texteDe(maj).includes('Panneau MENU publié')) throw new Error('confirmation absente : ' + texteDe(maj));
   });
 
   await test('édition d’un panneau existant : flag v2 + embeds retirés', async () => {
@@ -179,11 +216,10 @@ async function test(nom, fn) {
       reply: r => { rep = r; },
     };
     await cmd.execute(inter);
-    const sel = rep && rep.components && rep.components[0].components[0];
-    if (!sel) throw new Error('sélecteur absent : ' + JSON.stringify(rep && rep.content));
-    const selJson = sel.toJSON();
-    if (selJson.custom_id !== 'tkt:panel-choix') throw new Error('mauvais custom_id : ' + selJson.custom_id);
-    if (!selJson.options || selJson.options.length !== 2) throw new Error('options : ' + JSON.stringify(selJson.options));
+    const ids = idsDe(rep);
+    if (!ids.includes('tkt:panel-choix')) throw new Error('mauvais custom_id : ' + ids.join(', '));
+    const options = texteDe(rep);
+    if (!options.includes('MENU') || !options.includes('BOUTON')) throw new Error('options du sélecteur absentes');
   });
 
   await test('clic « Panneau MENU » → panneau v2 envoyé + confirmation', async () => {
@@ -202,7 +238,7 @@ async function test(nom, fn) {
     const carte = payload.components[0].toJSON();
     const last = carte.components[carte.components.length - 1];
     if (last.type !== 1 || last.components[0].type !== 3) throw new Error('sélecteur pas en bas de la carte : ' + JSON.stringify(last).slice(0, 120));
-    if (!String(maj.content).includes('MENU publié')) throw new Error('confirmation : ' + maj.content);
+    if (!texteDe(maj).includes('MENU publié')) throw new Error('confirmation : ' + texteDe(maj));
   });
 
   await test('clic « Panneau BOUTON » → panneau bouton envoyé + confirmation', async () => {
@@ -221,7 +257,7 @@ async function test(nom, fn) {
     const carte = payload.components[0].toJSON();
     const last = carte.components[carte.components.length - 1];
     if (last.type !== 1 || last.components[0].type !== 2) throw new Error('bouton pas en bas de la carte : ' + JSON.stringify(last).slice(0, 120));
-    if (!String(maj.content).includes('BOUTON publié')) throw new Error('confirmation : ' + maj.content);
+    if (!texteDe(maj).includes('BOUTON publié')) throw new Error('confirmation : ' + texteDe(maj));
   });
 
   await test('sans salon configuré → sélecteur de salon puis envoi', async () => {
@@ -235,8 +271,7 @@ async function test(nom, fn) {
       member: { permissions: { has: () => true }, roles: { cache: new Map() } },
       update: r => { maj1 = r; },
     });
-    const sel = maj1.components[0].components[0].toJSON();
-    if (sel.custom_id !== 'tkt:panel-chan-choix') throw new Error('sélecteur de salon absent : ' + sel.custom_id);
+    if (!idsDe(maj1).includes('tkt:panel-chan-choix')) throw new Error('sélecteur de salon absent : ' + idsDe(maj1).join(', '));
     let maj2 = null;
     await h.handleSelectMenu({
       customId: 'tkt:panel-chan-choix', values: ['pan-sel3'],
@@ -245,7 +280,7 @@ async function test(nom, fn) {
       update: r => { maj2 = r; },
     });
     if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé après choix du salon');
-    if (!String(maj2.content).includes('publié')) throw new Error('confirmation : ' + maj2.content);
+    if (!texteDe(maj2).includes('publié')) throw new Error('confirmation : ' + texteDe(maj2));
   });
 
   store.setGuild('g-test', { panelChannelId: 'pan-1', panelMessageId: null, panelMode: 'menu' });

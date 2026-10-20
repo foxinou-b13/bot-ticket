@@ -30,6 +30,8 @@ const {
 const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
 const { genererBanniere } = require('../utils/banniere');
+const { repondre, maj, carte } = require('../utils/panneaux');
+const { autorise, nettoyerTexte, permissionsManquantes } = require('../utils/securite');
 
 // ─── Anti double-clic (comme les bots pro) : un seul ticket créé à la fois par membre ───
 const creationEnCours = new Set();
@@ -332,7 +334,7 @@ async function publierDepuisChoix(interaction, cfg) {
   if (cfg.panelMode === 'menu' && !cfg.types.length) {
     texte += '\n⚠️ Aucun type de ticket créé : c\'est le panneau BOUTON qui est parti. Crée des types avec `/setup ticket menu`.';
   }
-  return interaction.update({ content: texte, components: [] });
+  return maj(interaction, { texte: texte });
 }
 
 // Menu de sélection des rôles staff (étape finale de /ticket setup)
@@ -346,60 +348,209 @@ function menuRoles() {
   );
 }
 
-// ─── Infrastructure automatique : catégorie + salon du panneau + salon de logs ───
+// ─── Infrastructure : catégorie + salon du panneau + salon de logs ───
+// RÈGLES (corrigées après incident) :
+//   • on ne crée JAMAIS une deuxième catégorie si une catégorie de tickets existe
+//   • un salon configuré qui a été supprimé (ID mort) est détecté et remplacé
+//   • le salon de logs reste TOUJOURS dans la catégorie des tickets, invisible
+//     pour @everyone, et n'est créé qu'une seule fois
+//   • aucune création en double pendant un même appel (verrou)
+const infraEnCours = new Map();
+
+async function assoirSalon(guild, id) {
+  if (!id || typeof guild.channels.fetch !== 'function') return null;
+  return guild.channels.fetch(id).catch(() => null);
+}
+
+function chercherCategorieTickets(guild) {
+  const cache = guild?.channels?.cache;
+  if (!cache || typeof cache.find !== 'function') return null;
+  return (
+    cache.find(c => c.type === ChannelType.GuildCategory && /tickets?/i.test(c.name)) || null
+  );
+}
+
+function chercherSalonLogs(guild, categorieId) {
+  const cache = guild?.channels?.cache;
+  if (!cache || typeof cache.find !== 'function') return null;
+  return (
+    cache.find(
+      c => c.type === ChannelType.GuildText && c.parentId === categorieId && /logs?/i.test(c.name)
+    ) || null
+  );
+}
+
+function permsLogs(guild, staffRoleIds) {
+  const permissions = [
+    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+  ];
+  const me = guild.members && guild.members.me;
+  if (me) {
+    permissions.push({
+      id: me.id,
+      allow: [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        PermissionFlagsBits.ReadMessageHistory,
+        PermissionFlagsBits.AttachFiles,
+        PermissionFlagsBits.EmbedLinks,
+      ],
+    });
+  }
+  for (const roleId of staffRoleIds || []) {
+    permissions.push({
+      id: roleId,
+      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+    });
+  }
+  return permissions;
+}
+
+/**
+ * Vérifie et répare l'infrastructure. Idempotent : on peut l'appeler à chaque
+ * configuration sans jamais créer de catégorie ou de salon en double.
+ * @returns {{config:object, recrees:string[]}}
+ */
 async function preparerInfra(guild) {
-  const config = store.getGuild(guild.id);
-  let categoryId = config.categoryId;
-  if (!categoryId) {
-    const categorie = await guild.channels.create({ name: '🎫 Tickets', type: ChannelType.GuildCategory });
-    categoryId = categorie.id;
-  }
-  let panelChannelId = config.panelChannelId;
-  if (!panelChannelId) {
-    const salon = await guild.channels.create({
-      name: 'ouvrir-un-ticket',
-      type: ChannelType.GuildText,
-      parent: categoryId,
-      permissionOverwrites: [{ id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel] }],
-    });
-    panelChannelId = salon.id;
-  }
-  let logChannelId = config.logChannelId;
-  if (!logChannelId) {
-    const permissions = [
-      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-      {
-        id: guild.members.me.id,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.SendMessages,
-          PermissionFlagsBits.ReadMessageHistory,
-          PermissionFlagsBits.AttachFiles,
-          PermissionFlagsBits.EmbedLinks,
-        ],
-      },
-    ];
-    for (const roleId of config.staffRoleIds || []) {
-      permissions.push({
-        id: roleId,
-        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+  if (infraEnCours.has(guild.id)) return infraEnCours.get(guild.id);
+  const travail = (async () => {
+    const config = store.getGuild(guild.id);
+    const recrees = [];
+
+    // ── 1. La catégorie des tickets ──
+    let categorie = await assoirSalon(guild, config.categoryId);
+    if (categorie && categorie.type !== ChannelType.GuildCategory) categorie = null;
+    if (!categorie) categorie = chercherCategorieTickets(guild);
+    if (!categorie) {
+      categorie = await guild.channels.create({
+        name: '🎫 Tickets',
+        type: ChannelType.GuildCategory,
+        reason: 'Infrastructure des tickets (créée une seule fois par le bot)',
       });
+      recrees.push('catégorie 🎫 Tickets');
     }
-    const logs = await guild.channels.create({
-      name: 'tickets-logs',
-      type: ChannelType.GuildText,
-      parent: categoryId,
-      permissionOverwrites: permissions,
+
+    // ── 2. Le salon de logs (dans la catégorie, invisible pour @everyone) ──
+    let logs = await assoirSalon(guild, config.logChannelId);
+    if (logs && logs.type !== ChannelType.GuildText) logs = null;
+    if (!logs) logs = chercherSalonLogs(guild, categorie.id);
+    if (!logs) {
+      logs = await guild.channels.create({
+        name: '🔒・logs-tickets',
+        type: ChannelType.GuildText,
+        parent: categorie.id,
+        permissionOverwrites: permsLogs(guild, config.staffRoleIds),
+        reason: 'Salon de transcriptions des tickets (créé une seule fois par le bot)',
+      });
+      recrees.push('salon 🔒・logs-tickets');
+    } else if (logs.parentId !== categorie.id && typeof logs.setParent === 'function') {
+      await logs.setParent(categorie.id, { lockPermissions: false }).catch(() => {});
+    }
+
+    // ── 3. Le salon du panneau ──
+    let panneau = await assoirSalon(guild, config.panelChannelId);
+    if (panneau && panneau.type !== ChannelType.GuildText) panneau = null;
+    if (!panneau) {
+      panneau = await guild.channels.create({
+        name: 'ouvrir-un-ticket',
+        type: ChannelType.GuildText,
+        parent: categorie.id,
+        permissionOverwrites: [{ id: guild.roles.everyone.id, allow: [PermissionFlagsBits.ViewChannel] }],
+        reason: 'Salon du panneau de tickets (créé une seule fois par le bot)',
+      });
+      recrees.push('salon ouvrir-un-ticket');
+    }
+
+    const config2 = store.setGuild(guild.id, {
+      categoryId: categorie.id,
+      logChannelId: logs.id,
+      panelChannelId: panneau.id,
     });
-    logChannelId = logs.id;
+    // Copie utilisable comme une configuration (compatible avec l'ancien code)
+    return { ...config2, recrees, categorie, logs, panneau };
+  })();
+  infraEnCours.set(guild.id, travail);
+  try {
+    return await travail;
+  } finally {
+    infraEnCours.delete(guild.id);
   }
-  return store.setGuild(guild.id, { categoryId, panelChannelId, logChannelId });
+}
+
+/**
+ * Supprime les tickets fantômes : un ticket enregistré dont le salon a été
+ * supprimé (ou que son auteur ne peut plus voir) bloquait les membres avec
+ * « Tu as déjà un ticket ouvert : #salon-inexistant ».
+ * @returns {Promise<{purges:number, verifies:number}>}
+ */
+async function purgerTicketsFantomes(guild, options = {}) {
+  const config = store.getGuild(guild.id);
+  let purges = 0;
+  let verifies = 0;
+  for (const [channelId, infos] of Object.entries({ ...config.open })) {
+    verifies += 1;
+    const salon = await assoirSalon(guild, channelId);
+    if (!salon) {
+      store.removeTicket(guild.id, channelId);
+      purges += 1;
+      continue;
+    }
+    // Le salon existe : l'auteur doit pouvoir le voir, sinon on répare.
+    if (options.verifierAcces && infos.userId) {
+      const membre = await guild.members?.fetch?.(infos.userId).catch(() => null);
+      const perms = membre && salon.permissionsFor ? salon.permissionsFor(membre) : null;
+      if (perms && !perms.has(PermissionFlagsBits.ViewChannel)) {
+        const ok = await salon.permissionOverwrites
+          ?.edit(infos.userId, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true,
+            AttachFiles: true,
+          })
+          .then(() => true)
+          .catch(() => false);
+        if (!ok) {
+          store.removeTicket(guild.id, channelId);
+          purges += 1;
+        }
+      }
+    }
+  }
+  return { purges, verifies };
+}
+
+/**
+ * Cherche un ticket réellement utilisable pour ce membre.
+ * Le ticket n'est renvoyé que si son salon existe ET reste visible par le membre.
+ * Un enregistrement mort est supprimé au passage (plus de blocage fantôme).
+ */
+async function ticketOuvertReel(guild, userId) {
+  const existant = store.findTicketByUser(guild.id, userId);
+  if (!existant) return null;
+  const salon = await assoirSalon(guild, existant.channelId);
+  if (!salon) {
+    store.removeTicket(guild.id, existant.channelId);
+    return null;
+  }
+  const membre = await guild.members?.fetch?.(userId).catch(() => null);
+  const perms = membre && salon.permissionsFor ? salon.permissionsFor(membre) : null;
+  if (perms && !perms.has(PermissionFlagsBits.ViewChannel)) {
+    const repare = await salon.permissionOverwrites
+      ?.edit(userId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, AttachFiles: true })
+      .then(() => true)
+      .catch(() => false);
+    if (!repare) {
+      store.removeTicket(guild.id, existant.channelId);
+      return null;
+    }
+  }
+  return { ...existant, salon };
 }
 
 // ─── /setup ticket bouton : le système BOUTON, configuré en une commande ───
 async function configBouton(interaction) {
   if (!estAdmin(interaction.member)) {
-    return interaction.reply({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', flags: MessageFlags.Ephemeral });
+    return repondre(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
   }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const guild = interaction.guild;
@@ -410,39 +561,40 @@ async function configBouton(interaction) {
     config = store.getGuild(guild.id);
   } catch (erreur) {
     console.error('Erreur infrastructure :', erreur.message);
-    return interaction.editReply({ content: '❌ Le bot a besoin de la permission **« Gérer les salons »** pour créer la catégorie et les salons. Donne-la lui, puis retape `/setup ticket bouton`.' });
+    return repondre(interaction, { texte: '❌ Le bot a besoin de la permission **« Gérer les salons »** pour créer la catégorie et les salons. Donne-la lui, puis retape `/setup ticket bouton`.' });
   }
 
   // Il manque les rôles staff → on les demande (une seule étape)
   if (!config.staffRoleIds.length) {
-    return interaction.editReply({
-      content: [
-        '🔘 **Mode BOUTON choisi !** Le panneau aura un bouton « 🎫 Ouvrir un ticket ».',
-        '',
-        `📁 Catégorie : <#${config.categoryId}>`,
-        `🎫 Salon du panneau : <#${config.panelChannelId}>`,
-        `📜 Salon de logs : <#${config.logChannelId}>`,
-        '',
-        '👥 **Dernière étape : choisis le(s) rôle(s) du staff** dans le menu ci-dessous.',
-        'Tu peux sélectionner **plusieurs rôles** en même temps.',
-      ].join('\n'),
-      components: [menuRoles()],
+    return repondre(interaction, {
+      couleur: 'info',
+      titre: '🔘 Mode BOUTON choisi',
+      texte: 'Le panneau aura un bouton « 🎫 Ouvrir un ticket ».',
+      lignes: [
+        [
+          `📁 Catégorie : <#${config.categoryId}>`,
+          `🎫 Salon du panneau : <#${config.panelChannelId}>`,
+          `📜 Salon de logs : <#${config.logChannelId}>`,
+        ].join('\n'),
+        '👥 **Dernière étape : choisis le(s) rôle(s) du staff** dans le menu ci-dessous.\nTu peux sélectionner **plusieurs rôles** en même temps.',
+      ],
+      composants: [menuRoles()],
     });
   }
 
   const channel = await envoyerPanel(guild, config);
-  return interaction.editReply({
-    content: [
-      '🔘 **Système BOUTON configuré !**',
-      '',
-      `👥 Rôles staff (${config.staffRoleIds.length}) : ${config.staffRoleIds.map(id => `<@&${id}>`).join(', ')}`,
-      `📁 Catégorie : <#${config.categoryId}>`,
-      `📜 Salon de logs : <#${config.logChannelId}>`,
-      channel ? `🎫 Panneau bouton : publié dans ${channel}` : '❌ Panneau impossible à envoyer : vérifie que le bot peut écrire dans le salon du panneau.',
-      '',
+  return repondre(interaction, {
+    couleur: channel ? 'succes' : 'attention',
+    titre: channel ? '✅ Système BOUTON configuré' : '⚠️ Système configuré, panneau non publié',
+    lignes: [
+      [
+        `👥 Rôles staff (${config.staffRoleIds.length}) : ${config.staffRoleIds.map(id => `<@&${id}>`).join(', ')}`,
+        `📁 Catégorie : <#${config.categoryId}>`,
+        `📜 Salon de logs : <#${config.logChannelId}>`,
+        channel ? `🎫 Panneau bouton : publié dans ${channel}` : '❌ Panneau impossible à envoyer : vérifie que le bot peut écrire dans le salon du panneau.',
+      ].join('\n'),
       '💡 Pour passer au **menu des types** plus tard : `/setup ticket menu`.',
-    ].join('\n'),
-    components: [],
+    ],
   });
 }
 
@@ -471,6 +623,26 @@ function embedAssistant(config) {
         '✅ **Terminer** : choisis le salon, et le panneau (menu des types) y est publié.',
       ].join('\n')
     );
+}
+
+// Corps de texte de l'assistant (repris de l'embed historique, pour la carte)
+function texteAssistant(config) {
+  const lignes = config.types.length
+    ? config.types.map(t => {
+        const cat = t.categoryId ? `<#${t.categoryId}>` : (config.categoryId ? `<#${config.categoryId}> (par défaut)` : '❌ aucune');
+        const nbRoles = (t.staffRoleIds || []).length;
+        return `${t.emoji ? t.emoji + ' ' : '🔹'}**${coupe(t.nom, 60)}** — 📁 ${cat} — 🛡️ ${nbRoles} rôle(s) staff`;
+      })
+    : ['Aucun type — commence avec « ➕ Nouveau type ».'];
+  return [
+    'Choisis un type à modifier, crée-en un nouveau, ou termine.',
+    '',
+    `🔹 **Types actuels (${config.types.length})**`,
+    ...lignes,
+    '',
+    '🎨 **Textes du panneau** : titre, description et texte du sélecteur.',
+    '✅ **Terminer** : choisis le salon, et le panneau (menu des types) y est publié.',
+  ].join('\n');
 }
 
 function rowAssistant(config) {
@@ -516,13 +688,13 @@ function rowAssistant(config) {
 
 async function menuPrincipal(interaction) {
   if (!estAdmin(interaction.member)) {
-    return interaction.reply({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', flags: MessageFlags.Ephemeral });
+    return repondre(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
   }
   const config = store.getGuild(interaction.guild.id);
-  return interaction.reply({
-    embeds: [embedAssistant(config)],
-    components: [rowAssistant(config)],
-    flags: MessageFlags.Ephemeral,
+  return repondre(interaction, {
+    titre: '📋 Assistant des types de tickets',
+    texte: texteAssistant(config),
+    composants: [rowAssistant(config)],
   });
 }
 
@@ -638,24 +810,33 @@ async function afficherWizard(interaction, typeId, step, note) {
   const config = store.getGuild(interaction.guild.id);
   const type = store.getType(interaction.guild.id, typeId);
   if (!type) return afficherMenu(interaction, '❌ Ce type n\'existe plus.');
-  const contenu = {
-    content: note || null,
-    embeds: [embedWizard(type, config, step)],
-    components: [rowWizard(typeId, step)],
+  const info = WIZARD_INFOS[step] || WIZARD_INFOS.nom;
+  const numero = WIZARD_STEPS.indexOf(step) + 1;
+  const champs = valeurEtape(type, config, step)
+    .map(c => `**${c.name}**\n${c.value}`)
+    .join('\n\n');
+  const options = {
+    couleur: note && /^❌/.test(note) ? 'erreur' : 'info',
+    titre: `${type.emoji ? type.emoji + ' ' : ''}${coupe(type.nom, 120)}`,
+    texte: `**${info.titre}**\n\n💡 ${info.aide}`,
+    lignes: [champs, note || null, `-# Étape ${numero}/${WIZARD_STEPS.length} — utilise les boutons ci-dessous`].filter(Boolean),
+    composants: [rowWizard(typeId, step)],
   };
-  if (interaction.replied || interaction.deferred) return interaction.editReply(contenu);
-  return interaction.update(contenu);
+  if (interaction.replied || interaction.deferred) return repondre(interaction, { ...options, ephemere: false });
+  return maj(interaction, options);
 }
 
 async function afficherMenu(interaction, note) {
   const config = store.getGuild(interaction.guild.id);
-  const contenu = {
-    content: note || null,
-    embeds: [embedAssistant(config)],
-    components: [rowAssistant(config)],
+  const options = {
+    couleur: note && /^❌/.test(note) ? 'erreur' : 'info',
+    titre: '📋 Assistant des types de tickets',
+    texte: texteAssistant(config),
+    lignes: note ? [note] : [],
+    composants: [rowAssistant(config)],
   };
-  if (interaction.replied || interaction.deferred) return interaction.editReply(contenu);
-  return interaction.update(contenu);
+  if (interaction.replied || interaction.deferred) return repondre(interaction, { ...options, ephemere: false });
+  return maj(interaction, options);
 }
 
 // ─── Formulaires (modals) de l'assistant ───
@@ -794,8 +975,9 @@ async function rafraichirMessageTicket(interaction, t) {
 }
 
 // ─── Ouverture d'un ticket (bouton OU type du menu) ───
-async function creerTicket(interaction, sujet, typeId) {
+async function creerTicket(interaction, sujetBrut, typeId) {
   const guild = interaction.guild;
+  const sujet = nettoyerTexte(sujetBrut, 100);
   const config = store.getGuild(guild.id);
   const type = typeId ? store.getType(guild.id, typeId) : null;
 
@@ -810,9 +992,19 @@ async function creerTicket(interaction, sujet, typeId) {
     };
   }
 
-  const existant = store.findTicketByUser(guild.id, interaction.user.id);
+  // ── Sécurité anti-spam : 10 s minimum entre deux demandes ──
+  const delai = autorise(`ticket-creer:${guild.id}:${interaction.user.id}`, 10000);
+  if (!delai.ok) {
+    return { erreur: `Tu viens déjà de demander un ticket. Patiente **${delai.reste} seconde(s)** avant de réessayer.` };
+  }
+
+  // ── Ticket déjà ouvert ? On vérifie que son salon existe VRAIMENT ──
+  // (avant, un ticket fantôme — salon supprimé — bloquait le membre pour toujours)
+  const existant = await ticketOuvertReel(guild, interaction.user.id);
   if (existant) {
-    return { erreur: `Tu as déjà un ticket ouvert : <#${existant.channelId}>` };
+    return {
+      erreur: `Tu as déjà un ticket ouvert : <#${existant.channelId}>.\nRéponds dedans ou demande au staff de le fermer avant d'en ouvrir un nouveau.`,
+    };
   }
   if (creationEnCours.has(interaction.user.id)) {
     return { erreur: 'Ton ticket est déjà en cours de création, patiente une seconde...' };
@@ -894,6 +1086,7 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
   const mentions = staffRoleIds.map(id => `<@&${id}>`).join(' ');
   const paquet = {
     content: `<@${interaction.user.id}> ${mentions}`,
+    allowedMentions: { users: [interaction.user.id], roles: staffRoleIds },
     embeds: [embedTicket(infos)],
     components: [boutonsTicket(infos)],
   };
@@ -921,8 +1114,9 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
 }
 
 // ─── Fermeture d'un ticket ───
-async function fermerTicket(interaction, t, raison) {
+async function fermerTicket(interaction, t, raisonBrute) {
   const guild = interaction.guild;
+  const raison = nettoyerTexte(raisonBrute, 200);
   const config = store.getGuild(guild.id);
 
   // Transcription des 100 derniers messages → salon de logs
@@ -992,12 +1186,12 @@ async function handleButton(interaction) {
   // Prise en charge par le staff
   if (interaction.customId === 'ticket:reclamer') {
     const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', flags: MessageFlags.Ephemeral });
+    if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
     if (!estStaffTicket(interaction.member, config, t)) {
-      return interaction.reply({ content: '❌ Seul le staff peut prendre en charge un ticket.', flags: MessageFlags.Ephemeral });
+      return repondre(interaction, { texte: '❌ Seul le staff peut prendre en charge un ticket.' });
     }
     if (t.claimedBy) {
-      return interaction.reply({ content: `Ce ticket est déjà pris en charge par <@${t.claimedBy}>.`, flags: MessageFlags.Ephemeral });
+      return repondre(interaction, { texte: `Ce ticket est déjà pris en charge par <@${t.claimedBy}>.` });
     }
     const maj = store.updateTicket(guild.id, interaction.channel.id, { claimedBy: interaction.user.id });
     await interaction.update({ embeds: [embedTicket(maj)], components: [boutonsTicket(maj)] });
@@ -1007,7 +1201,11 @@ async function handleButton(interaction) {
   // Demande de fermeture → on demande la raison (obligatoire)
   if (interaction.customId === 'ticket:fermer') {
     const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', flags: MessageFlags.Ephemeral });
+    if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
+    // Sécurité : seul l'auteur du ticket ou un membre du staff peut le fermer
+    if (interaction.user.id !== t.userId && !estStaffTicket(interaction.member, config, t)) {
+      return repondre(interaction, { couleur: 'erreur', texte: 'Seul l\'auteur du ticket ou un membre du staff peut le fermer.' });
+    }
     const modal = new ModalBuilder().setCustomId('ticket:raison-fermeture').setTitle('🔒 Fermer le ticket');
     const champ = new TextInputBuilder()
       .setCustomId('raison')
@@ -1022,19 +1220,22 @@ async function handleButton(interaction) {
 
   if (interaction.customId === 'ticket:confirmer-fermeture') {
     const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return interaction.update({ content: '❌ Ticket déjà fermé.', components: [] });
-    await interaction.update({ content: '🔒 Fermeture en cours...', components: [] });
+    if (!t) return maj(interaction, { texte: '❌ Ticket déjà fermé.' });
+    if (interaction.user.id !== t.userId && !estStaffTicket(interaction.member, config, t)) {
+      return maj(interaction, { couleur: 'erreur', texte: 'Seul l\'auteur du ticket ou un membre du staff peut confirmer la fermeture.' });
+    }
+    await maj(interaction, { texte: '🔒 Fermeture en cours...' });
     return fermerTicket(interaction, t, 'Fermeture via le bouton');
   }
 
   if (interaction.customId === 'ticket:annuler') {
-    return interaction.update({ content: '✅ Annulé, le ticket reste ouvert.', components: [] });
+    return maj(interaction, { texte: '✅ Annulé, le ticket reste ouvert.' });
   }
 
   // ─── Assistant guidé d'un type : boutons des étapes ───
   if (id.startsWith('tkt:wiz-')) {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const parties = id.split(':'); // ['tkt', 'wiz-xxx', typeId, étape?]
     const action = parties[1];
@@ -1051,10 +1252,11 @@ async function handleButton(interaction) {
 
     // Choisir la catégorie → menu des catégories
     if (action === 'wiz-cat') {
-      return interaction.update({
-        content: `📁 **Catégorie du type « ${type.nom} »** — choisis la catégorie où ses tickets seront créés :`,
-        embeds: [],
-        components: [
+      return maj(interaction, {
+        couleur: 'info',
+        titre: `📁 Catégorie du type « ${type.nom} »`,
+        texte: 'Choisis la catégorie où ses tickets seront créés.',
+        composants: [
           new ActionRowBuilder().addComponents(
             new ChannelSelectMenuBuilder()
               .setCustomId(`tkt:cat:${typeId}`)
@@ -1076,12 +1278,11 @@ async function handleButton(interaction) {
         return afficherWizard(interaction, typeId, 'roles', '❌ Ce type n\'a aucun rôle staff à retirer.');
       }
       const ajout = action === 'wiz-addroles';
-      return interaction.update({
-        content: ajout
-          ? `➕ **Rôles staff du type « ${type.nom} »** — choisis un ou plusieurs rôles à ajouter :`
-          : `➖ **Rôles staff du type « ${type.nom} »** — choisis un ou plusieurs rôles à retirer :`,
-        embeds: [],
-        components: [
+      return maj(interaction, {
+        couleur: 'info',
+        titre: ajout ? `➕ Rôles staff du type « ${type.nom} »` : `➖ Rôles staff du type « ${type.nom} »`,
+        texte: ajout ? 'Choisis un ou plusieurs rôles à ajouter.' : 'Choisis un ou plusieurs rôles à retirer.',
+        composants: [
           new ActionRowBuilder().addComponents(
             new RoleSelectMenuBuilder()
               .setCustomId(`${ajout ? 'tkt:addroles' : 'tkt:delroles'}:${typeId}`)
@@ -1125,7 +1326,7 @@ async function handleButton(interaction) {
   }
 
   // ─── Sécurité : bouton inconnu ou expiré → on répond quand même ───
-  return interaction.reply({ content: '❌ Ce bouton est expiré ou inconnu.', flags: MessageFlags.Ephemeral }).catch(() => {});
+  return repondre(interaction, { texte: '❌ Ce bouton est expiré ou inconnu.' });
 }
 
 // ════════════════════════════════════════════════════════
@@ -1144,28 +1345,26 @@ async function handleSelectMenu(interaction) {
       cfg = await preparerInfra(guild);
     } catch (erreur) {
       console.error('Erreur infrastructure :', erreur.message);
-      return interaction.update({ content: '❌ Le bot a besoin de la permission **« Gérer les salons »** pour créer les salons. Donne-la lui, puis retape la commande.', components: [] });
+      return maj(interaction, { texte: '❌ Le bot a besoin de la permission **« Gérer les salons »** pour créer les salons. Donne-la lui, puis retape la commande.' });
     }
     const channel = await envoyerPanel(guild, cfg);
     const mode = modePanneau(cfg);
     const liste = roles.map(r => `<@&${r}>`).join(', ');
 
-    return interaction.update({
-      content: [
-        mode === 'bouton'
-          ? '🔘 **Système BOUTON configuré !**'
-          : '📋 **Système MENU configuré !**',
-        '',
-        `👥 Rôles staff (${roles.length}) : ${liste}`,
-        `📁 Catégorie : <#${cfg.categoryId}>`,
-        `📜 Salon de logs : ${cfg.logChannelId ? `<#${cfg.logChannelId}>` : '—'}`,
-        `🎫 Panneau : ${channel ? `publié dans ${channel}` : '❌ salon introuvable, fais `/ticket panel`'}`,
-        '',
+    return maj(interaction, {
+      couleur: channel ? 'succes' : 'attention',
+      titre: mode === 'bouton' ? '🔘 Système BOUTON configuré' : '📋 Système MENU configuré',
+      lignes: [
+        [
+          `👥 Rôles staff (${roles.length}) : ${liste}`,
+          `📁 Catégorie : <#${cfg.categoryId}>`,
+          `📜 Salon de logs : ${cfg.logChannelId ? `<#${cfg.logChannelId}>` : '—'}`,
+          `🎫 Panneau : ${channel ? `publié dans ${channel}` : '❌ salon introuvable, fais `/ticket panel`'}`,
+        ].join('\n'),
         mode === 'bouton'
           ? '💡 Pour passer au **menu des types** plus tard : `/setup ticket menu`.'
           : '💡 Pour revenir au **panneau bouton** plus tard : `/setup ticket bouton`.',
-      ].join('\n'),
-      components: [],
+      ],
     });
   }
 
@@ -1174,7 +1373,7 @@ async function handleSelectMenu(interaction) {
     const typeId = interaction.values[0];
     const type = store.getType(guild.id, typeId);
     if (!type) {
-      return interaction.reply({ content: '❌ Ce type de ticket n\'existe plus. Le panneau va être mis à jour.', flags: MessageFlags.Ephemeral });
+      return repondre(interaction, { texte: '❌ Ce type de ticket n\'existe plus. Le panneau va être mis à jour.' });
     }
     const modal = new ModalBuilder()
       .setCustomId(`tkt:sujet:${typeId}`)
@@ -1193,7 +1392,7 @@ async function handleSelectMenu(interaction) {
   // ── Assistant : menu principal ──
   if (id === 'tkt:main') {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const valeur = interaction.values[0];
     const config = store.getGuild(guild.id);
@@ -1206,27 +1405,20 @@ async function handleSelectMenu(interaction) {
         panel: { titre: null, description: null, selecteur: null, image: null },
       });
       const cfg = store.getGuild(guild.id);
-      return interaction.update({
-        content: '🧹 **Textes réinitialisés !** Le panneau affichera maintenant les textes complets par défaut (titre, lignes d\'informations, avertissements).\nClique sur « ✅ Terminer » pour republicar le panneau.',
-        embeds: [embedAssistant(cfg)],
-        components: [rowAssistant(cfg)],
-      });
+      return afficherMenu(interaction, '🧹 **Textes réinitialisés !** Le panneau affichera les textes complets par défaut. Clique sur « ✅ Terminer » pour republier le panneau.');
     }
 
     if (valeur === '__done__') {
       const cfg = store.getGuild(guild.id);
       if (!cfg.types.length) {
-        return interaction.update({
-          content: '❌ Crée au moins un type avant de publier le panneau (« ➕ Nouveau type »).',
-          embeds: [embedAssistant(cfg)],
-          components: [rowAssistant(cfg)],
-        });
+        return afficherMenu(interaction, '❌ Crée au moins un type avant de publier le panneau (« ➕ Nouveau type »).');
       }
       // On demande DANS QUEL SALON envoyer le panneau menu
-      return interaction.update({
-        content: '📬 **Sélectionne le salon où envoyer le panneau du ticket menu :**',
-        embeds: [],
-        components: [
+      return maj(interaction, {
+        couleur: 'info',
+        titre: '📬 Sélectionne le salon où envoyer le panneau',
+        texte: 'Le panneau du menu des types sera publié dans ce salon.',
+        composants: [
           new ActionRowBuilder().addComponents(
             new ChannelSelectMenuBuilder()
               .setCustomId('tkt:panel-channel')
@@ -1277,15 +1469,17 @@ async function handleSelectMenu(interaction) {
   // ── /ticket panel : choix du panneau (MENU ou BOUTON) ──
   if (id === 'tkt:panel-choix') {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const mode = interaction.values[0];
     store.setGuild(guild.id, { panelMode: mode });
     const cfg = store.getGuild(guild.id);
     if (!cfg.panelChannelId) {
-      return interaction.update({
-        content: `📬 **Dans quel salon envoyer le panneau ${mode === 'menu' ? '📋 MENU' : '🔘 BOUTON'} ?**`,
-        components: [rowSalonChoix()],
+      return maj(interaction, {
+        couleur: 'info',
+        titre: `📬 Dans quel salon envoyer le panneau ${mode === 'menu' ? '📋 MENU' : '🔘 BOUTON'} ?`,
+        texte: 'Choisis un salon dans le menu ci-dessous.',
+        composants: [rowSalonChoix()],
       });
     }
     return publierDepuisChoix(interaction, cfg);
@@ -1294,7 +1488,7 @@ async function handleSelectMenu(interaction) {
   // ── /ticket panel : choix du salon (si aucun salon configuré) ──
   if (id === 'tkt:panel-chan-choix') {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const channelId = interaction.values[0];
     store.setGuild(guild.id, { panelChannelId: channelId, panelMessageId: null });
@@ -1304,7 +1498,7 @@ async function handleSelectMenu(interaction) {
   // ── Assistant : choix du salon où envoyer le panneau menu ──
   if (id === 'tkt:panel-channel') {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const channelId = interaction.values[0];
     store.setGuild(guild.id, { panelChannelId: channelId, panelMode: 'menu', panelMessageId: null });
@@ -1318,17 +1512,16 @@ async function handleSelectMenu(interaction) {
       }
     }
     const channel = await envoyerPanel(guild, cfg);
-    return interaction.update({
-      content: channel
-        ? `📋 **Panneau MENU publié dans <#${channelId}>** avec ${cfg.types.length} type(s) de tickets.\nLes membres peuvent maintenant ouvrir leurs tickets !`
-        : `❌ Impossible d'envoyer le panneau dans <#${channelId}>. Vérifie que le bot a la permission d'y écrire.`,
-      embeds: [embedAssistant(cfg)],
-      components: [rowAssistant(cfg)],
-    });
+    return afficherMenu(
+      interaction,
+      channel
+        ? `✅ **Panneau MENU publié dans <#${channelId}>** avec ${cfg.types.length} type(s) de tickets. Les membres peuvent maintenant ouvrir leurs tickets !`
+        : `❌ Impossible d'envoyer le panneau dans <#${channelId}>. Vérifie que le bot a la permission d'y écrire.`
+    );
   }
 
   // ── Sécurité : menu inconnu ou expiré → on répond quand même ──
-  return interaction.reply({ content: '❌ Ce menu est expiré ou inconnu.', flags: MessageFlags.Ephemeral }).catch(() => {});
+  return repondre(interaction, { texte: '❌ Ce menu est expiré ou inconnu.' });
 }
 
 // ════════════════════════════════════════════════════════
@@ -1341,9 +1534,9 @@ async function handleModal(interaction) {
   // ── Fermeture d'un ticket : raison demandée dans le formulaire ──
   if (id === 'ticket:raison-fermeture') {
     const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return interaction.reply({ content: '❌ Ce salon n\'est plus un ticket actif.', flags: MessageFlags.Ephemeral });
+    if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
     const raison = (interaction.fields.getTextInputValue('raison') || '').trim();
-    await interaction.reply({ content: '🔒 Fermeture en cours...', flags: MessageFlags.Ephemeral });
+    await repondre(interaction, { texte: '🔒 Fermeture en cours...' });
     return fermerTicket(interaction, t, raison || 'Fermeture via le bouton');
   }
 
@@ -1351,8 +1544,8 @@ async function handleModal(interaction) {
   if (id === 'ticket:sujet') {
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
     const resultat = await creerTicket(interaction, sujet, null);
-    if (resultat.erreur) return interaction.reply({ content: `❌ ${resultat.erreur}`, flags: MessageFlags.Ephemeral });
-    return interaction.reply({ content: `✅ Ton ticket est ouvert : ${resultat.salon}`, flags: MessageFlags.Ephemeral });
+    if (resultat.erreur) return repondre(interaction, { texte: `❌ ${resultat.erreur}` });
+    return repondre(interaction, { couleur: 'succes', titre: 'Ton ticket est ouvert', texte: `Salon privé : <#${resultat.salon.id}>` });
   }
 
   // ── Ouverture d'un ticket par type ──
@@ -1360,17 +1553,17 @@ async function handleModal(interaction) {
     const typeId = id.split(':')[2];
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
     const resultat = await creerTicket(interaction, sujet, typeId);
-    if (resultat.erreur) return interaction.reply({ content: `❌ ${resultat.erreur}`, flags: MessageFlags.Ephemeral });
-    return interaction.reply({ content: `✅ Ton ticket est ouvert : ${resultat.salon}`, flags: MessageFlags.Ephemeral });
+    if (resultat.erreur) return repondre(interaction, { texte: `❌ ${resultat.erreur}` });
+    return repondre(interaction, { couleur: 'succes', titre: 'Ton ticket est ouvert', texte: `Salon privé : <#${resultat.salon.id}>` });
   }
 
   // ── Assistant : nouveau type ──
   if (id === 'tkt:m-newtype') {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const nom = (interaction.fields.getTextInputValue('nom') || '').trim();
-    if (!nom) return interaction.update({ content: '❌ Nom du type obligatoire.', components: [] });
+    if (!nom) return maj(interaction, { texte: '❌ Nom du type obligatoire.' });
     const type = {
       id: `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
       nom: coupe(nom, 45),
@@ -1386,7 +1579,7 @@ async function handleModal(interaction) {
   // ── Assistant : renommage / emoji / description d'un type ──
   if (id.startsWith('tkt:m-rename:') || id.startsWith('tkt:m-emoji:') || id.startsWith('tkt:m-desc:')) {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const [kind, typeId] = [id.startsWith('tkt:m-rename:') ? 'rename' : id.startsWith('tkt:m-emoji:') ? 'emoji' : 'desc', id.split(':')[2]];
     const type = store.getType(guild.id, typeId);
@@ -1411,7 +1604,7 @@ async function handleModal(interaction) {
   // ── Assistant : textes du panneau ──
   if (id === 'tkt:m-panel') {
     if (!estAdmin(interaction.member)) {
-      return interaction.update({ content: '❌ Tu dois avoir la permission « Gérer le serveur ».', components: [] });
+      return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const titre = (interaction.fields.getTextInputValue('titre') || '').trim();
     const description = (interaction.fields.getTextInputValue('description') || '').trim();
@@ -1426,18 +1619,18 @@ async function handleModal(interaction) {
       },
     });
     const config = store.getGuild(guild.id);
-    return interaction.update({
-      content: '✅ Textes du panneau enregistrés. Pense à cliquer sur « ✅ Terminer » pour publier le panneau.',
-      embeds: [embedAssistant(config)],
-      components: [rowAssistant(config)],
-    });
+    return afficherMenu(interaction, '✅ Textes du panneau enregistrés. Pense à cliquer sur « ✅ Terminer » pour publier le panneau.');
   }
 
   // ─── Sécurité : formulaire inconnu ou expiré → on répond quand même ───
-  return interaction.reply({ content: '❌ Ce formulaire est expiré ou inconnu.', flags: MessageFlags.Ephemeral }).catch(() => {});
+  return repondre(interaction, { texte: '❌ Ce formulaire est expiré ou inconnu.' });
 }
 
 module.exports = {
+  preparerInfra,
+  purgerTicketsFantomes,
+  ticketOuvertReel,
+  permissionsManquantes,
   creerTicket,
   fermerTicket,
   embedPanneau,

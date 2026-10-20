@@ -97,6 +97,43 @@ function optionsMock(sub, extras = {}) {
 function champsMock(vals) {
   return { getTextInputValue: n => vals[n] || '' };
 }
+
+// ─── Lecture des réponses en composants v2 (cartes arrondies) ───
+function texteDe(p) {
+  if (!p) return '';
+  if (typeof p === 'string') return p;
+  const morceaux = [];
+  const voir = c => {
+    if (!c) return;
+    if (Array.isArray(c)) return c.forEach(voir);
+    const j = typeof c.toJSON === 'function' ? c.toJSON() : c;
+    if (j.content) morceaux.push(String(j.content));
+    if (j.placeholder) morceaux.push(String(j.placeholder));
+    if (j.label) morceaux.push(String(j.label));
+    if (j.title) morceaux.push(String(j.title));
+    if (j.description) morceaux.push(String(j.description));
+    if (j.fields) j.fields.forEach(f => morceaux.push(`${f.name} ${f.value}`));
+    if (j.options) j.options.forEach(o => morceaux.push(`${o.label || ''} ${o.value || ''}`));
+    if (j.components) voir(j.components);
+  };
+  voir(p.components);
+  voir(p.embeds);
+  if (p.content) morceaux.push(String(p.content));
+  return morceaux.join('\n');
+}
+function idsDe(p) {
+  const ids = [];
+  const voir = c => {
+    if (!c) return;
+    if (Array.isArray(c)) return c.forEach(voir);
+    const j = typeof c.toJSON === 'function' ? c.toJSON() : c;
+    if (j.custom_id || j.customId) ids.push(j.custom_id || j.customId);
+    if (j.components) voir(j.components);
+  };
+  voir(p && p.components);
+  return ids;
+}
+
 function aRepondu(cap, nom) {
   if (!cap.repondu) throw new Error('AUCUNE RÉPONSE (' + nom + ')');
 }
@@ -119,7 +156,7 @@ function aRepondu(cap, nom) {
     const cap = {};
     await cmdTicket.execute(interMock(cap, { options: optionsMock('panel') }));
     aRepondu(cap, 'panel');
-    if (!cap.last.components || cap.last.components[0].components[0].toJSON().custom_id !== 'tkt:panel-choix') throw new Error('sélecteur absent');
+    if (!idsDe(cap.last).includes('tkt:panel-choix')) throw new Error('sélecteur absent');
   });
   await test('/ticket panel (titre perso) → envoi direct', async () => {
     const cap = {};
@@ -130,32 +167,32 @@ function aRepondu(cap, nom) {
     const cap = {};
     await cmdTicket.execute(interMock(cap, { options: optionsMock('config') }));
     aRepondu(cap, 'config');
-    if (!String(cap.last.content).includes('Configuration des tickets')) throw new Error('contenu config');
+    if (!texteDe(cap.last).includes('Configuration des tickets')) throw new Error('contenu config');
   });
   await test('/ticket claim hors ticket → erreur propre', async () => {
     const cap = {};
     await cmdTicket.execute(interMock(cap, { channel: canalMock('c-pas-ticket', cap), options: optionsMock('claim') }));
     aRepondu(cap, 'claim hors ticket');
-    if (!String(cap.last.content).includes('❌')) throw new Error('pas de message d\'erreur');
+    if (!texteDe(cap.last).includes('❌')) throw new Error('pas de message d\'erreur');
   });
   await test('/ticket claim dans un ticket (staff) → pris en charge', async () => {
     const cap = {};
     await cmdTicket.execute(interMock(cap, { options: optionsMock('claim') }));
     aRepondu(cap, 'claim');
-    if (!String(cap.last).includes('pris en charge') && !String(cap.last.content || cap.last).includes('pris en charge')) throw new Error('confirmation claim');
+    if (!texteDe(cap.last).includes('pris en charge')) throw new Error('confirmation claim');
   });
   await test('/ticket claim non staff → refus', async () => {
     const cap = {};
     store.updateTicket(G, 'c-tick', { claimedBy: null });
     await cmdTicket.execute(interMock(cap, { member: { permissions: { has: () => true }, roles: { cache: new Map() } }, options: optionsMock('claim') }));
     aRepondu(cap, 'claim non staff');
-    if (!String(cap.last.content).includes('❌')) throw new Error('refus absent');
+    if (!texteDe(cap.last).includes('❌')) throw new Error('refus absent');
   });
   await test('/ticket add (membre) → ajouté', async () => {
     const cap = {};
     await cmdTicket.execute(interMock(cap, { options: optionsMock('add', { membre: { id: 'u-add' } }) }));
     aRepondu(cap, 'add');
-    if (!String(cap.last.content || cap.last).includes('ajouté')) throw new Error('confirmation add');
+    if (!texteDe(cap.last).includes('ajouté')) throw new Error('confirmation add');
   });
   await test('/ticket add sans membre → erreur propre', async () => {
     const cap = {};
@@ -276,7 +313,7 @@ function aRepondu(cap, nom) {
     const cap = {};
     await h.handleButton(interMock(cap, { customId: 'tkt:wiz-next:t1:nom', member: { permissions: { has: () => false }, roles: { cache: new Map() } } }));
     aRepondu(cap, 'wiz non admin');
-    if (!String(cap.last.content).includes('❌')) throw new Error('refus absent');
+    if (!texteDe(cap.last).includes('❌')) throw new Error('refus absent');
   });
   await test('bouton tkt:panel-cancel → retour menu', async () => {
     const cap = {};
@@ -324,7 +361,7 @@ function aRepondu(cap, nom) {
     aRepondu(cap, 'delroles');
     const t = store.getType(G, 't1');
     if (t.staffRoleIds.includes('role-2')) throw new Error('rôle non retiré');
-    if (!String(cap.last.content).includes('retiré')) throw new Error('confirmation absente : ' + cap.last.content);
+    if (!texteDe(cap.last).includes('retiré')) throw new Error('confirmation absente : ' + texteDe(cap.last));
     store.updateType(G, 't1', { staffRoleIds: ['role-staff'] });
   });
   await test('menu inconnu → réponse (pas de silence)', async () => {

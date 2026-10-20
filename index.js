@@ -12,6 +12,7 @@ const { MessageFlags } = require('discord.js');
 const store = require('./utils/store');
 const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
+const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
 const token = (process.env.DISCORD_TOKEN || '').trim();
@@ -46,10 +47,43 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 }
 
 // ─── Quand le bot est prêt ───
-client.once(Events.ClientReady, readyClient => {
+client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Bot connecté : ${readyClient.user.tag}`);
   console.log(`🌍 Présent sur ${readyClient.guilds.cache.size} serveur(s).`);
   readyClient.user.setActivity('les tickets 🎫', { type: ActivityType.Watching });
+
+  // ─── Vérification automatique au démarrage ───
+  // Uniquement sur les serveurs où les tickets sont DÉJÀ configurés : le bot
+  // ne crée jamais de catégorie ou de salon sur un serveur où on ne lui a
+  // rien demandé (c'était la cause des catégories « en trop »).
+  for (const guild of readyClient.guilds.cache.values()) {
+    try {
+      const cfg = store.getGuild(guild.id);
+      const configure = Boolean(
+        cfg.categoryId || cfg.logChannelId || cfg.panelChannelId || cfg.panelSent || (cfg.types || []).length
+      );
+      if (!configure) continue;
+      const infra = await ticket.preparerInfra(guild);
+      const purge = await ticket.purgerTicketsFantomes(guild, { verifierAcces: true });
+      console.log(
+        `🛠️ ${guild.name} : ${infra.recrees.length ? 'réparé (' + infra.recrees.join(', ') + ')' : 'infrastructure OK'}` +
+        ` · ${purge.purges} ticket(s) fantôme(s) supprimé(s)`
+      );
+    } catch (erreur) {
+      console.error(`⚠️ Vérification de ${guild.name} impossible :`, erreur.message);
+    }
+  }
+
+  // ─── Nettoyage périodique (toutes les 30 minutes) ───
+  setInterval(async () => {
+    for (const guild of readyClient.guilds.cache.values()) {
+      try {
+        const cfg = store.getGuild(guild.id);
+        if (!cfg.panelSent && !(cfg.types || []).length) continue;
+        await ticket.purgerTicketsFantomes(guild, { verifierAcces: true });
+      } catch { /* on réessaiera au prochain passage */ }
+    }
+  }, 30 * 60 * 1000);
 });
 
 // ─── Toutes les interactions : commandes, boutons, formulaires ───
@@ -57,9 +91,10 @@ client.on(Events.InteractionCreate, async interaction => {
   try {
     // ─── Sécurité : tout se passe sur un serveur, jamais en MP ───
     if (!interaction.guild) {
-      const rep = { content: '❌ Ce système de tickets fonctionne uniquement sur un serveur, pas en MP.', flags: MessageFlags.Ephemeral };
-      if (interaction.replied || interaction.deferred) return interaction.followUp(rep).catch(() => {});
-      return interaction.reply(rep).catch(() => {});
+      return repondre(interaction, {
+        couleur: 'erreur',
+        texte: 'Ce système de tickets fonctionne uniquement sur un serveur, pas en MP.',
+      });
     }
 
     if (interaction.isButton()) await ticket.handleButton(interaction);
@@ -74,7 +109,7 @@ client.on(Events.InteractionCreate, async interaction => {
     // ─── Sécurité : TOUTE interaction DOIT recevoir une réponse ───
     // (commande, bouton, menu ou formulaire : évite « l'application ne répond pas »)
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❓ Cette commande n\'a rien à afficher.', flags: MessageFlags.Ephemeral }).catch(() => {});
+      await repondre(interaction, { couleur: 'attention', texte: 'Cette commande n\'a rien à afficher.' });
     }
   } catch (error) {
     console.error('Erreur :', error);
@@ -83,12 +118,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (code === 50001 || code === 50013) {
       texte = '❌ Il me manque des permissions pour faire ça. Place mon rôle tout en haut de la liste des rôles du serveur (Paramètres du serveur → Rôles), puis réessaie.';
     }
-    const reponse = { content: texte, flags: MessageFlags.Ephemeral };
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(reponse).catch(() => {});
-    } else {
-      await interaction.reply(reponse).catch(() => {});
-    }
+    await repondre(interaction, { couleur: 'erreur', titre: 'Une erreur est survenue', texte });
   }
 });
 
