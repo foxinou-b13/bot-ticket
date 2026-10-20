@@ -1253,6 +1253,16 @@ async function handleSelectMenu(interaction) {
     return afficherWizard(interaction, typeId, 'cat', '✅ Catégorie mise à jour.');
   }
 
+  // ── Assistant : retrait de rôles staff d'un type ──
+  if (id.startsWith('tkt:delroles:')) {
+    const typeId = id.split(':')[2];
+    const type = store.getType(guild.id, typeId);
+    if (!type) return afficherMenu(interaction, '❌ Ce type n\'existe plus.');
+    const restants = (type.staffRoleIds || []).filter(r => !interaction.values.includes(r));
+    store.updateType(guild.id, typeId, { staffRoleIds: restants });
+    return afficherWizard(interaction, typeId, 'roles', `✅ ${interaction.values.length} rôle(s) retiré(s).`);
+  }
+
   // ── Assistant : ajout de rôles staff à un type ──
   if (id.startsWith('tkt:addroles:')) {
     const typeId = id.split(':')[2];

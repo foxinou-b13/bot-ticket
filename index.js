@@ -62,15 +62,17 @@ client.on(Events.InteractionCreate, async interaction => {
       return interaction.reply(rep).catch(() => {});
     }
 
-    if (interaction.isButton()) return await ticket.handleButton(interaction);
-    if (interaction.isAnySelectMenu()) return await ticket.handleSelectMenu(interaction);
-    if (interaction.isModalSubmit()) return await ticket.handleModal(interaction);
-
-    if (!interaction.isChatInputCommand()) return;
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-    await command.execute(interaction);
-    // ─── Sécurité : toute commande DOIT répondre (évite « l'application ne répond pas ») ───
+    if (interaction.isButton()) await ticket.handleButton(interaction);
+    else if (interaction.isAnySelectMenu()) await ticket.handleSelectMenu(interaction);
+    else if (interaction.isModalSubmit()) await ticket.handleModal(interaction);
+    else if (interaction.isChatInputCommand()) {
+      const command = client.commands.get(interaction.commandName);
+      if (command) await command.execute(interaction);
+    } else {
+      return;
+    }
+    // ─── Sécurité : TOUTE interaction DOIT recevoir une réponse ───
+    // (commande, bouton, menu ou formulaire : évite « l'application ne répond pas »)
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: '❓ Cette commande n\'a rien à afficher.', flags: MessageFlags.Ephemeral }).catch(() => {});
     }
