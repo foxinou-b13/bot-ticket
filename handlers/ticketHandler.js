@@ -79,22 +79,22 @@ function embedPanneau(config, options = {}, guildName = null) {
   // Texte par défaut du panneau MENU : style des bots de support pro
   // (paragraphs, séparateurs fins, puces décoratives)
   const defautMenu = [
-    `Bienvenue sur le support officiel de ${guildName || 'ce serveur'}.`,
+    `Bienvenue sur le support officiel de ${guildName || 'ce serveur'}`,
     '',
     'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
-    SEP,
+    '',
     'ℹ️ **Informations importantes :**',
     '• Soyez clairs et précis dans vos demandes.',
     '• Le manque de respect envers le staff est strictement interdit.',
     '• Évitez les mentions inutiles.',
     '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
-    SEP,
+    '',
     '⏳ Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.',
   ].join('\n');
   const defautBouton = [
     "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.",
     'Un salon privé sera créé pour toi et notre équipe te répondra.',
-    SEP,
+    '',
     '⏳ Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.',
   ].join('\n');
   const embed = new EmbedBuilder()
@@ -110,7 +110,7 @@ function embedPanneau(config, options = {}, guildName = null) {
         4096
       )
     )
-    .setFooter({ text: 'Système de tickets' });
+  ;
   if (p.image && /^https?:\/\//.test(p.image)) embed.setImage(p.image);
   return embed;
 }
