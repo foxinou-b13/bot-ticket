@@ -51,11 +51,13 @@ test('structure référence : carte conteneur (17) + sélecteur hors carte + sé
   const j = p.components.map(c => c.toJSON());
   if (j[0].type !== 17) throw new Error('pas de carte conteneur en premier : ' + j[0].type);
   if (j[0].accent_color) throw new Error('accent coloré sur la carte (la référence n’en a pas)');
+  if (j.length !== 1) throw new Error('tout doit être DANS la carte (1 seul component) : ' + j.length);
   const internes = j[0].components.map(c => c.type).join(',');
-  if (internes !== '10,10,14,10,14,10,12') throw new Error('contenu carte : ' + internes);
+  if (internes !== '10,10,14,10,14,10,12,1') throw new Error('contenu carte : ' + internes);
   const seps = j[0].components.filter(c => c.type === 14);
   if (seps.some(sep => sep.spacing !== 1)) throw new Error('séparateurs pas serrés (Small)');
-  if (j[1].type !== 1) throw new Error('le menu doit être SOUS la carte, hors conteneur');
+  const dern = j[0].components[j[0].components.length - 1];
+  if (dern.type !== 1 || dern.components[0].type !== 3) throw new Error('le sélecteur doit être DEDANS la carte, tout en bas');
 });
 test('panneau BOUTON', () => {
   const p = h.construirePanneau({ ...config, panelMode: 'bouton' }, {}, 'Serveur Test');

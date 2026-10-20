@@ -233,8 +233,11 @@ function construirePanneau(config, options = {}, guildName = null) {
 
   if (galerie) carte.addMediaGalleryComponents(galerie);
 
-  // Le menu / bouton reste SOUS la carte (hors conteneur), comme la référence.
-  const components = [carte, modePanneau(config) === 'menu' ? rowTypes(config) : boutonOuvrir()];
+  // Le menu / bouton est DEDANS la carte, tout en bas — vérifié au zoom 4x
+  // sur la référence (le sélecteur y est encadré par le fond de la carte).
+  carte.addActionRowComponents(modePanneau(config) === 'menu' ? rowTypes(config) : boutonOuvrir());
+
+  const components = [carte];
 
   // FLAG OBLIGATOIRE components v2 : sans lui Discord refuse le message
   // (« type must be one of (1,) ») car TextDisplay/Separator/MediaGallery

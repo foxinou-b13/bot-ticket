@@ -133,7 +133,7 @@ async function test(nom, fn) {
     if (!payload) throw new Error('channel.send jamais appelé');
     if (payload.flags !== 32768) throw new Error('flags absent ou faux : ' + payload.flags);
     const types = payload.components.map(c => (c.toJSON ? c.toJSON() : c).type);
-    if (types[0] !== 17 || types[1] !== 1) throw new Error('structure attendue [carte 17, ligne 1] : ' + types.join(','));
+    if (types.join(',') !== '17') throw new Error('tout doit être dans la carte (17) : ' + types.join(','));
     if (!maj || !String(maj.content).includes('Panneau MENU publié')) throw new Error('confirmation absente : ' + JSON.stringify(maj && maj.content));
   });
 
@@ -199,8 +199,9 @@ async function test(nom, fn) {
     };
     await h.handleSelectMenu(inter);
     if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé ou sans flag');
-    const last = payload.components[payload.components.length - 1].toJSON();
-    if (!last.components || last.components[0].type !== 3) throw new Error('dernière ligne pas un menu déroulant : ' + JSON.stringify(last).slice(0, 120));
+    const carte = payload.components[0].toJSON();
+    const last = carte.components[carte.components.length - 1];
+    if (last.type !== 1 || last.components[0].type !== 3) throw new Error('sélecteur pas en bas de la carte : ' + JSON.stringify(last).slice(0, 120));
     if (!String(maj.content).includes('MENU publié')) throw new Error('confirmation : ' + maj.content);
   });
 
@@ -217,8 +218,9 @@ async function test(nom, fn) {
     };
     await h.handleSelectMenu(inter);
     if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé ou sans flag');
-    const last = payload.components[payload.components.length - 1].toJSON();
-    if (!last.components || last.components[0].type !== 2) throw new Error('dernière ligne pas un bouton : ' + JSON.stringify(last).slice(0, 120));
+    const carte = payload.components[0].toJSON();
+    const last = carte.components[carte.components.length - 1];
+    if (last.type !== 1 || last.components[0].type !== 2) throw new Error('bouton pas en bas de la carte : ' + JSON.stringify(last).slice(0, 120));
     if (!String(maj.content).includes('BOUTON publié')) throw new Error('confirmation : ' + maj.content);
   });
 
