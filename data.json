@@ -82,7 +82,9 @@
           "emoji": "🥴",
           "description": "Pour une vidéo !",
           "categoryId": "1562104315768741943",
-          "staffRoleIds": []
+          "staffRoleIds": [
+            "1562104406986592401"
+          ]
         }
       ]
     }
