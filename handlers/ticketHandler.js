@@ -957,8 +957,113 @@ function modalPanel(config) {
   return modal;
 }
 
+// ════════════════════════════════════════════════════════
+// ACTIONS DU TICKET (appelées par le menu ET par les boutons)
+// Extraites ici pour être utilisées à l'identique par les deux chemins.
+// ════════════════════════════════════════════════════════
+function ticketCourant(interaction) {
+  return store.getTicket(interaction.guild.id, interaction.channel.id);
+}
+
+// ➕ Ajouter un membre
+async function actionAjouterMembre(interaction, t, config) {
+  if (!estStaffTicket(interaction.member, config, t)) {
+    return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut ajouter un membre.' });
+  }
+  return repondre(interaction, {
+    titre: '➕ Ajouter un membre au ticket',
+    texte: 'Choisis une ou plusieurs personnes dans la liste : elles pourront voir et écrire dans ce salon.',
+    composants: [
+      new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId('ticket:membre-choix')
+          .setPlaceholder('👥 Choisis le(s) membre(s) à ajouter')
+          .setMinValues(1)
+          .setMaxValues(5)
+      ),
+    ],
+  });
+}
+
+// ➖ Retirer un membre (uniquement ceux ajoutés au ticket)
+async function actionRetirerMembre(interaction, t, config, guild) {
+  if (!estStaffTicket(interaction.member, config, t)) {
+    return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut retirer un membre.' });
+  }
+  const membres = (t.membres || []).filter(Boolean);
+  if (!membres.length) {
+    return repondre(interaction, {
+      couleur: 'attention',
+      titre: '👥 Aucun membre à retirer',
+      texte: "Seuls les membres **ajoutés** au ticket apparaissent ici. Utilise « ➕ Ajouter un membre » d'abord.",
+    });
+  }
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('ticket:membre-retirer')
+    .setPlaceholder('👥 Choisis le(s) membre(s) à retirer')
+    .setMinValues(1)
+    .setMaxValues(Math.min(membres.length, 5));
+  for (const userId of membres.slice(0, 25)) {
+    const membre = await guild.members?.fetch?.(userId).catch(() => null);
+    const nomAffiche = membre ? (membre.displayName || membre.user?.username || userId) : `Membre ${userId}`;
+    menu.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(coupe(nomAffiche, 100))
+        .setValue(userId)
+        .setDescription('Retirer son accès à ce ticket')
+    );
+  }
+  return repondre(interaction, {
+    titre: '➖ Retirer un membre du ticket',
+    texte: 'Seuls les membres **ajoutés à ce ticket** sont proposés ci-dessous.',
+    composants: [new ActionRowBuilder().addComponents(menu)],
+  });
+}
+
+// ✏️ Renommer le ticket
+function actionRenommer(interaction, t, config) {
+  if (!estStaffTicket(interaction.member, config, t)) {
+    return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut le renommer.' });
+  }
+  const modal = new ModalBuilder().setCustomId('ticket:renommer-modal').setTitle('✏️ Renommer le ticket');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('nom')
+        .setLabel('Nouveau nom du ticket *')
+        .setPlaceholder('Exemple : probleme-live')
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(60)
+        .setRequired(true)
+        .setValue((t.nomPerso || '').slice(0, 60))
+    )
+  );
+  return interaction.showModal(modal);
+}
+
+// 🔒 Fermer le ticket (formulaire de raison → carte de confirmation)
+function actionFermer(interaction, t, config) {
+  if (!estStaffTicket(interaction.member, config, t)) {
+    return repondre(interaction, {
+      couleur: 'erreur',
+      titre: '🔒 Fermeture réservée au staff',
+      texte: 'Seul un membre du staff de ce ticket peut le fermer. Si ton problème est réglé, demande-lui de fermer.',
+    });
+  }
+  const modal = new ModalBuilder().setCustomId('ticket:raison-fermeture').setTitle('🔒 Fermer le ticket');
+  const champ = new TextInputBuilder()
+    .setCustomId('raison')
+    .setLabel('Raison de la fermeture *')
+    .setPlaceholder('Exemple : problème réglé, ticket inactif...')
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(200)
+    .setRequired(true);
+  modal.addComponents(new ActionRowBuilder().addComponents(champ));
+  return interaction.showModal(modal);
+}
+
 // ─── À l'intérieur d'un ticket ───
-// Trois boutons DANS la carte : prendre en charge, ajouter un membre, fermer.
+// DANS la carte : le bouton « Prendre en charge » + UN SEUL menu pour tout le reste.
 function boutonsTicket(t) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -966,28 +1071,40 @@ function boutonsTicket(t) {
       .setLabel(t.claimedBy ? 'Pris en charge' : 'Prendre en charge')
       .setEmoji('🔔')
       .setStyle(ButtonStyle.Primary)
-      .setDisabled(!!t.claimedBy),
-    new ButtonBuilder()
-      .setCustomId('ticket:ajouter-membre')
-      .setLabel('Ajouter un membre')
-      .setEmoji('➕')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('ticket:retirer-membre')
-      .setLabel('Retirer un membre')
-      .setEmoji('➖')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('ticket:renommer')
-      .setLabel('Renommer')
-      .setEmoji('✏️')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('ticket:fermer')
-      .setLabel('Fermer le ticket')
-      .setEmoji('🔒')
-      .setStyle(ButtonStyle.Danger)
+      .setDisabled(!!t.claimedBy)
   );
+}
+
+// Menu unique (rassemble les 3 anciens boutons) — hors « Prendre en charge »
+function menuActionsTicket(t) {
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('ticket:actions')
+    .setPlaceholder('⚙️ Gérer ce ticket…')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Ajouter un membre')
+        .setValue('ajouter')
+        .setEmoji('➕')
+        .setDescription('Donner accès au ticket à une personne'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel(`Retirer un membre${(t.membres || []).length ? ` (${t.membres.length})` : ''}`)
+        .setValue('retirer')
+        .setEmoji('➖')
+        .setDescription('Retirer une personne ajoutée au ticket'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Renommer le ticket')
+        .setValue('renommer')
+        .setEmoji('✏️')
+        .setDescription('Changer le nom du salon du ticket'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Fermer le ticket')
+        .setValue('fermer')
+        .setEmoji('🔒')
+        .setDescription('Fermer le ticket (raison demandée)')
+    );
+  return new ActionRowBuilder().addComponents(menu);
 }
 
 // Date lisible en français (21/10/2026 à 22:04)
@@ -1021,7 +1138,7 @@ function carteTicket(t, options = {}) {
       `-# Utilise les boutons ci-dessous · ouvert le ${dateFr(t.createdAt)}`
     )
   );
-  carte.addActionRowComponents(boutonsTicket(t));
+  carte.addActionRowComponents(boutonsTicket(t), menuActionsTicket(t));
   return carte;
 }
 
@@ -1295,109 +1412,16 @@ async function handleButton(interaction) {
   }
 
   // ─────────── Ajouter un membre au ticket (staff) ───────────
-  if (id === 'ticket:ajouter-membre') {
-    const t = store.getTicket(guild.id, interaction.channel.id);
+  // ─────────── Actions du ticket (boutons historiques + menu) ───────────
+  // Les 3 boutons ont été regroupés dans un menu, mais on garde ces chemins :
+  // d'anciens messages (cartes déjà envoyées) peuvent encore les appeler.
+  if (id === 'ticket:ajouter-membre' || id === 'ticket:retirer-membre' || id === 'ticket:renommer' || id === 'ticket:fermer') {
+    const t = ticketCourant(interaction);
     if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
-    if (!estStaffTicket(interaction.member, config, t)) {
-      return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut ajouter un membre.' });
-    }
-    return repondre(interaction, {
-      titre: '➕ Ajouter un membre au ticket',
-      texte: 'Choisis une ou plusieurs personnes dans la liste : elles pourront voir et écrire dans ce salon.',
-      composants: [
-        new ActionRowBuilder().addComponents(
-          new UserSelectMenuBuilder()
-            .setCustomId('ticket:membre-choix')
-            .setPlaceholder('👥 Choisis le(s) membre(s) à ajouter')
-            .setMinValues(1)
-            .setMaxValues(5)
-        ),
-      ],
-    });
-  }
-
-  // ─────────── Retirer un membre du ticket (staff) ───────────
-  if (id === 'ticket:retirer-membre') {
-    const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
-    if (!estStaffTicket(interaction.member, config, t)) {
-      return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut retirer un membre.' });
-    }
-    const membres = (t.membres || []).filter(Boolean);
-    if (!membres.length) {
-      return repondre(interaction, {
-        couleur: 'attention',
-        titre: '👥 Aucun membre à retirer',
-        texte: 'Seuls les membres **ajoutés** au ticket apparaissent ici. Utilise « ➕ Ajouter un membre » d\'abord.',
-      });
-    }
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId('ticket:membre-retirer')
-      .setPlaceholder('👥 Choisis le(s) membre(s) à retirer')
-      .setMinValues(1)
-      .setMaxValues(Math.min(membres.length, 5));
-    for (const userId of membres.slice(0, 25)) {
-      const membre = await guild.members?.fetch?.(userId).catch(() => null);
-      const nomAffiche = membre ? (membre.displayName || membre.user?.username || userId) : `Membre ${userId}`;
-      menu.addOptions(
-        new StringSelectMenuOptionBuilder()
-          .setLabel(coupe(nomAffiche, 100))
-          .setValue(userId)
-          .setDescription('Retirer son accès à ce ticket')
-      );
-    }
-    return repondre(interaction, {
-      titre: '➖ Retirer un membre du ticket',
-      texte: 'Seuls les membres **ajoutés à ce ticket** sont proposés ci-dessous.',
-      composants: [new ActionRowBuilder().addComponents(menu)],
-    });
-  }
-
-  // ─────────── Renommer le ticket (staff) ───────────
-  if (id === 'ticket:renommer') {
-    const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
-    if (!estStaffTicket(interaction.member, config, t)) {
-      return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut le renommer.' });
-    }
-    const modal = new ModalBuilder().setCustomId('ticket:renommer-modal').setTitle('✏️ Renommer le ticket');
-    modal.addComponents(
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId('nom')
-          .setLabel('Nouveau nom du ticket *')
-          .setPlaceholder('Exemple : probleme-live')
-          .setStyle(TextInputStyle.Short)
-          .setMaxLength(60)
-          .setRequired(true)
-          .setValue((t.nomPerso || '').slice(0, 60))
-      )
-    );
-    return interaction.showModal(modal);
-  }
-
-  // ─────────── Demande de fermeture → raison (obligatoire) ───────────
-  if (id === 'ticket:fermer') {
-    const t = store.getTicket(guild.id, interaction.channel.id);
-    if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
-    // Sécurité demandée : SEUL LE STAFF du ticket peut le fermer
-    if (!estStaffTicket(interaction.member, config, t)) {
-      return repondre(interaction, {
-        couleur: 'erreur',
-        titre: '🔒 Fermeture réservée au staff',
-        texte: 'Seul un membre du staff de ce ticket peut le fermer. Si ton problème est réglé, demande-lui de fermer.',
-      });
-    }
-    const modal = new ModalBuilder().setCustomId('ticket:raison-fermeture').setTitle('🔒 Fermer le ticket');
-    const champ = new TextInputBuilder()
-      .setCustomId('raison')
-      .setLabel('Raison de la fermeture *')
-      .setPlaceholder('Exemple : problème réglé, ticket inactif...')
-      .setStyle(TextInputStyle.Short)
-      .setMaxLength(200)
-      .setRequired(true);
-    modal.addComponents(new ActionRowBuilder().addComponents(champ));
-    return interaction.showModal(modal);
+    if (id === 'ticket:ajouter-membre') return actionAjouterMembre(interaction, t, config);
+    if (id === 'ticket:retirer-membre') return actionRetirerMembre(interaction, t, config, guild);
+    if (id === 'ticket:renommer') return actionRenommer(interaction, t, config);
+    return actionFermer(interaction, t, config);
   }
 
   // ─────────── Confirmation de fermeture (boutons Confirmer / Annuler) ───────────
@@ -1537,6 +1561,19 @@ async function handleButton(interaction) {
 async function handleSelectMenu(interaction) {
   const guild = interaction.guild;
   const id = interaction.customId;
+
+  // ── Menu unique « ⚙️ Gérer ce ticket… » → redirige vers la bonne action ──
+  if (id === 'ticket:actions') {
+    const config = store.getGuild(guild.id);
+    const t = ticketCourant(interaction);
+    if (!t) return maj(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
+    const choix = interaction.values[0];
+    if (choix === 'ajouter') return actionAjouterMembre(interaction, t, config);
+    if (choix === 'retirer') return actionRetirerMembre(interaction, t, config, guild);
+    if (choix === 'renommer') return actionRenommer(interaction, t, config);
+    if (choix === 'fermer') return actionFermer(interaction, t, config);
+    return maj(interaction, { couleur: 'attention', texte: '❌ Choix inconnu dans le menu du ticket.' });
+  }
 
   // ── Retrait d'un membre ajouté au ticket ──
   if (id === 'ticket:membre-retirer') {

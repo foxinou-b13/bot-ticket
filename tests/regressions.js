@@ -209,15 +209,12 @@ function monde(opts = {}) {
 
   console.log('── Ticket : boutons, fermeture staff, confirmation ──');
 
-  await test('carte du ticket : boutons essentiels présents', () => {
+  await test('carte du ticket : bouton prise en charge présent', () => {
     const t = { numero: 1, userId: 'u1', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), sujet: 'test', typeNom: 'Bug', typeEmoji: '🔴' };
     const c = h.carteTicket(t).toJSON();
-    const boutons = c.components[c.components.length - 1].components;
-    const ids = boutons.map(b => b.custom_id);
+    const ids = c.components.filter(x => x.type === 1).flatMap(r => r.components.map(b => b.custom_id));
     if (!ids.includes('ticket:reclamer')) throw new Error('bouton prise en charge absent');
-    if (!ids.includes('ticket:ajouter-membre')) throw new Error('bouton ajouter un membre absent');
-    if (!ids.includes('ticket:fermer')) throw new Error('bouton fermer absent');
-    if (boutons.length < 3) throw new Error('nombre de boutons : ' + boutons.length);
+    if (!ids.includes('ticket:actions')) throw new Error('menu unique absent');
   });
 
   await test('carte du ticket : aucune ligne colorée (pas d\'accent)', () => {
@@ -317,23 +314,27 @@ function monde(opts = {}) {
 
   console.log('── Membres du ticket : ajout, retrait, renommage ──');
 
-  await test('la carte du ticket a 5 boutons (dont retirer un membre et renommer)', () => {
+  await test('carte du ticket : 1 bouton (Prendre en charge) + 1 menu unique', () => {
     const t = { numero: 1, userId: 'u1', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() };
     const c = h.carteTicket(t).toJSON();
-    const boutons = c.components[c.components.length - 1].components;
-    const ids = boutons.map(b => b.custom_id);
-    for (const attendu of ['ticket:reclamer', 'ticket:ajouter-membre', 'ticket:retirer-membre', 'ticket:renommer', 'ticket:fermer']) {
-      if (!ids.includes(attendu)) throw new Error('bouton manquant : ' + attendu);
+    const rangees = c.components.filter(x => x.type === 1);
+    if (rangees.length !== 2) throw new Error('rangées d\'action : ' + rangees.length);
+    const boutons = rangees[0].components;
+    if (boutons.length !== 1 || boutons[0].custom_id !== 'ticket:reclamer') throw new Error('le bouton « Prendre en charge » doit être seul');
+    const menu = rangees[1].components[0];
+    if (menu.type !== 3 || menu.custom_id !== 'ticket:actions') throw new Error('menu unique absent');
+    const valeurs = menu.options.map(o => o.value);
+    for (const v of ['ajouter', 'retirer', 'renommer', 'fermer']) {
+      if (!valeurs.includes(v)) throw new Error('option manquante : ' + v);
     }
-    if (boutons.length > 5) throw new Error('Discord limite à 5 boutons par rangée : ' + boutons.length);
   });
 
   await test('retirer un membre : le menu ne propose QUE les membres ajoutés', async () => {
     reset();
     store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), membres: ['u-ajoute-1', 'u-ajoute-2'] });
     let rep = null;
-    await h.handleButton({
-      customId: 'ticket:retirer-membre', guild: { id: G, members: { fetch: async () => null } },
+    await h.handleSelectMenu({
+      customId: 'ticket:actions', guild: { id: G, members: { fetch: async () => null } }, values: ['retirer'],
       member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
       user: { id: 'u-staff' }, channel: { id: 'c-ticket-test' },
       reply: r => { rep = r; }, followUp: r => { rep = r; }, update: r => { rep = r; },
@@ -348,8 +349,8 @@ function monde(opts = {}) {
     reset();
     store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), membres: [] });
     let rep = null;
-    await h.handleButton({
-      customId: 'ticket:retirer-membre', guild: { id: G, members: { fetch: async () => null } },
+    await h.handleSelectMenu({
+      customId: 'ticket:actions', guild: { id: G, members: { fetch: async () => null } }, values: ['retirer'],
       member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
       user: { id: 'u-staff' }, channel: { id: 'c-ticket-test' },
       reply: r => { rep = r; }, followUp: r => { rep = r; },
@@ -383,8 +384,8 @@ function monde(opts = {}) {
     reset();
     store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), membres: ['u-1'] });
     let rep = null;
-    await h.handleButton({
-      customId: 'ticket:retirer-membre', guild: { id: G },
+    await h.handleSelectMenu({
+      customId: 'ticket:actions', guild: { id: G }, values: ['retirer'],
       member: { permissions: { has: () => true }, roles: { cache: new Map([['role-autre', 1]]) } },
       user: { id: 'x' }, channel: { id: 'c-ticket-test' },
       reply: r => { rep = r; }, update: r => { rep = r; }, followUp: r => { rep = r; },
@@ -396,8 +397,8 @@ function monde(opts = {}) {
     reset();
     store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
     let modal = null;
-    await h.handleButton({
-      customId: 'ticket:renommer', guild: { id: G },
+    await h.handleSelectMenu({
+      customId: 'ticket:actions', guild: { id: G }, values: ['renommer'],
       member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
       user: { id: 'u-staff' }, channel: { id: 'c-ticket-test' },
       showModal: m => { modal = m; },
