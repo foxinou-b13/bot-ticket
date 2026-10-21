@@ -36,8 +36,24 @@
       "panelChannelId": "1558958817868259448",
       "panelSent": true,
       "panelMessageId": "1562043600131330050",
-      "counter": 5,
-      "open": {},
+      "counter": 6,
+      "open": {
+        "1562572316783804508": {
+          "numero": 6,
+          "userId": "1497375017980137534",
+          "sujet": "Bonjour j'aimerais savoir si je peux vous parler d'un truc j'ai gros problème là",
+          "typeId": "tmvfwvyqrxu64",
+          "typeNom": "Test",
+          "typeEmoji": "🧠",
+          "staffRoleIds": [
+            "1558960935006249071",
+            "1558960872448204960"
+          ],
+          "claimedBy": null,
+          "createdAt": 1792616671705,
+          "messageId": "1562572319426224219"
+        }
+      },
       "panelMode": "menu",
       "panel": {
         "titre": null,
