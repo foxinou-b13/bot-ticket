@@ -102,6 +102,24 @@
           ]
         }
       ]
+    },
+    "1539668540787925052": {
+      "categoryId": null,
+      "staffRoleIds": [],
+      "logChannelId": null,
+      "panelChannelId": null,
+      "panelSent": false,
+      "panelMessageId": null,
+      "counter": 0,
+      "open": {},
+      "panelMode": null,
+      "panel": {
+        "titre": null,
+        "description": null,
+        "selecteur": null,
+        "image": null
+      },
+      "types": []
     }
   }
 }
