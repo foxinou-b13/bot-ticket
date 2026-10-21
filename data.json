@@ -7,8 +7,23 @@
       "panelChannelId": "1511368265996308591",
       "panelSent": true,
       "panelMessageId": "1562027684718977095",
-      "counter": 4,
-      "open": {},
+      "counter": 5,
+      "open": {
+        "1562564902034604086": {
+          "numero": 5,
+          "userId": "1497375017980137534",
+          "sujet": "Bonsoir",
+          "typeId": "tmvfptavd3ha8",
+          "typeNom": "bug",
+          "typeEmoji": "🎄",
+          "staffRoleIds": [
+            "1511382517385527466"
+          ],
+          "claimedBy": null,
+          "createdAt": 1792614903933,
+          "messageId": "1562564903921787033"
+        }
+      },
       "panelMode": "menu",
       "panel": {
         "titre": null,
