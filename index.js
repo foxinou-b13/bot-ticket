@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-21-menu-unique';
+const VERSION = 'v2026-10-21-statut';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -53,7 +53,10 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Bot connecté : ${readyClient.user.tag}`);
   console.log(`🌍 Présent sur ${readyClient.guilds.cache.size} serveur(s).`);
-  readyClient.user.setActivity('les tickets 🎫', { type: ActivityType.Watching });
+  // Statut affiché sous le nom du bot (activité). Les bots ne peuvent PAS
+  // utiliser le « statut personnalisé » de Discord : seule une activité est
+  // possible, ici « Regarde One Assist · Support par tickets 🎫 ».
+  readyClient.user.setActivity('One Assist · support par tickets 🎫', { type: ActivityType.Watching });
 
   // ─── Vérification automatique au démarrage ───
   // Uniquement sur les serveurs où les tickets sont DÉJÀ configurés : le bot
