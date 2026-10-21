@@ -171,27 +171,19 @@ function monde(opts = {}) {
 
   console.log('── Réponses en cartes arrondies ──');
 
-  await test('erreur → carte avec ligne de couleur à gauche (accent rouge)', () => {
+  await test('carte = conteneur arrondi SANS ligne colorée à gauche', () => {
     const p = payload({ couleur: 'erreur', texte: '❌ test' });
     const j = p.components[0].toJSON();
     if (j.type !== 17) throw new Error('pas un conteneur (type ' + j.type + ')');
-    if (j.accent_color !== 0xed4245) throw new Error('accent incorrect : ' + j.accent_color);
+    if (j.accent_color !== undefined && j.accent_color !== null) throw new Error('ligne colorée présente : ' + j.accent_color);
     if (!(p.flags & 32768)) throw new Error('flag components v2 absent');
   });
 
-  await test('succès / info / avertissement → couleurs distinctes', () => {
-    const couleurs = {
-      succes: payload({ couleur: 'succes', texte: 'ok' }).components[0].toJSON().accent_color,
-      info: payload({ couleur: 'info', texte: 'info' }).components[0].toJSON().accent_color,
-      attention: payload({ couleur: 'attention', texte: '!' }).components[0].toJSON().accent_color,
-    };
-    const uniques = new Set(Object.values(couleurs));
-    if (uniques.size !== 3) throw new Error('couleurs identiques : ' + JSON.stringify(couleurs));
-  });
-
-  await test('les erreurs du ticket sont déduites en rouge automatiquement', () => {
-    const j = payload({ texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' }).components[0].toJSON();
-    if (j.accent_color !== 0xed4245) throw new Error('couleur automatique incorrecte');
+  await test('aucune carte (succès / info / attention / erreur) n\'a d\'accent', () => {
+    for (const couleur of ['succes', 'info', 'attention', 'erreur']) {
+      const j = payload({ couleur, texte: 'x' }).components[0].toJSON();
+      if (j.accent_color) throw new Error('accent présent pour ' + couleur + ' : ' + j.accent_color);
+    }
   });
 
   await test('/ticket reparer : répond et répare', async () => {
@@ -212,6 +204,114 @@ function monde(opts = {}) {
     if (!rep || !rep.components) throw new Error('aucune réponse');
     const texte = JSON.stringify(rep.components);
     if (!texte.includes('vérifié')) throw new Error('récapitulatif absent');
+  });
+
+
+  console.log('── Ticket : boutons, fermeture staff, confirmation ──');
+
+  await test('carte du ticket : 3 boutons (prise en charge, ajouter un membre, fermer)', () => {
+    const t = { numero: 1, userId: 'u1', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), sujet: 'test', typeNom: 'Bug', typeEmoji: '🔴' };
+    const c = h.carteTicket(t).toJSON();
+    const boutons = c.components[c.components.length - 1].components;
+    const ids = boutons.map(b => b.custom_id);
+    if (!ids.includes('ticket:reclamer')) throw new Error('bouton prise en charge absent');
+    if (!ids.includes('ticket:ajouter-membre')) throw new Error('bouton ajouter un membre absent');
+    if (!ids.includes('ticket:fermer')) throw new Error('bouton fermer absent');
+    if (boutons.length !== 3) throw new Error('nombre de boutons : ' + boutons.length);
+  });
+
+  await test('carte du ticket : aucune ligne colorée (pas d\'accent)', () => {
+    const t = { numero: 1, userId: 'u1', staffRoleIds: [], claimedBy: null, createdAt: Date.now() };
+    const c = h.carteTicket(t).toJSON();
+    if (c.accent_color) throw new Error('ligne colorée présente');
+    if (c.type !== 17) throw new Error('pas une carte arrondie');
+  });
+
+  await test('fermer le ticket : refusé pour un membre qui n\'est pas du staff', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 9, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
+    let rep = null;
+    const inter = {
+      customId: 'ticket:fermer',
+      guild: { id: G },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-autre', 1]]) } },
+      user: { id: 'u-auteur' },
+      channel: { id: 'c-ticket-test' },
+      reply: r => { rep = r; }, followUp: r => { rep = r; }, update: r => { rep = r; },
+      showModal: () => { throw new Error('un non-staff a pu ouvrir le formulaire de fermeture'); },
+    };
+    await h.handleButton(inter);
+    if (!rep) throw new Error('aucune réponse');
+    const txt = JSON.stringify(rep.components);
+    if (!txt.includes('réservée au staff')) throw new Error('refus non expliqué : ' + txt.slice(0, 150));
+  });
+
+  await test('fermer le ticket : autorisé pour le staff (formulaire de raison)', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 9, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
+    let modal = null;
+    const inter = {
+      customId: 'ticket:fermer',
+      guild: { id: G },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' },
+      channel: { id: 'c-ticket-test' },
+      showModal: m => { modal = m; },
+    };
+    await h.handleButton(inter);
+    if (!modal) throw new Error('formulaire non affiché');
+    if (modal.toJSON().custom_id !== 'ticket:raison-fermeture') throw new Error('mauvais formulaire');
+  });
+
+  await test('après la raison → CARTE de confirmation avec Confirmer et Annuler', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 9, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
+    let rep = null;
+    const inter = {
+      customId: 'ticket:raison-fermeture',
+      guild: { id: G },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' },
+      channel: { id: 'c-ticket-test' },
+      message: { components: [] },
+      fields: { getTextInputValue: () => 'Problème réglé' },
+      reply: r => { rep = r; }, followUp: r => { rep = r; },
+    };
+    await h.handleModal(inter);
+    if (!rep) throw new Error('aucune réponse');
+    const txt = JSON.stringify(rep.components);
+    if (!txt.includes('Confirmer')) throw new Error('bouton confirmer absent');
+    if (!txt.includes('Annuler')) throw new Error('bouton annuler absent');
+    if (!txt.includes('Problème réglé')) throw new Error('raison absente de la carte');
+    if (txt.includes('supprimé dans 5 secondes')) throw new Error('le ticket a été fermé sans confirmation');
+  });
+
+  await test('bouton Annuler → ticket toujours ouvert', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 9, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
+    let rep = null;
+    const inter = {
+      customId: 'ticket:annuler-fermeture', guild: { id: G },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' }, channel: { id: 'c-ticket-test' },
+      update: r => { rep = r; }, reply: r => { rep = r; },
+    };
+    await h.handleButton(inter);
+    if (!rep) throw new Error('aucune réponse');
+    if (!JSON.stringify(rep.components).includes('annulée')) throw new Error('confirmation d\'annulation absente');
+    if (!store.getTicket(G, 'c-ticket-test')) throw new Error('le ticket a été supprimé alors qu\'on annulait');
+  });
+
+  await test('bouton Ajouter un membre : refusé hors staff, proposé au staff', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 9, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
+    let rep = null;
+    const base = { customId: 'ticket:ajouter-membre', guild: { id: G }, user: { id: 'x' }, channel: { id: 'c-ticket-test' }, reply: r => { rep = r; }, update: r => { rep = r; }, followUp: r => { rep = r; } };
+    await h.handleButton({ ...base, member: { permissions: { has: () => true }, roles: { cache: new Map([['role-autre', 1]]) } } });
+    if (!JSON.stringify(rep.components).includes('staff')) throw new Error('refus non staff absent');
+    rep = null;
+    await h.handleButton({ ...base, member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } } });
+    if (!JSON.stringify(rep.components || []).includes('membre-choix')) throw new Error('sélecteur de membres absent');
   });
 
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);

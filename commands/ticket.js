@@ -296,7 +296,7 @@ module.exports = {
 
     if (sub === 'claim') {
       if (!t) return repondre(interaction, { texte: '❌ Cette commande marche uniquement dans un ticket ouvert.' });
-      if (!handler.estStaff(interaction.member, config)) {
+      if (!handler.estStaffTicket(interaction.member, config, t)) {
         return repondre(interaction, { texte: '❌ Seul le staff peut prendre en charge un ticket.' });
       }
       if (t.claimedBy) {
@@ -309,6 +309,9 @@ module.exports = {
 
     if (sub === 'add') {
       if (!t) return repondre(interaction, { texte: '❌ Cette commande marche uniquement dans un ticket ouvert.' });
+      if (!handler.estStaffTicket(interaction.member, config, t)) {
+        return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut ajouter un membre.' });
+      }
       const membre = interaction.options.getMember('membre');
       if (!membre) return repondre(interaction, { texte: '❌ Membre introuvable sur le serveur.' });
       try {
@@ -333,6 +336,14 @@ module.exports = {
 
     if (sub === 'close') {
       if (!t) return repondre(interaction, { texte: '❌ Cette commande marche uniquement dans un ticket ouvert.' });
+      // Sécurité : seul le staff du ticket peut fermer
+      if (!handler.estStaffTicket(interaction.member, config, t)) {
+        return repondre(interaction, {
+          couleur: 'erreur',
+          titre: '🔒 Fermeture réservée au staff',
+          texte: 'Seul un membre du staff de ce ticket peut le fermer.',
+        });
+      }
       const raison = interaction.options.getString('raison');
       // Pas de raison donnée → on la demande dans un formulaire
       if (!raison) {

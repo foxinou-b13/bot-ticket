@@ -1,12 +1,8 @@
 /**
  * utils/panneaux.js
  * Toutes les réponses du bot (succès, erreur, information, avertissement)
- * s'affichent dans une CARTE ARRONDIE (conteneur components v2) avec une
- * LIGNE DE COULEUR À GAUCHE (accent) :
- *   vert  = réussite
- *   rouge = erreur
- *   jaune = avertissement
- *   bleu  = information
+ * s'affichent dans une CARTE ARRONDIE (conteneur components v2), SANS ligne de
+ * couleur à gauche (demande explicite : aucune barre verticale colorée).
  *
  * Le panneau public du salon de tickets n'utilise PAS ce module : il garde
  * son apparence mesurée sur la référence (sans accent), comme validé.
@@ -46,8 +42,8 @@ function couleurAuto(texte = '') {
  * @param {Array} [o.composants] ActionRow à mettre DANS la carte, en bas
  */
 function carte(o = {}) {
-  const couleur = COULEURS[o.couleur] ? o.couleur : couleurAuto(o.texte || o.titre || '');
-  const conteneur = new ContainerBuilder().setAccentColor(COULEURS[couleur]);
+  // Aucun accent : simple bloc arrondi, sans barre colorée (aucune ligne à gauche).
+  const conteneur = new ContainerBuilder();
   const entete = [o.titre ? `**${o.titre}**` : null, o.texte || null].filter(Boolean).join('\n');
   if (entete) conteneur.addTextDisplayComponents(new TextDisplayBuilder().setContent(entete));
   for (const bloc of o.lignes || []) {

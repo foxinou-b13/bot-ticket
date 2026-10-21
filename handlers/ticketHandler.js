@@ -16,6 +16,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
   RoleSelectMenuBuilder,
+  UserSelectMenuBuilder,
   ChannelSelectMenuBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
@@ -30,11 +31,16 @@ const {
 const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
 const { genererBanniere } = require('../utils/banniere');
-const { repondre, maj, carte } = require('../utils/panneaux');
+const { repondre, maj, carte, payload } = require('../utils/panneaux');
 const { autorise, nettoyerTexte, permissionsManquantes } = require('../utils/securite');
 
 // ─── Anti double-clic (comme les bots pro) : un seul ticket créé à la fois par membre ───
 const creationEnCours = new Set();
+
+// ─── Fermetures en attente de confirmation (salon → { raison, par, expire }) ───
+// La raison saisie dans le formulaire est gardée ici, jamais relue dans un message.
+const fermeturesEnAttente = new Map();
+const DUREE_CONFIRMATION = 5 * 60 * 1000; // 5 minutes
 
 // ─── Petits utilitaires ───
 function slug(txt) {
@@ -117,7 +123,6 @@ function embedPanneau(config, options = {}, guildName = null) {
   const embed = new EmbedBuilder()
     // Bordure de l'embed = couleur du fond du thème sombre Discord :
     // aucune ligne colorée visible, ni à gauche ni ailleurs.
-    .setColor(0x2B2D31)
     .setTitle(
       coupe(
         options.titre || p.titre || (guildName ? `👑 ${serifBold('Support | ' + guildName)}` : '🎫 Support'),
@@ -636,7 +641,6 @@ function embedAssistant(config) {
       })
     : ['Aucun type — commence avec « ➕ Nouveau type ».'];
   return new EmbedBuilder()
-    .setColor(0x5865F2)
     .setTitle('📋 Assistant des types de tickets')
     .setDescription(
       [
@@ -807,7 +811,6 @@ function embedWizard(type, config, step) {
   const info = WIZARD_INFOS[step];
   const numero = WIZARD_STEPS.indexOf(step) + 1;
   return new EmbedBuilder()
-    .setColor(0x5865F2)
     .setTitle(`${type.emoji ? type.emoji + ' ' : ''}${coupe(type.nom, 200)}`)
     .setDescription(`**${info.titre}**\n\n💡 ${info.aide}`)
     .addFields(valeurEtape(type, config, step))
@@ -955,6 +958,7 @@ function modalPanel(config) {
 }
 
 // ─── À l'intérieur d'un ticket ───
+// Trois boutons DANS la carte : prendre en charge, ajouter un membre, fermer.
 function boutonsTicket(t) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -964,6 +968,11 @@ function boutonsTicket(t) {
       .setStyle(ButtonStyle.Primary)
       .setDisabled(!!t.claimedBy),
     new ButtonBuilder()
+      .setCustomId('ticket:ajouter-membre')
+      .setLabel('Ajouter un membre')
+      .setEmoji('➕')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
       .setCustomId('ticket:fermer')
       .setLabel('Fermer le ticket')
       .setEmoji('🔒')
@@ -971,30 +980,68 @@ function boutonsTicket(t) {
   );
 }
 
+// Date lisible en français (21/10/2026 à 22:04)
+function dateFr(ms) {
+  return new Date(ms || Date.now()).toLocaleString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/**
+ * Carte du ticket (conteneur arrondi, AUCUNE ligne de couleur).
+ * Remplace l'ancien embed : tout est dans la même carte propre, boutons compris.
+ */
+function carteTicket(t, options = {}) {
+  const carte = new ContainerBuilder();
+  const mentions = options.mentions ? [`<@${t.userId}>`, ...(t.staffRoleIds || []).map(r => `<@&${r}>`)].join(' ') : null;
+  const entete = [`## 🎫 Ticket #${t.numero}`, mentions].filter(Boolean).join('\n');
+  carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(entete));
+  carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+  const infos = [
+    `👤 **Ouvert par** : <@${t.userId}>`,
+    `📌 **Statut** : ${t.claimedBy ? `pris en charge par <@${t.claimedBy}>` : '⏳ en attente du staff'}`,
+  ];
+  if (t.typeNom) infos.push(`🏷️ **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
+  if (t.sujet) infos.push(`📝 **Sujet** : ${t.sujet}`);
+  carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(infos.join('\n')));
+  carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+  carte.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `-# Utilise les boutons ci-dessous · ouvert le ${dateFr(t.createdAt)}`
+    )
+  );
+  carte.addActionRowComponents(boutonsTicket(t));
+  return carte;
+}
+
+// Charge utile complète de la carte du ticket (components v2 obligatoire)
+function payloadTicket(t, options = {}) {
+  return {
+    components: [carteTicket(t, options)],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { users: [t.userId], roles: t.staffRoleIds || [] },
+  };
+}
+
+// Compatibilité : certains chemins anciens utilisent encore embedTicket
 function embedTicket(t) {
   const embed = new EmbedBuilder()
-    .setColor(0x5865F2)
     .setTitle(`🎫 Ticket #${t.numero}`)
     .addFields(
       { name: 'Ouvert par', value: `<@${t.userId}>`, inline: true },
-      {
-        name: 'Statut',
-        value: t.claimedBy ? `Pris en charge par <@${t.claimedBy}>` : '⏳ En attente du staff',
-        inline: true,
-      }
+      { name: 'Statut', value: t.claimedBy ? `Pris en charge par <@${t.claimedBy}>` : '⏳ En attente du staff', inline: true }
     )
-    .setFooter({ text: 'Utilise les boutons ci-dessous' })
     .setTimestamp(t.createdAt);
   if (t.typeNom) embed.addFields({ name: 'Type', value: `${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`, inline: true });
   if (t.sujet) embed.setDescription(`**Sujet :** ${t.sujet}`);
   return embed;
 }
 
-// Met à jour le message d'accroche du ticket (embed + boutons)
+// Met à jour le message d'accroche du ticket (carte + boutons)
 async function rafraichirMessageTicket(interaction, t) {
   try {
     const message = await interaction.channel.messages.fetch(t.messageId);
-    await message.edit({ embeds: [embedTicket(t)], components: [boutonsTicket(t)] });
+    await message.edit({ ...payloadTicket(t), embeds: [] });
   } catch {
     // Le message a peut-être été supprimé : on ignore.
   }
@@ -1109,13 +1156,8 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
     createdAt: Date.now(),
   };
 
-  const mentions = staffRoleIds.map(id => `<@&${id}>`).join(' ');
-  const paquet = {
-    content: `<@${interaction.user.id}> ${mentions}`,
-    allowedMentions: { users: [interaction.user.id], roles: staffRoleIds },
-    embeds: [embedTicket(infos)],
-    components: [boutonsTicket(infos)],
-  };
+  // Tout dans UNE SEULE carte arrondie (membres + rôles staff mentionnés DEDANS)
+  const paquet = payloadTicket({ ...infos, staffRoleIds }, { mentions: true });
   let message;
   try {
     message = await salon.send(paquet);
@@ -1143,6 +1185,7 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
 async function fermerTicket(interaction, t, raisonBrute) {
   const guild = interaction.guild;
   const raison = nettoyerTexte(raisonBrute, 200);
+  fermeturesEnAttente.delete(interaction.channel.id);
   const config = store.getGuild(guild.id);
 
   // Transcription des 100 derniers messages → salon de logs
@@ -1155,19 +1198,16 @@ async function fermerTicket(interaction, t, raisonBrute) {
     const logChannel = await guild.channels.fetch(config.logChannelId).catch(() => null);
     if (logChannel) {
       await assurerAccesBot(logChannel);
-      const embed = new EmbedBuilder()
-        .setColor(0xED4245)
-        .setTitle(`🔒 Ticket #${t.numero} fermé`)
-        .addFields(
-          { name: 'Ouvert par', value: `<@${t.userId}>`, inline: true },
-          { name: 'Fermé par', value: `<@${interaction.user.id}>`, inline: true },
-          { name: 'Raison', value: raison || 'Aucune' }
-        )
-        .setTimestamp();
-      if (t.typeNom) embed.addFields({ name: 'Type', value: `${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`, inline: true });
+      const infos = [
+        `👤 **Ouvert par** : <@${t.userId}>`,
+        `🔒 **Fermé par** : <@${interaction.user.id}>`,
+        `📝 **Raison** : ${raison || 'Aucune'}`,
+      ];
+      if (t.typeNom) infos.push(`🏷️ **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
+      infos.push(`🕒 **Fermé le** : ${dateFr(Date.now())}`);
       await logChannel
         .send({
-          embeds: [embed],
+          ...payload({ ephemere: false, titre: `🔒 Ticket #${t.numero} fermé`, lignes: [infos.join('\n')] }),
           files: [{ attachment: Buffer.from(lignes.slice(0, 3900), 'utf8'), name: `ticket-${t.numero}.txt` }],
         })
         .catch(() => {});
@@ -1178,12 +1218,28 @@ async function fermerTicket(interaction, t, raisonBrute) {
   const auteur = await interaction.client.users.fetch(t.userId).catch(() => null);
   if (auteur) {
     await auteur
-      .send(`🔒 Ton ticket #${t.numero} sur **${guild.name}** a été fermé.${raison ? `\nRaison : ${raison}` : ''}`)
+      .send(payload({
+        ephemere: false,
+        titre: `🔒 Ton ticket #${t.numero} a été fermé`,
+        lignes: [
+          [
+            `🏠 **Serveur** : ${guild.name}`,
+            `📝 **Raison** : ${raison || 'Non précisée'}`,
+          ].join('\n'),
+          'Merci d\'avoir utilisé le support. Tu peux rouvrir un ticket à tout moment.',
+        ],
+      }))
       .catch(() => {});
   }
 
   store.removeTicket(guild.id, interaction.channel.id);
-  await interaction.channel.send('🔒 Fermeture du ticket dans 5 secondes...').catch(() => {});
+  await interaction.channel
+    .send(payload({
+      ephemere: false,
+      titre: '🔒 Fermeture du ticket',
+      texte: '⚠️ **Ce salon sera supprimé dans 5 secondes.**\n-# La transcription a été envoyée dans le salon de logs.',
+    }))
+    .catch(() => {});
   setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
 }
 
@@ -1209,28 +1265,57 @@ async function handleButton(interaction) {
     return interaction.showModal(modal);
   }
 
-  // Prise en charge par le staff
-  if (interaction.customId === 'ticket:reclamer') {
+  // ─────────── Prise en charge par le staff ───────────
+  if (id === 'ticket:reclamer') {
     const t = store.getTicket(guild.id, interaction.channel.id);
     if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
     if (!estStaffTicket(interaction.member, config, t)) {
-      return repondre(interaction, { texte: '❌ Seul le staff peut prendre en charge un ticket.' });
+      return repondre(interaction, { texte: '❌ Seul le staff de ce ticket peut le prendre en charge.' });
     }
     if (t.claimedBy) {
       return repondre(interaction, { texte: `Ce ticket est déjà pris en charge par <@${t.claimedBy}>.` });
     }
-    const maj = store.updateTicket(guild.id, interaction.channel.id, { claimedBy: interaction.user.id });
-    await interaction.update({ embeds: [embedTicket(maj)], components: [boutonsTicket(maj)] });
-    return interaction.channel.send(`🔔 <@${interaction.user.id}> a pris en charge ce ticket.`);
+    const majTicket = store.updateTicket(guild.id, interaction.channel.id, { claimedBy: interaction.user.id });
+    await interaction.update({ ...payloadTicket(majTicket), embeds: [] });
+    // Message d'information dans la carte (plus de texte brut dans le salon)
+    return interaction.channel
+      .send(payload({ ephemere: false, titre: '🔔 Ticket pris en charge', texte: `<@${interaction.user.id}> s'occupe désormais de ce ticket.` }))
+      .catch(() => {});
   }
 
-  // Demande de fermeture → on demande la raison (obligatoire)
-  if (interaction.customId === 'ticket:fermer') {
+  // ─────────── Ajouter un membre au ticket (staff) ───────────
+  if (id === 'ticket:ajouter-membre') {
     const t = store.getTicket(guild.id, interaction.channel.id);
     if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
-    // Sécurité : seul l'auteur du ticket ou un membre du staff peut le fermer
-    if (interaction.user.id !== t.userId && !estStaffTicket(interaction.member, config, t)) {
-      return repondre(interaction, { couleur: 'erreur', texte: 'Seul l\'auteur du ticket ou un membre du staff peut le fermer.' });
+    if (!estStaffTicket(interaction.member, config, t)) {
+      return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut ajouter un membre.' });
+    }
+    return repondre(interaction, {
+      titre: '➕ Ajouter un membre au ticket',
+      texte: 'Choisis une ou plusieurs personnes dans la liste : elles pourront voir et écrire dans ce salon.',
+      composants: [
+        new ActionRowBuilder().addComponents(
+          new UserSelectMenuBuilder()
+            .setCustomId('ticket:membre-choix')
+            .setPlaceholder('👥 Choisis le(s) membre(s) à ajouter')
+            .setMinValues(1)
+            .setMaxValues(5)
+        ),
+      ],
+    });
+  }
+
+  // ─────────── Demande de fermeture → raison (obligatoire) ───────────
+  if (id === 'ticket:fermer') {
+    const t = store.getTicket(guild.id, interaction.channel.id);
+    if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
+    // Sécurité demandée : SEUL LE STAFF du ticket peut le fermer
+    if (!estStaffTicket(interaction.member, config, t)) {
+      return repondre(interaction, {
+        couleur: 'erreur',
+        titre: '🔒 Fermeture réservée au staff',
+        texte: 'Seul un membre du staff de ce ticket peut le fermer. Si ton problème est réglé, demande-lui de fermer.',
+      });
     }
     const modal = new ModalBuilder().setCustomId('ticket:raison-fermeture').setTitle('🔒 Fermer le ticket');
     const champ = new TextInputBuilder()
@@ -1244,17 +1329,37 @@ async function handleButton(interaction) {
     return interaction.showModal(modal);
   }
 
-  if (interaction.customId === 'ticket:confirmer-fermeture') {
+  // ─────────── Confirmation de fermeture (boutons Confirmer / Annuler) ───────────
+  if (id === 'ticket:confirmer-fermeture') {
     const t = store.getTicket(guild.id, interaction.channel.id);
     if (!t) return maj(interaction, { texte: '❌ Ticket déjà fermé.' });
-    if (interaction.user.id !== t.userId && !estStaffTicket(interaction.member, config, t)) {
-      return maj(interaction, { couleur: 'erreur', texte: 'Seul l\'auteur du ticket ou un membre du staff peut confirmer la fermeture.' });
+    if (!estStaffTicket(interaction.member, config, t)) {
+      return maj(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut confirmer la fermeture.' });
     }
-    await maj(interaction, { texte: '🔒 Fermeture en cours...' });
-    return fermerTicket(interaction, t, 'Fermeture via le bouton');
+    const attente = fermeturesEnAttente.get(interaction.channel.id);
+    if (!attente || attente.expire < Date.now()) {
+      fermeturesEnAttente.delete(interaction.channel.id);
+      return maj(interaction, {
+        couleur: 'attention',
+        titre: '⌛ Confirmation expirée',
+        texte: 'La demande a expiré (5 minutes). Clique de nouveau sur « 🔒 Fermer le ticket ».',
+      });
+    }
+    const raison = attente.raison;
+    await maj(interaction, { couleur: 'attention', titre: '🔒 Fermeture en cours…', texte: 'Le salon sera supprimé dans quelques secondes.' });
+    return fermerTicket(interaction, t, raison);
   }
 
-  if (interaction.customId === 'ticket:annuler') {
+  if (id === 'ticket:annuler-fermeture') {
+    fermeturesEnAttente.delete(interaction.channel.id);
+    return maj(interaction, {
+      couleur: 'succes',
+      titre: '✅ Fermeture annulée',
+      texte: 'Le ticket reste ouvert, aucun message n\'a été supprimé.',
+    });
+  }
+
+  if (id === 'ticket:annuler') {
     return maj(interaction, { texte: '✅ Annulé, le ticket reste ouvert.' });
   }
 
@@ -1361,6 +1466,55 @@ async function handleButton(interaction) {
 async function handleSelectMenu(interaction) {
   const guild = interaction.guild;
   const id = interaction.customId;
+
+  // ── Ajout de membre(s) depuis le bouton « ➕ Ajouter un membre » ──
+  if (id === 'ticket:membre-choix') {
+    const config = store.getGuild(guild.id);
+    const t = store.getTicket(guild.id, interaction.channel.id);
+    if (!t) return maj(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
+    if (!estStaffTicket(interaction.member, config, t)) {
+      return maj(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut ajouter un membre.' });
+    }
+    const ajoutes = [];
+    const echecs = [];
+    for (const userId of interaction.values) {
+      if (userId === t.userId) continue; // le créateur a déjà accès
+      const ok = await interaction.channel.permissionOverwrites
+        ?.edit(userId, {
+          ViewChannel: true,
+          SendMessages: true,
+          ReadMessageHistory: true,
+          AttachFiles: true,
+        })
+        .then(() => true)
+        .catch(() => false);
+      if (ok) ajoutes.push(userId);
+      else echecs.push(userId);
+    }
+    if (!ajoutes.length && !echecs.length) {
+      return maj(interaction, { couleur: 'attention', texte: 'Ce membre a déjà accès au ticket.' });
+    }
+    if (!ajoutes.length) {
+      return maj(interaction, {
+        couleur: 'erreur',
+        titre: 'Ajout impossible',
+        texte: 'Je n\'ai pas pu modifier les permissions de ce salon. Vérifie que mon rôle est bien au-dessus des autres dans la liste des rôles.',
+      });
+    }
+    // Une carte dans le salon pour garder une trace claire (pas de texte brut)
+    await interaction.channel
+      .send(payload({
+        ephemere: false,
+        titre: '➕ Membre(s) ajouté(s) au ticket',
+        texte: `${ajoutes.map(u => `<@${u}>`).join(', ')} — ajouté(s) par <@${interaction.user.id}>.`,
+      }))
+      .catch(() => {});
+    return maj(interaction, {
+      couleur: 'succes',
+      titre: '✅ Membre(s) ajouté(s)',
+      texte: `${ajoutes.map(u => `<@${u}>`).join(', ')} ${ajoutes.length > 1 ? 'peuvent' : 'peut'} maintenant voir et écrire dans ce ticket.`,
+    });
+  }
 
   // ── Étape finale de /ticket setup : choix des rôles staff ──
   if (id === 'ticket:select-roles') {
@@ -1561,9 +1715,44 @@ async function handleModal(interaction) {
   if (id === 'ticket:raison-fermeture') {
     const t = store.getTicket(guild.id, interaction.channel.id);
     if (!t) return repondre(interaction, { texte: '❌ Ce salon n\'est plus un ticket actif.' });
-    const raison = (interaction.fields.getTextInputValue('raison') || '').trim();
-    await repondre(interaction, { texte: '🔒 Fermeture en cours...' });
-    return fermerTicket(interaction, t, raison || 'Fermeture via le bouton');
+    const config = store.getGuild(guild.id);
+    // Sécurité : la confirmation n'est possible que pour le staff du ticket
+    if (!estStaffTicket(interaction.member, config, t)) {
+      return repondre(interaction, { couleur: 'erreur', texte: '❌ Seul le staff de ce ticket peut le fermer.' });
+    }
+    const raison = nettoyerTexte(interaction.fields.getTextInputValue('raison'), 200) || 'Aucune raison donnée';
+    // On garde la raison en mémoire jusqu'à la confirmation
+    fermeturesEnAttente.set(interaction.channel.id, {
+      raison,
+      par: interaction.user.id,
+      expire: Date.now() + DUREE_CONFIRMATION,
+    });
+    // CARTE DE CONFIRMATION : Confirmer / Annuler
+    return repondre(interaction, {
+      titre: '🔒 Confirmer la fermeture du ticket',
+      lignes: [
+        [
+          `🎫 **Ticket** : #${t.numero}`,
+          `📝 **Raison** : ${raison}`,
+          `👮 **Fermé par** : <@${interaction.user.id}>`,
+        ].join('\n'),
+        '⚠️ Le salon sera **supprimé** et une transcription sera envoyée dans le salon de logs.',
+      ],
+      composants: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('ticket:confirmer-fermeture')
+            .setLabel('Confirmer la fermeture')
+            .setEmoji('✅')
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId('ticket:annuler-fermeture')
+            .setLabel('Annuler')
+            .setEmoji('❌')
+            .setStyle(ButtonStyle.Secondary)
+        ),
+      ],
+    });
   }
 
   // ── Ouverture d'un ticket simple (bouton) ──
@@ -1664,6 +1853,8 @@ module.exports = {
   rowTypes,
   boutonOuvrir,
   embedTicket,
+  carteTicket,
+  payloadTicket,
   boutonsTicket,
   envoyerPanel,
   menuChoixPanneau,

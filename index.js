@@ -86,6 +86,22 @@ client.once(Events.ClientReady, async readyClient => {
   }, 30 * 60 * 1000);
 });
 
+// ─── Salon / catégorie supprimé → réparation automatique ───
+// (exemple vécu : le salon de logs supprimé laissait une configuration morte)
+client.on(Events.ChannelDelete, async channel => {
+  try {
+    const guild = channel.guild;
+    if (!guild) return;
+    const cfg = store.getGuild(guild.id);
+    const concerne = [cfg.logChannelId, cfg.panelChannelId, cfg.categoryId].filter(Boolean).includes(channel.id);
+    if (!concerne) return;
+    const infra = await ticket.preparerInfra(guild);
+    console.log(`🛠️ Salon supprimé détecté sur ${guild.name} → ${infra.recrees.join(', ') || 'vérifié'}`);
+  } catch (erreur) {
+    console.error('Réparation après suppression impossible :', erreur.message);
+  }
+});
+
 // ─── Toutes les interactions : commandes, boutons, formulaires ───
 client.on(Events.InteractionCreate, async interaction => {
   try {
