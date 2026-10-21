@@ -8,24 +8,7 @@
       "panelSent": true,
       "panelMessageId": "1562027684718977095",
       "counter": 6,
-      "open": {
-        "1562572761484763147": {
-          "numero": 6,
-          "userId": "1497375017980137534",
-          "sujet": "Bug",
-          "typeId": "tmvfptavd3ha8",
-          "typeNom": "bug",
-          "typeEmoji": "🎄",
-          "staffRoleIds": [
-            "1511382517385527466"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1792616777757,
-          "messageId": "1562572763653349387",
-          "nomPerso": "ticket-live",
-          "membres": []
-        }
-      },
+      "open": {},
       "panelMode": "menu",
       "panel": {
         "titre": null,
