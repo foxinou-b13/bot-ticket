@@ -268,6 +268,7 @@ module.exports = {
         });
       }
       const purge = await handler.purgerTicketsFantomes(guild, { verifierAcces: true });
+      const cartes = await handler.rafraichirCartesTickets(guild);
       const cfg = store.getGuild(guild.id);
       const cache = guild.channels.cache;
       const doublons = (cache && typeof cache.filter === 'function' ? [...cache.filter(c => c.type === ChannelType.GuildCategory && /\b(log|logs)\b/i.test(c.name) && c.id !== cfg.categoryId).values()] : [])
@@ -283,6 +284,7 @@ module.exports = {
           ].join('\n'),
           infra.recrees.length ? `🛠️ Recréé : ${infra.recrees.join(', ')}` : '🛠️ Aucun salon recréé (tout existait).',
           `🧹 Tickets fantômes supprimés : **${purge.purges}** sur ${purge.verifies} vérifié(s).`,
+          `🔄 Cartes de tickets mises à jour : **${cartes.misAJour}** (${cartes.ignores} ignorée(s)).`,
           manquantes.length ? `⚠️ Permissions à donner au bot : ${manquantes.join(', ')}` : null,
           doublons.length ? `🔎 Catégories « log » trouvées (vérifie si tu en as en trop) : ${doublons.join(', ')}` : null,
         ].filter(Boolean),

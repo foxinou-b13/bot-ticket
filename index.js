@@ -12,6 +12,9 @@ const { MessageFlags } = require('discord.js');
 const store = require('./utils/store');
 const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
+
+// ─── Version du bot (vérifiable sur /health) ───
+const VERSION = 'v2026-10-21-menu-unique';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -65,9 +68,12 @@ client.once(Events.ClientReady, async readyClient => {
       if (!configure) continue;
       const infra = await ticket.preparerInfra(guild);
       const purge = await ticket.purgerTicketsFantomes(guild, { verifierAcces: true });
+      // Les cartes des tickets déjà ouverts prennent la nouvelle disposition
+      const cartes = await ticket.rafraichirCartesTickets(guild);
       console.log(
         `🛠️ ${guild.name} : ${infra.recrees.length ? 'réparé (' + infra.recrees.join(', ') + ')' : 'infrastructure OK'}` +
-        ` · ${purge.purges} ticket(s) fantôme(s) supprimé(s)`
+        ` · ${purge.purges} ticket(s) fantôme(s) supprimé(s)` +
+        ` · ${cartes.misAJour} carte(s) de ticket mise(s) à jour`
       );
     } catch (erreur) {
       console.error(`⚠️ Vérification de ${guild.name} impossible :`, erreur.message);
@@ -177,7 +183,8 @@ http
     const url = (req.url || '/').split('?')[0];
     if (url === '/health') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-      return res.end('Bot Discord en ligne');
+      // La version permet de vérifier que le nouveau code est bien en ligne
+      return res.end(`Bot Discord en ligne · ${VERSION}`);
     }
     if (url === '/banniere.png') {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });

@@ -423,5 +423,34 @@ function monde(opts = {}) {
     if (!JSON.stringify(rep).includes('renommé')) throw new Error('confirmation absente');
   });
 
+
+  console.log('── Mise à jour des anciennes cartes de ticket ──');
+
+  await test('les anciennes cartes sont remplacées par la nouvelle disposition', async () => {
+    reset();
+    store.addTicket(G, 'c-ancien', { numero: 8, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), messageId: 'm-ancien' });
+    let edition = null;
+    const message = { id: 'm-ancien', edit: async p => { edition = p; return message; } };
+    const salon = { id: 'c-ancien', messages: { fetch: async () => message } };
+    const guild = { id: G, channels: { fetch: async () => salon } };
+    const r = await h.rafraichirCartesTickets(guild);
+    if (r.misAJour !== 1) throw new Error('cartes mises à jour : ' + r.misAJour);
+    const j = JSON.stringify(edition.components);
+    if (!j.includes('ticket:reclamer')) throw new Error('bouton prise en charge absent');
+    if (!j.includes('ticket:actions')) throw new Error('menu unique absent');
+    if (j.includes('ticket:ajouter-membre') || j.includes('ticket:fermer')) {
+      throw new Error('anciens boutons encore présents');
+    }
+    if (edition.embeds && edition.embeds.length) throw new Error('ancien embed encore présent');
+  });
+
+  await test('un ticket dont le message a disparu est ignoré (pas de crash)', async () => {
+    reset();
+    store.addTicket(G, 'c-perdu', { numero: 9, userId: 'u', staffRoleIds: [], claimedBy: null, createdAt: Date.now(), messageId: 'm-x' });
+    const guild = { id: G, channels: { fetch: async () => null } };
+    const r = await h.rafraichirCartesTickets(guild);
+    if (r.misAJour !== 0) throw new Error('aucune carte ne devait être mise à jour');
+  });
+
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
 })();

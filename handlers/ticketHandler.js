@@ -1165,6 +1165,32 @@ function embedTicket(t) {
   return embed;
 }
 
+/**
+ * Met à jour la carte (épinglée) de TOUS les tickets ouverts d'un serveur.
+ * Utile après une évolution de la carte : les anciens tickets prennent la
+ * nouvelle disposition (bouton « Prendre en charge » + menu unique).
+ * @returns {Promise<{misAJour:number, ignores:number}>}
+ */
+async function rafraichirCartesTickets(guild) {
+  const config = store.getGuild(guild.id);
+  let misAJour = 0;
+  let ignores = 0;
+  for (const [channelId, t] of Object.entries({ ...config.open })) {
+    try {
+      const salon = await guild.channels.fetch(channelId).catch(() => null);
+      if (!salon || !t.messageId) { ignores += 1; continue; }
+      const message = await salon.messages.fetch(t.messageId).catch(() => null);
+      if (!message) { ignores += 1; continue; }
+      // On ne remet PAS les mentions pour ne pas re-notifier le staff
+      await message.edit({ ...payloadTicket(t, { mentions: false }), embeds: [] });
+      misAJour += 1;
+    } catch {
+      ignores += 1;
+    }
+  }
+  return { misAJour, ignores };
+}
+
 // Met à jour le message d'accroche du ticket (carte + boutons)
 async function rafraichirMessageTicket(interaction, t) {
   try {
@@ -2041,6 +2067,7 @@ module.exports = {
   boutonOuvrir,
   embedTicket,
   carteTicket,
+  rafraichirCartesTickets,
   payloadTicket,
   boutonsTicket,
   envoyerPanel,
