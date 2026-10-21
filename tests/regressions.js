@@ -209,7 +209,7 @@ function monde(opts = {}) {
 
   console.log('── Ticket : boutons, fermeture staff, confirmation ──');
 
-  await test('carte du ticket : 3 boutons (prise en charge, ajouter un membre, fermer)', () => {
+  await test('carte du ticket : boutons essentiels présents', () => {
     const t = { numero: 1, userId: 'u1', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), sujet: 'test', typeNom: 'Bug', typeEmoji: '🔴' };
     const c = h.carteTicket(t).toJSON();
     const boutons = c.components[c.components.length - 1].components;
@@ -217,7 +217,7 @@ function monde(opts = {}) {
     if (!ids.includes('ticket:reclamer')) throw new Error('bouton prise en charge absent');
     if (!ids.includes('ticket:ajouter-membre')) throw new Error('bouton ajouter un membre absent');
     if (!ids.includes('ticket:fermer')) throw new Error('bouton fermer absent');
-    if (boutons.length !== 3) throw new Error('nombre de boutons : ' + boutons.length);
+    if (boutons.length < 3) throw new Error('nombre de boutons : ' + boutons.length);
   });
 
   await test('carte du ticket : aucune ligne colorée (pas d\'accent)', () => {
@@ -312,6 +312,114 @@ function monde(opts = {}) {
     rep = null;
     await h.handleButton({ ...base, member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } } });
     if (!JSON.stringify(rep.components || []).includes('membre-choix')) throw new Error('sélecteur de membres absent');
+  });
+
+
+  console.log('── Membres du ticket : ajout, retrait, renommage ──');
+
+  await test('la carte du ticket a 5 boutons (dont retirer un membre et renommer)', () => {
+    const t = { numero: 1, userId: 'u1', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() };
+    const c = h.carteTicket(t).toJSON();
+    const boutons = c.components[c.components.length - 1].components;
+    const ids = boutons.map(b => b.custom_id);
+    for (const attendu of ['ticket:reclamer', 'ticket:ajouter-membre', 'ticket:retirer-membre', 'ticket:renommer', 'ticket:fermer']) {
+      if (!ids.includes(attendu)) throw new Error('bouton manquant : ' + attendu);
+    }
+    if (boutons.length > 5) throw new Error('Discord limite à 5 boutons par rangée : ' + boutons.length);
+  });
+
+  await test('retirer un membre : le menu ne propose QUE les membres ajoutés', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), membres: ['u-ajoute-1', 'u-ajoute-2'] });
+    let rep = null;
+    await h.handleButton({
+      customId: 'ticket:retirer-membre', guild: { id: G, members: { fetch: async () => null } },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' }, channel: { id: 'c-ticket-test' },
+      reply: r => { rep = r; }, followUp: r => { rep = r; }, update: r => { rep = r; },
+    });
+    const j = JSON.stringify(rep);
+    if (!j.includes('ticket:membre-retirer')) throw new Error('menu de retrait absent');
+    if (!j.includes('u-ajoute-1') || !j.includes('u-ajoute-2')) throw new Error('membres ajoutés absents du menu');
+    if (j.includes('u-auteur')) throw new Error('le créateur est proposé alors qu\'il ne doit pas l\'être');
+  });
+
+  await test('retirer un membre : aucun membre ajouté → message clair', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), membres: [] });
+    let rep = null;
+    await h.handleButton({
+      customId: 'ticket:retirer-membre', guild: { id: G, members: { fetch: async () => null } },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' }, channel: { id: 'c-ticket-test' },
+      reply: r => { rep = r; }, followUp: r => { rep = r; },
+    });
+    if (!JSON.stringify(rep).includes('Aucun membre')) throw new Error('message absent');
+  });
+
+  await test('retrait effectif : permission supprimée + liste mise à jour', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), membres: ['u-1', 'u-2'] });
+    const supprimes = [];
+    let rep = null;
+    const channel = {
+      id: 'c-ticket-test',
+      permissionOverwrites: { delete: async id => { supprimes.push(id); } },
+      send: async () => ({}),
+    };
+    await h.handleSelectMenu({
+      customId: 'ticket:membre-retirer', guild: { id: G }, channel,
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' }, values: ['u-1'],
+      update: r => { rep = r; }, reply: r => { rep = r; }, followUp: r => { rep = r; },
+    });
+    if (supprimes.length !== 1 || supprimes[0] !== 'u-1') throw new Error('permission non retirée : ' + supprimes.join(','));
+    const t = store.getTicket(G, 'c-ticket-test');
+    if (t.membres.includes('u-1')) throw new Error('liste des membres non mise à jour');
+    if (!t.membres.includes('u-2')) throw new Error('un autre membre a été retiré par erreur');
+  });
+
+  await test('retrait refusé à un non-staff', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now(), membres: ['u-1'] });
+    let rep = null;
+    await h.handleButton({
+      customId: 'ticket:retirer-membre', guild: { id: G },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-autre', 1]]) } },
+      user: { id: 'x' }, channel: { id: 'c-ticket-test' },
+      reply: r => { rep = r; }, update: r => { rep = r; }, followUp: r => { rep = r; },
+    });
+    if (!JSON.stringify(rep).includes('staff')) throw new Error('refus absent');
+  });
+
+  await test('renommer : formulaire ouvert pour le staff', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
+    let modal = null;
+    await h.handleButton({
+      customId: 'ticket:renommer', guild: { id: G },
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' }, channel: { id: 'c-ticket-test' },
+      showModal: m => { modal = m; },
+    });
+    if (!modal) throw new Error('formulaire absent');
+    if (modal.toJSON().custom_id !== 'ticket:renommer-modal') throw new Error('mauvais formulaire');
+  });
+
+  await test('renommer : le salon est renommé ticket-5-mon-sujet', async () => {
+    reset();
+    store.addTicket(G, 'c-ticket-test', { numero: 5, userId: 'u-auteur', staffRoleIds: ['role-staff'], claimedBy: null, createdAt: Date.now() });
+    let nouveauNom = null; let rep = null;
+    const channel = { id: 'c-ticket-test', setName: async n => { nouveauNom = n; }, send: async () => ({}) };
+    await h.handleModal({
+      customId: 'ticket:renommer-modal', guild: { id: G }, channel,
+      member: { permissions: { has: () => true }, roles: { cache: new Map([['role-staff', 1]]) } },
+      user: { id: 'u-staff' },
+      fields: { getTextInputValue: () => 'Mon Sujet !' },
+      reply: r => { rep = r; }, followUp: r => { rep = r; },
+    });
+    if (nouveauNom !== 'ticket-5-mon-sujet') throw new Error('nom obtenu : ' + nouveauNom);
+    if (!JSON.stringify(rep).includes('renommé')) throw new Error('confirmation absente');
   });
 
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
