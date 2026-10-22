@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-raison-label';
+const VERSION = 'v2026-10-22-diagnostic';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -201,8 +201,17 @@ http
     const url = (req.url || '/').split('?')[0];
     if (url === '/health') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-      // La version permet de vérifier que le nouveau code est bien en ligne
-      return res.end(`Bot Discord en ligne · ${VERSION}`);
+      // Diagnostic complet : la version, l'état RÉEL de la connexion à Discord,
+      // le ping, le nombre de serveurs et l'ancienneté du processus.
+      const connecte = client.isReady() ? 'oui' : 'NON';
+      const ping = client.ws && client.ws.ping >= 0 ? `${client.ws.ping} ms` : 'n/a';
+      const serveurs = client.isReady() ? client.guilds.cache.size : 0;
+      const depuis = Math.round(process.uptime() / 60);
+      return res.end(
+        `Bot Discord en ligne · ${VERSION}` +
+          `\ngateway=${connecte} · ping=${ping} · serveurs=${serveurs}` +
+          `\nuptime=${depuis} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}`
+      );
     }
     if (url === '/banniere.png') {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
@@ -262,6 +271,28 @@ store
       process.exit(1);
     }, 60000);
     client.once(Events.ClientReady, () => clearTimeout(watchdog));
+
+// ─── Surveillance : si la connexion Discord est perdue (déconnexion non
+// récupérée), on redémarre le processus : l'hébergeur relance automatiquement.
+let dernierReady = Date.now();
+client.on(Events.ShardDisconnect, () => {
+  console.error('⚠️ Connexion Discord perdue, tentative de reconnexion...');
+});
+client.on(Events.ShardResume, () => {
+  dernierReady = Date.now();
+  console.log('🔁 Connexion Discord rétablie');
+});
+client.on(Events.Error, e => console.error('❌ Erreur du client Discord :', e.message));
+setInterval(() => {
+  if (client.isReady()) {
+    dernierReady = Date.now();
+    return;
+  }
+  if (Date.now() - dernierReady > 180000) {
+    console.error('⏱️ Bot déconnecté depuis plus de 3 min → redémarrage automatique...');
+    process.exit(1);
+  }
+}, 60000);
 
     return client.login(token);
   })
