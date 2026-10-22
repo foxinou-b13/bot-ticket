@@ -15,7 +15,7 @@ const ticket = require('./handlers/ticketHandler');
 const emojis = require('./utils/emojis');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-emojis-auto';
+const VERSION = 'v2026-10-22-emojis-place-libre';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -164,8 +164,51 @@ client.on(Events.ChannelDelete, async channel => {
 // ─── Toutes les interactions : commandes, boutons, formulaires ───
 // ─── Le serveur ajoute/retire un emoji : on met le cache à jour ───
 const majEmojis = guild => { try { emojis.rafraichir(guild); } catch { /* ignoré */ } };
-client.on(Events.GuildEmojiCreate, majEmojis);
-client.on(Events.GuildEmojiDelete, majEmojis);
+client.on(Events.GuildEmojiCreate, guild => {
+  majEmojis(guild);
+  completerEmojis(guild, 3000);
+});
+
+// ─── Une place vient de se libérer sur le serveur : on ajoute aussitôt les
+// emojis One Assist qui n'avaient pas pu être créés (le serveur était plein).
+client.on(Events.GuildEmojiDelete, guild => {
+  majEmojis(guild);
+  completerEmojis(guild, 3000);
+});
+
+// Filet de sécurité : le serveur peut aussi gagner des places autrement
+// (boost, suppression groupée) → on revérifie régulièrement.
+client.once(Events.ClientReady, readyClient => {
+  setInterval(() => {
+    for (const guild of readyClient.guilds.cache.values()) {
+      if (emojis.etat(guild).manquants.length) completerEmojis(guild, 0, true);
+    }
+  }, 15 * 60 * 1000);
+});
+
+// ─── Complète les emojis manquants d'un serveur (dès qu'une place est libre) ───
+const enCours = new Set();
+function completerEmojis(guild, delai = 0, silencieux = false) {
+  if (!guild || enCours.has(guild.id)) return;
+  enCours.add(guild.id);
+  setTimeout(async () => {
+    try {
+      const avant = emojis.etat(guild);
+      if (!avant.manquants.length) return;
+      const r = await emojis.installer(guild, { silencieux: true });
+      const apres = emojis.etat(guild);
+      if (r.crees) {
+        console.log(`😀 ${guild.name} : ${r.crees} emoji(s) ajouté(s) → ${apres.presents}/${apres.total}`);
+      } else if (!silencieux) {
+        console.log(`😀 ${guild.name} : ${apres.presents}/${apres.total} (${r.erreur || 'rien à faire'})`);
+      }
+    } catch (erreur) {
+      console.error(`Emojis (${guild.name}) :`, erreur.message);
+    } finally {
+      enCours.delete(guild.id);
+    }
+  }, delai);
+}
 
 client.on(Events.InteractionCreate, async interaction => {
   try {

@@ -531,5 +531,21 @@ function monde(opts = {}) {
     if (manquants.length) throw new Error('images manquantes : ' + manquants.join(', '));
   });
 
+
+  await test('emojis : la surveillance et le déclenchement à la place libre existent', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
+    if (!/Events\.GuildEmojiDelete/.test(src)) throw new Error('pas de surveillance de suppression d\'emoji');
+    if (!/function completerEmojis/.test(src)) throw new Error('pas de fonction de complétion');
+    if (!/15 \* 60 \* 1000/.test(src)) throw new Error('pas de revérification périodique');
+  });
+
+  await test('emojis : le bot retombe sur les emojis normaux quand les siens manquent', () => {
+    const e = require('../utils/emojis');
+    const valeur = e.ej('serveur-sans-emojis', 'oa_billet');
+    if (valeur !== '🎫') throw new Error('repli incorrect : ' + valeur);
+    const pour = e.emojiPour('serveur-sans-emojis', 'oa_fermer');
+    if (pour !== '🔒') throw new Error('repli bouton incorrect : ' + JSON.stringify(pour));
+  });
+
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
 })();
