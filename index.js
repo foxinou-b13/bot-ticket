@@ -15,7 +15,7 @@ const ticket = require('./handlers/ticketHandler');
 const emojis = require('./utils/emojis');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-compteur-uptimerobot';
+const VERSION = 'v2026-10-22-emojis-maison';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
