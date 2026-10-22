@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-raison-code';
+const VERSION = 'v2026-10-22-raison-bloc';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───

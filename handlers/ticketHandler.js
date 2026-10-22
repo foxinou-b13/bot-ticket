@@ -1129,9 +1129,13 @@ function carteTicket(t, options = {}) {
     `📌 **Statut** : ${t.claimedBy ? `pris en charge par <@${t.claimedBy}>` : '⏳ en attente du staff'}`,
   ];
   if (t.typeNom) infos.push(`🏷️ **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
-  // La raison de l'ouverture est affichée en `code` (backticks), comme demandé.
-  // On retire d'éventuels backticks saisis par le membre pour ne pas casser le format.
-  if (t.sujet) infos.push(`📝 **Raison de l'ouverture** : \`${String(t.sujet).replace(/`/g, "'")}\``);
+  // La raison de l'ouverture est affichée dans un BLOC DE CODE (triple backtick),
+  // comme demandé. Les backticks saisis par le membre sont neutralisés pour que
+  // le bloc ne se referme pas au milieu de la raison.
+  if (t.sujet) {
+    const raison = String(t.sujet).replace(/`/g, "'").replace(/\r/g, '');
+    infos.push(`📝 **Raison de l'ouverture** :\n\`\`\`\n${raison}\n\`\`\``);
+  }
   if ((t.membres || []).length) infos.push(`👥 **Membres ajoutés** : ${t.membres.map(u => `<@${u}>`).join(', ')}`);
   carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(infos.join('\n')));
   carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));

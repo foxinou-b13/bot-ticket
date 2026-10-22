@@ -458,16 +458,16 @@ function monde(opts = {}) {
   await test('la raison apparaît entre backticks dans la carte du ticket', () => {
     const t = { numero: 3, userId: 'u1', staffRoleIds: [], claimedBy: null, createdAt: Date.now(), sujet: 'Mon souci de connexion' };
     const texte = h.carteTicket(t).toJSON().components.filter(c => c.type === 10).map(c => c.content).join('\n');
-    if (!texte.includes('`Mon souci de connexion`')) throw new Error('backticks absents : ' + texte);
+    if (!texte.includes('```\nMon souci de connexion\n```')) throw new Error('bloc de code absent : ' + texte);
     if (!texte.includes("Raison de l'ouverture")) throw new Error('libellé absent');
   });
 
   await test('un backtick saisi par le membre ne casse pas le format', () => {
     const t = { numero: 3, userId: 'u1', staffRoleIds: [], claimedBy: null, createdAt: Date.now(), sujet: 'test ` pirate' };
     const texte = h.carteTicket(t).toJSON().components.filter(c => c.type === 10).map(c => c.content).join('\n');
-    const ligne = texte.split('\n').find(l => l.includes('Raison'));
-    const nb = (ligne.match(/`/g) || []).length;
-    if (nb !== 2) throw new Error('backticks en nombre incorrect (' + nb + ') : ' + ligne);
+    const nb = (texte.match(/```/g) || []).length;
+    if (nb !== 2) throw new Error('blocs de code mal fermés (' + nb + ' triples backticks) : ' + texte);
+    if (texte.includes('pirate\n```\n```')) throw new Error('bloc cassé par la saisie du membre');
   });
 
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
