@@ -15,7 +15,7 @@ const ticket = require('./handlers/ticketHandler');
 const emojis = require('./utils/emojis');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-emojis-maison';
+const VERSION = 'v2026-10-22-emojis-auto';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -83,6 +83,20 @@ client.once(Events.ClientReady, async readyClient => {
       console.error(`Emojis (${guild.name}) :`, erreur.message);
     }
   }
+
+  // ─── Emojis manquants : nouvel essai toutes les 10 min (Discord limite la création) ───
+  setInterval(async () => {
+    for (const guild of readyClient.guilds.cache.values()) {
+      try {
+        const e = emojis.etat(guild);
+        if (e.manquants.length === 0) continue;
+        const r = await emojis.installer(guild, { silencieux: true });
+        if (r.crees) console.log(`😀 ${guild.name} : ${r.crees} emoji(s) créé(s) — ${emojis.etat(guild).presents}/${emojis.NOMS.length}`);
+      } catch (erreur) {
+        console.error('Emojis (nouvel essai) :', erreur.message);
+      }
+    }
+  }, 10 * 60 * 1000);
 
   // ─── Vérification automatique au démarrage ───
   // Uniquement sur les serveurs où les tickets sont DÉJÀ configurés : le bot
@@ -257,7 +271,13 @@ http
           `\nauto-appel=${DERNIER_AUTO_APPEL}` +
           `\nuptimerobot=${VISITES.uptimerobot} visite(s) · dernier : ${VISITES.dernierUptimeRobot}` +
           `\nautres-visites=${VISITES.autres}` +
-          `\ndernieres-visites :\n${VISITES.journal.length ? VISITES.journal.join('\n') : '(aucune)'}`
+          `\ndernieres-visites :\n${VISITES.journal.length ? VISITES.journal.join('\n') : '(aucune)'}` +
+          (client.isReady() && client.guilds.cache.size
+            ? `\nemojis : ${[...client.guilds.cache.values()].map(g => {
+                const e = emojis.etat(g);
+                return `${g.name} ${e.presents}/${e.total}${e.manquants.length ? ' (manque ' + e.manquants.length + ')' : ''}`;
+              }).join(' · ')}`
+            : '')
       );
     }
     if (url === '/banniere.png') {

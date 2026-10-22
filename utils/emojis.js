@@ -67,6 +67,8 @@ const SECOURS = {
 };
 
 const DOSSIER = path.join(__dirname, '..', 'assets', 'emojis');
+// GuildId → date (ms) avant laquelle Discord refuse de créer des emojis (429)
+const prochainEssai = new Map();
 const NOMS = Object.keys(SECOURS);
 
 // guildId → Map(nom → « <:nom:id> »)
@@ -104,6 +106,13 @@ async function installer(guild, options = {}) {
     return { crees: 0, presents: 0, erreur: 'permission « Gérer les expressions » absente' };
   }
 
+  // Discord limite la création d'emojis : on respecte le délai annoncé
+  const attente = prochainEssai.get(guild.id) || 0;
+  if (Date.now() < attente) {
+    rafraichir(guild);
+    return { crees: 0, presents: enCache.get(guild.id).size, erreur: `nouvel essai dans ${Math.ceil((attente - Date.now()) / 60000)} min` };
+  }
+
   await guild.emojis.fetch().catch(() => null);
   const existants = new Set(guild.emojis.cache.map(e => e.name));
   let crees = 0;
@@ -122,6 +131,13 @@ async function installer(guild, options = {}) {
       // 30008 : limite d'emojis du serveur atteinte → on arrête, sans erreur bloquante
       if (code === 30008) { arret = 'limite d\'emojis du serveur atteinte'; break; }
       if (code === 50013) { arret = 'permission refusée'; break; }
+      // 429 : Discord demande d'attendre → on programme un nouvel essai
+      if (code === 429) {
+        const secondes = (erreur.rawError && erreur.rawError.retry_after) || 600;
+        prochainEssai.set(guild.id, Date.now() + Math.min(secondes, 3600) * 1000);
+        arret = `limite Discord : nouvel essai dans ${Math.ceil(secondes / 60)} min`;
+        break;
+      }
       console.error(`Emoji ${nom} non créé :`, erreur.message);
     }
     // Petite pause : évite de se faire limiter par Discord (création en rafale)
@@ -167,7 +183,15 @@ function emojiPour(guildOrId, nom) {
   return texte;
 }
 
+/** État des emojis sur un serveur : {presents, total, manquants[]}. */
+function etat(guild) {
+  const table = rafraichir(guild);
+  const manquants = NOMS.filter(nom => !table.has(nom));
+  return { presents: table.size, total: NOMS.length, manquants };
+}
+
 module.exports = {
+  etat,
   NOMS,
   SECOURS,
   installer,
