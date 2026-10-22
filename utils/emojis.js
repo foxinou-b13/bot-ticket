@@ -69,6 +69,32 @@ const SECOURS = {
 const DOSSIER = path.join(__dirname, '..', 'assets', 'emojis');
 // GuildId → date (ms) avant laquelle Discord refuse de créer des emojis (429)
 const prochainEssai = new Map();
+// GuildId → promesse d'installation en cours (évite les doublons si deux
+// appels partent en même temps)
+const verrous = new Map();
+
+/** Supprime les copies en double de NOS emojis (garde une seule version). */
+async function nettoyerDoublons(guild) {
+  await guild.emojis.fetch().catch(() => null);
+  const vus = new Set();
+  let supprimes = 0;
+  // du plus ancien au plus récent : on garde le premier de chaque nom
+  const tries = [...guild.emojis.cache.values()].sort((a, b) => (a.createdTimestamp || 0) - (b.createdTimestamp || 0));
+  for (const emoji of tries) {
+    if (!NOMS.includes(emoji.name)) continue;
+    if (!vus.has(emoji.name)) { vus.add(emoji.name); continue; }
+    try {
+      await emoji.delete('One Assist : suppression d\'un doublon');
+      supprimes += 1;
+    } catch { /* ignoré */ }
+  }
+  if (supprimes) {
+    await guild.emojis.fetch().catch(() => null);
+    rafraichir(guild);
+    console.log(`🧹 ${guild.name} : ${supprimes} doublon(s) d'emoji supprimé(s)`);
+  }
+  return supprimes;
+}
 const NOMS = Object.keys(SECOURS);
 
 // guildId → Map(nom → « <:nom:id> »)
@@ -100,6 +126,14 @@ function rafraichir(guild) {
  */
 async function installer(guild, options = {}) {
   if (!guild || !guild.emojis) return { crees: 0, presents: 0, erreur: 'serveur inconnu' };
+  // Un seul passage à la fois par serveur : deux appels simultanés créaient des doublons.
+  if (verrous.has(guild.id)) return verrous.get(guild.id);
+  const travail = installerInterne(guild, options).finally(() => verrous.delete(guild.id));
+  verrous.set(guild.id, travail);
+  return travail;
+}
+
+async function installerInterne(guild, options = {}) {
   const moi = guild.members && guild.members.me;
   if (moi && !moi.permissions.has('ManageGuildExpressions')) {
     rafraichir(guild);
@@ -113,7 +147,7 @@ async function installer(guild, options = {}) {
     return { crees: 0, presents: enCache.get(guild.id).size, erreur: `nouvel essai dans ${Math.ceil((attente - Date.now()) / 60000)} min` };
   }
 
-  await guild.emojis.fetch().catch(() => null);
+  await nettoyerDoublons(guild);
   const existants = new Set(guild.emojis.cache.map(e => e.name));
   let crees = 0;
   let arret = null;
@@ -123,6 +157,8 @@ async function installer(guild, options = {}) {
     const données = image(nom);
     if (!données) continue;
     try {
+      // On revérifie à l'instant T : le serveur a pu gagner l'emoji entre-temps
+      if (guild.emojis.cache.some(e => e.name === nom)) continue;
       await guild.emojis.create({ attachment: données, name: nom, reason: 'Emojis officiels One Assist' });
       crees += 1;
       existants.add(nom);
@@ -192,6 +228,7 @@ function etat(guild) {
 
 module.exports = {
   etat,
+  nettoyerDoublons,
   NOMS,
   SECOURS,
   installer,
