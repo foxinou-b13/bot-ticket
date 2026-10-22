@@ -37,24 +37,7 @@
       "panelSent": true,
       "panelMessageId": "1562043600131330050",
       "counter": 9,
-      "open": {
-        "1562842182451462207": {
-          "numero": 9,
-          "userId": "1497375017980137534",
-          "sujet": "Test",
-          "typeId": "tmvfwvyqrxu64",
-          "typeNom": "Test",
-          "typeEmoji": "🧠",
-          "staffRoleIds": [
-            "1558960935006249071",
-            "1558960872448204960"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1792681015313,
-          "guildId": "1558915513634005024",
-          "messageId": "1562842195491295283"
-        }
-      },
+      "open": {},
       "panelMode": "menu",
       "panel": {
         "titre": null,
