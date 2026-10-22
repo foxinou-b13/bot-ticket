@@ -13,9 +13,10 @@ const store = require('./utils/store');
 const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 const emojis = require('./utils/emojis');
+const { permissionsManquantes } = require('./utils/securite');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-securite';
+const VERSION = 'v2026-10-22-securite-2';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -75,7 +76,6 @@ client.once(Events.ClientReady, async readyClient => {
   setInterval(appliquerStatut, 10 * 60 * 1000);
 
   // ─── Sécurité : vérification des permissions du bot sur chaque serveur ───
-  const { permissionsManquantes } = require('./utils/securite');
   for (const guild of readyClient.guilds.cache.values()) {
     try {
       const manquantes = permissionsManquantes(guild.members.me);
@@ -331,39 +331,55 @@ function noterVisite(req, url) {
   VISITES.journal = VISITES.journal.slice(0, 8);
 }
 
+// ─── Diagnostic /health : isolé dans une fonction, avec trouvailles protégées ───
+function repondreSante(res) {
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+  const morceaux = [`Bot Discord en ligne · ${VERSION}`];
+  try {
+    const connecte = client.isReady() ? 'oui' : 'NON';
+    const ping = client.ws && client.ws.ping >= 0 ? `${client.ws.ping} ms` : 'n/a';
+    const serveurs = client.isReady() ? client.guilds.cache.size : 0;
+    morceaux.push(`gateway=${connecte} · ping=${ping} · serveurs=${serveurs}`);
+    morceaux.push(`uptime=${Math.round(process.uptime() / 60)} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}`);
+    morceaux.push(`auto-appel=${DERNIER_AUTO_APPEL}`);
+    morceaux.push(`uptimerobot=${VISITES.uptimerobot} visite(s) · dernier : ${VISITES.dernierUptimeRobot}`);
+    morceaux.push(`autres-visites=${VISITES.autres}`);
+    morceaux.push(`dernieres-visites :\n${VISITES.journal.length ? VISITES.journal.join('\n') : '(aucune)'}`);
+    if (client.isReady() && client.guilds.cache.size) {
+      const serveursInfo = [...client.guilds.cache.values()].map(g => {
+        let emojisInfo = '?';
+        let permsInfo = '?';
+        try {
+          const e = emojis.etat(g);
+          emojisInfo = `${e.presents}/${e.total}${e.manquants.length ? ' (manque ' + e.manquants.length + ')' : ''}`;
+        } catch (err) { emojisInfo = 'n/a'; }
+        try {
+          const m = permissionsManquantes(g.members.me);
+          permsInfo = m.length ? 'MANQUE ' + m.join(',') : 'OK';
+        } catch (err) { permsInfo = 'n/a'; }
+        return `${g.name} emojis ${emojisInfo} · perms ${permsInfo}`;
+      });
+      morceaux.push(`serveurs : ${serveursInfo.join(' · ')}`);
+    }
+  } catch (erreur) {
+    morceaux.push(`(diagnostic partiel : ${erreur.message})`);
+  }
+  return res.end(morceaux.join('\n'));
+}
+
 http
   .createServer((req, res) => {
     const url = (req.url || '/').split('?')[0];
     noterVisite(req, url);
     if (url === '/health') {
-      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-      // Diagnostic complet : la version, l'état RÉEL de la connexion à Discord,
-      // le ping, le nombre de serveurs et l'ancienneté du processus.
-      const connecte = client.isReady() ? 'oui' : 'NON';
-      const ping = client.ws && client.ws.ping >= 0 ? `${client.ws.ping} ms` : 'n/a';
-      const serveurs = client.isReady() ? client.guilds.cache.size : 0;
-      const depuis = Math.round(process.uptime() / 60);
-      return res.end(
-        `Bot Discord en ligne · ${VERSION}` +
-          `\ngateway=${connecte} · ping=${ping} · serveurs=${serveurs}` +
-          `\nuptime=${depuis} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}` +
-          `\nauto-appel=${DERNIER_AUTO_APPEL}` +
-          `\nuptimerobot=${VISITES.uptimerobot} visite(s) · dernier : ${VISITES.dernierUptimeRobot}` +
-          `\nautres-visites=${VISITES.autres}` +
-          `\ndernieres-visites :\n${VISITES.journal.length ? VISITES.journal.join('\n') : '(aucune)'}` +
-          (client.isReady() && client.guilds.cache.size
-            ? `\nemojis : ${[...client.guilds.cache.values()].map(g => {
-                const e = emojis.etat(g);
-                return `${g.name} ${e.presents}/${e.total}${e.manquants.length ? ' (manque ' + e.manquants.length + ')' : ''}`;
-              }).join(' · ')}`
-            : '') +
-          (client.isReady() && client.guilds.cache.size
-            ? `\npermissions : ${[...client.guilds.cache.values()].map(g => {
-                const m = permissionsManquantes(g.members.me);
-                return `${g.name} ${m.length ? 'MANQUE ' + m.join(',') : 'OK'}`;
-              }).join(' · ')}`
-            : '')
-      );
+      try {
+        return repondreSante(res);
+      } catch (erreur) {
+        // Filet de sécurité : une erreur ici ne doit jamais arrêter le bot
+        console.error('/health en erreur :', erreur.message);
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        return res.end(`Bot Discord en ligne · ${VERSION}\n(diagnostic indisponible : ${erreur.message})`);
+      }
     }
     if (url === '/banniere.png') {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
@@ -377,6 +393,10 @@ http
 // ─── Sécurité : le bot ne plante pas sur une erreur isolée ───
 process.on('unhandledRejection', error => {
   console.error('Erreur non gérée :', error);
+});
+// Une exception isolée ne doit jamais arrêter le bot (protection anti-crash)
+process.on('uncaughtException', error => {
+  console.error('Exception non attrapée (le bot continue) :', error);
 });
 
 // ─── Arrêt propre du bot ───

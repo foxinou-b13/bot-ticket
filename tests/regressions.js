@@ -581,5 +581,17 @@ function monde(opts = {}) {
     if (!liste.some(n => /expression/i.test(n))) throw new Error('GérerLesExpressions non vérifiée : ' + liste.join(','));
   });
 
+
+  await test('robustesse : /health isolé, ne peut pas faire tomber le bot', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
+    if (!/function repondreSante\(res\)/.test(src)) throw new Error('/health non isolé dans une fonction');
+    if (!/uncaughtException/.test(src)) throw new Error('pas de filet anti-crash');
+    // tout ce dont /health a besoin doit être importé AU NIVEAU DU MODULE
+    const avantReady = src.split('client.once(Events.ClientReady')[0];
+    if (!/const \{ permissionsManquantes \} = require\('.+securite'\)/.test(avantReady)) {
+      throw new Error('permissionsManquantes pas importée au niveau module (risque de crash)');
+    }
+  });
+
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
 })();
