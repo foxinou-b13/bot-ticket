@@ -36,8 +36,25 @@
       "panelChannelId": "1558958817868259448",
       "panelSent": true,
       "panelMessageId": "1562043600131330050",
-      "counter": 11,
-      "open": {},
+      "counter": 12,
+      "open": {
+        "1562937721406623845": {
+          "numero": 12,
+          "userId": "1497375017980137534",
+          "sujet": "Bonjour j'aimerais savoir si vous avez besoin d'un développeur",
+          "typeId": "tmvfwvyqrxu64",
+          "typeNom": "Test",
+          "typeEmoji": "🧠",
+          "staffRoleIds": [
+            "1558960935006249071",
+            "1558960872448204960"
+          ],
+          "claimedBy": null,
+          "createdAt": 1792703790902,
+          "guildId": "1558915513634005024",
+          "messageId": "1562937723801575529"
+        }
+      },
       "panelMode": "menu",
       "panel": {
         "titre": null,
