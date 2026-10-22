@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-21-statut-24h';
+const VERSION = 'v2026-10-22-statut-perso';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -53,10 +53,20 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Bot connecté : ${readyClient.user.tag}`);
   console.log(`🌍 Présent sur ${readyClient.guilds.cache.size} serveur(s).`);
-  // Statut affiché sous le nom du bot (activité). Les bots ne peuvent PAS
-  // utiliser le « statut personnalisé » de Discord : seule une activité est
-  // possible, ici « Regarde One Assist · Support par tickets 🎫 ».
-  readyClient.user.setActivity('vos tickets · réponse 24h/24 🎫', { type: ActivityType.Watching });
+  // STATUT PERSONNALISÉ (la bulle arrondie, comme sur les bots pro).
+  // Type 4 = « Custom Status » : le texte affiché est `state`.
+  const TEXTE_STATUT = 'Bonjour, je suis One Assist — Assistant Ticket 🎫';
+  try {
+    readyClient.user.setPresence({
+      status: 'online',
+      activities: [{ name: 'Custom Status', type: ActivityType.Custom, state: TEXTE_STATUT }],
+    });
+    console.log(`💬 Statut personnalisé : ${TEXTE_STATUT}`);
+  } catch (erreur) {
+    // Filet de sécurité : si le statut personnalisé est refusé, on garde une activité
+    console.error('Statut personnalisé refusé, activité de secours :', erreur.message);
+    readyClient.user.setActivity('vos tickets · réponse 24h/24 🎫', { type: ActivityType.Watching });
+  }
 
   // ─── Vérification automatique au démarrage ───
   // Uniquement sur les serveurs où les tickets sont DÉJÀ configurés : le bot
