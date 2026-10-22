@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-anti-veille';
+const VERSION = 'v2026-10-22-anti-veille-2';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -210,7 +210,8 @@ http
       return res.end(
         `Bot Discord en ligne · ${VERSION}` +
           `\ngateway=${connecte} · ping=${ping} · serveurs=${serveurs}` +
-          `\nuptime=${depuis} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}`
+          `\nuptime=${depuis} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}` +
+          `\nauto-appel=${DERNIER_AUTO_APPEL}`
       );
     }
     if (url === '/banniere.png') {
@@ -240,15 +241,16 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 // visite, ce qui déconnecte le bot). On s'appelle soi-même via l'URL publique
 // toutes les 10 minutes : le service reste réveillé 24h/24, même si le
 // surveillant externe (UptimeRobot) est en pause.
+let DERNIER_AUTO_APPEL = 'jamais';
+
 function maintenirEveille() {
-  const base = (process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/$/, '');
-  if (!base) {
-    console.log('ℹ️ Maintien en éveil inactif (pas d’URL publique connue).');
-    return;
-  }
+  const base = (process.env.RENDER_EXTERNAL_URL || 'https://bot-ticket-wq1h.onrender.com')
+    .trim()
+    .replace(/\/$/, '');
   const appeler = () => {
     const req = https.get(`${base}/health`, r => {
       r.resume();
+      DERNIER_AUTO_APPEL = `${r.statusCode} à ${new Date().toLocaleTimeString('fr-FR')}`;
       console.log(`⏰ Maintien en éveil : ${r.statusCode} (${new Date().toLocaleTimeString('fr-FR')})`);
     });
     req.on('error', e => console.log('⏰ Maintien en éveil : erreur', e.message));
