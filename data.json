@@ -7,8 +7,24 @@
       "panelChannelId": "1511368265996308591",
       "panelSent": true,
       "panelMessageId": "1562027684718977095",
-      "counter": 8,
-      "open": {},
+      "counter": 9,
+      "open": {
+        "1562841050865864746": {
+          "numero": 9,
+          "userId": "1497375017980137534",
+          "sujet": "Hey! Thanks for reaching out. Could you explain what kind of services you offer for community growth and marketing? Is it free or paid?",
+          "typeId": "tmvfptavd3ha8",
+          "typeNom": "bug",
+          "typeEmoji": "🎄",
+          "staffRoleIds": [
+            "1511382517385527466"
+          ],
+          "claimedBy": null,
+          "createdAt": 1792680742857,
+          "guildId": "1510643183728595035",
+          "messageId": "1562841053185319056"
+        }
+      },
       "panelMode": "menu",
       "panel": {
         "titre": null,
