@@ -547,5 +547,16 @@ function monde(opts = {}) {
     if (pour !== '🔒') throw new Error('repli bouton incorrect : ' + JSON.stringify(pour));
   });
 
+
+  await test('fermeture : les deux phrases retirées, les panneaux conservés', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'handlers', 'ticketHandler.js'), 'utf8');
+    // les deux textes à retirer ne doivent plus être affichés
+    if (/texte: 'Le salon sera supprimé dans quelques secondes\.'/.test(src)) throw new Error('phrase « quelques secondes » encore affichée');
+    if (/titre: '🔒 Fermeture du ticket'/.test(src)) throw new Error('titre « Fermeture du ticket » encore affiché');
+    // mais les panneaux doivent rester
+    if (!/titre: '🔒 Fermeture en cours…'/.test(src)) throw new Error('panneau « Fermeture en cours… » manquant');
+    if (!/Ce salon sera supprimé dans 5 secondes/.test(src)) throw new Error('message du salon manquant');
+  });
+
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
 })();

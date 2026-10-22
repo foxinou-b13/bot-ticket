@@ -1392,10 +1392,11 @@ async function fermerTicket(interaction, t, raisonBrute) {
   }
 
   store.removeTicket(guild.id, interaction.channel.id);
+  // Message d'annonce conservé ; seul le titre « 🔒 Fermeture du ticket »
+  // est retiré sur demande.
   await interaction.channel
     .send(payload({
       ephemere: false,
-      titre: '🔒 Fermeture du ticket',
       texte: '⚠️ **Ce salon sera supprimé dans 5 secondes.**\n-# La transcription a été envoyée dans le salon de logs.',
     }))
     .catch(() => {});
@@ -1472,7 +1473,9 @@ async function handleButton(interaction) {
       });
     }
     const raison = attente.raison;
-    await maj(interaction, { couleur: 'attention', titre: '🔒 Fermeture en cours…', texte: 'Le salon sera supprimé dans quelques secondes.' });
+    // Panneau d'attente conservé ; seule la phrase « Le salon sera supprimé
+    // dans quelques secondes. » est retirée sur demande.
+    await maj(interaction, { couleur: 'attention', titre: '🔒 Fermeture en cours…' });
     return fermerTicket(interaction, t, raison);
   }
 
