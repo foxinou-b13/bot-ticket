@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-diagnostic';
+const VERSION = 'v2026-10-22-anti-veille';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -236,6 +236,29 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
+// ─── Maintien en éveil (Render gratuit endort le service après 15 min sans
+// visite, ce qui déconnecte le bot). On s'appelle soi-même via l'URL publique
+// toutes les 10 minutes : le service reste réveillé 24h/24, même si le
+// surveillant externe (UptimeRobot) est en pause.
+function maintenirEveille() {
+  const base = (process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/$/, '');
+  if (!base) {
+    console.log('ℹ️ Maintien en éveil inactif (pas d’URL publique connue).');
+    return;
+  }
+  const appeler = () => {
+    const req = https.get(`${base}/health`, r => {
+      r.resume();
+      console.log(`⏰ Maintien en éveil : ${r.statusCode} (${new Date().toLocaleTimeString('fr-FR')})`);
+    });
+    req.on('error', e => console.log('⏰ Maintien en éveil : erreur', e.message));
+    req.setTimeout(20000, () => req.destroy());
+  };
+  setTimeout(appeler, 30000);
+  setInterval(appeler, 10 * 60 * 1000);
+  console.log(`ℹ️ Maintien en éveil actif sur ${base} (toutes les 10 min)`);
+}
+
 // ─── Diagnostic réseau au démarrage (pour voir dans les logs de l'hébergeur) ───
 const https = require('https');
 const net = require('net');
@@ -263,6 +286,7 @@ store
   .then(() => {
     console.log('🔑 Connexion à Discord en cours...');
     diagReseau();
+    maintenirEveille();
 
     // Filet de sécurité : si le bot n'est pas connecté après 60 s, on redémarre
     // (l'hébergeur relancera le processus tout seul).
