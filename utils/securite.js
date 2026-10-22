@@ -65,14 +65,17 @@ const BESOINS = [
   ['EnvoyerDesMessages', PermissionFlagsBits.SendMessages],
   ['JoindreDesFichiers', PermissionFlagsBits.AttachFiles],
   ['LireLHistorique', PermissionFlagsBits.ReadMessageHistory],
+  // Nécessaires pour les emojis maison et la gestion des rôles staff
+  ['GererLesExpressions', PermissionFlagsBits.ManageGuildExpressions],
 ];
 
 /**
  * Liste les permissions manquantes du bot sur le serveur.
  * @returns {string[]} noms lisibles des permissions manquantes (vide = tout va bien)
  */
-function permissionsManquantes(guild) {
-  const me = guild?.members?.me;
+/** Accepte un serveur OU directement le membre du bot. */
+function permissionsManquantes(cible) {
+  const me = cible?.members?.me || cible;
   if (!me || !me.permissions) return [];
   return BESOINS.filter(([, bit]) => !me.permissions.has(bit)).map(([nom]) => nom);
 }

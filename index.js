@@ -15,7 +15,7 @@ const ticket = require('./handlers/ticketHandler');
 const emojis = require('./utils/emojis');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-fermeture-epuree';
+const VERSION = 'v2026-10-22-securite';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -73,6 +73,21 @@ client.once(Events.ClientReady, async readyClient => {
   appliquerStatut();
   // Discord peut perdre la presence apres une reconnexion : on la reapplique
   setInterval(appliquerStatut, 10 * 60 * 1000);
+
+  // ─── Sécurité : vérification des permissions du bot sur chaque serveur ───
+  const { permissionsManquantes } = require('./utils/securite');
+  for (const guild of readyClient.guilds.cache.values()) {
+    try {
+      const manquantes = permissionsManquantes(guild.members.me);
+      if (manquantes.length) {
+        console.warn(`⚠️ ${guild.name} : permissions manquantes → ${manquantes.join(', ')}`);
+      } else {
+        console.log(`🔐 ${guild.name} : toutes les permissions nécessaires sont présentes`);
+      }
+    } catch (erreur) {
+      console.error('Vérification des permissions :', erreur.message);
+    }
+  }
 
   // ─── Emojis maison : on les crée sur chaque serveur où le bot est présent ───
   for (const guild of readyClient.guilds.cache.values()) {
@@ -210,8 +225,18 @@ function completerEmojis(guild, delai = 0, silencieux = false) {
   }, delai);
 }
 
+// ─── Anti-flood : empêche de matraquer les boutons / menus / formulaires ───
+const DERNIERE_ACTION = new Map();
+setInterval(() => {
+  const limite = Date.now() - 5 * 60 * 1000;
+  for (const [k, v] of DERNIERE_ACTION) if (v < limite) DERNIERE_ACTION.delete(k);
+}, 5 * 60 * 1000);
+
 client.on(Events.InteractionCreate, async interaction => {
   try {
+    // ─── Sécurité : on ignore ce qui vient d'un autre bot ───
+    if (interaction.user && interaction.user.bot) return;
+
     // ─── Sécurité : tout se passe sur un serveur, jamais en MP ───
     if (!interaction.guild) {
       return repondre(interaction, {
@@ -219,6 +244,17 @@ client.on(Events.InteractionCreate, async interaction => {
         texte: 'Ce système de tickets fonctionne uniquement sur un serveur, pas en MP.',
       });
     }
+
+    // ─── Anti-flood : 700 ms minimum entre deux actions du même membre ───
+    const cleFlux = `${interaction.user.id}:${interaction.channelId || 'global'}`;
+    const avant = DERNIERE_ACTION.get(cleFlux) || 0;
+    if (Date.now() - avant < 700) {
+      return repondre(interaction, {
+        couleur: 'attention',
+        texte: 'Doucement 🙂 Tu cliques un peu vite — réessaie dans un instant.',
+      });
+    }
+    DERNIERE_ACTION.set(cleFlux, Date.now());
 
     if (interaction.isButton()) await ticket.handleButton(interaction);
     else if (interaction.isAnySelectMenu()) await ticket.handleSelectMenu(interaction);
@@ -319,6 +355,12 @@ http
             ? `\nemojis : ${[...client.guilds.cache.values()].map(g => {
                 const e = emojis.etat(g);
                 return `${g.name} ${e.presents}/${e.total}${e.manquants.length ? ' (manque ' + e.manquants.length + ')' : ''}`;
+              }).join(' · ')}`
+            : '') +
+          (client.isReady() && client.guilds.cache.size
+            ? `\npermissions : ${[...client.guilds.cache.values()].map(g => {
+                const m = permissionsManquantes(g.members.me);
+                return `${g.name} ${m.length ? 'MANQUE ' + m.join(',') : 'OK'}`;
               }).join(' · ')}`
             : '')
       );

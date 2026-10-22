@@ -61,7 +61,13 @@ function carte(o = {}) {
 // Charge utile prête pour Discord (components v2 obligatoire)
 function payload(o = {}, ephemere = true) {
   const flags = MessageFlags.IsComponentsV2 | (ephemere ? MessageFlags.Ephemeral : 0);
-  return { components: [carte(o)], flags };
+  // Sécurité : par défaut, AUCUNE mention n'est interprétée.
+  // (un texte saisi par un membre ne peut donc pas pinguer @everyone ou un rôle)
+  return {
+    components: [carte(o)],
+    flags,
+    allowedMentions: o.allowedMentions || { parse: [] },
+  };
 }
 
 /**

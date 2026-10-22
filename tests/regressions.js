@@ -558,5 +558,28 @@ function monde(opts = {}) {
     if (!/Ce salon sera supprimé dans 5 secondes/.test(src)) throw new Error('message du salon manquant');
   });
 
+
+  await test('sécurité : aucune mention interprétée par défaut dans les panneaux', () => {
+    const { payload } = require('../utils/panneaux');
+    const p = payload({ titre: 'test', texte: '@everyone coucou' });
+    if (!p.allowedMentions || p.allowedMentions.parse.length !== 0) {
+      throw new Error('allowedMentions par défaut trop permissif : ' + JSON.stringify(p.allowedMentions));
+    }
+  });
+
+  await test("sécurité : anti-flood et contrôle des permissions présents dans index.js", () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
+    if (!/DERNIERE_ACTION/.test(src)) throw new Error('anti-flood absent');
+    if (!/permissionsManquantes/.test(src)) throw new Error('contrôle des permissions absent');
+    if (!/interaction\.user\.bot/.test(src)) throw new Error('les bots ne sont pas ignorés');
+  });
+
+  await test('sécurité : les permissions vérifiées incluent les emojis', () => {
+    const { permissionsManquantes } = require('../utils/securite');
+    const aucun = { permissions: { has: () => false } };
+    const liste = permissionsManquantes(aucun);
+    if (!liste.some(n => /expression/i.test(n))) throw new Error('GérerLesExpressions non vérifiée : ' + liste.join(','));
+  });
+
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
 })();
