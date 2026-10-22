@@ -1068,7 +1068,7 @@ function boutonsTicket(t) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('ticket:reclamer')
-      .setLabel(t.claimedBy ? 'Pris en charge' : 'Prendre en charge')
+      .setLabel('Pris en charge')
       .setEmoji('🔔')
       .setStyle(ButtonStyle.Primary)
       .setDisabled(!!t.claimedBy)
@@ -1129,21 +1129,17 @@ function carteTicket(t, options = {}) {
     `📌 **Statut** : ${t.claimedBy ? `pris en charge par <@${t.claimedBy}>` : '⏳ en attente du staff'}`,
   ];
   if (t.typeNom) infos.push(`🏷️ **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
-  // La raison de l'ouverture est affichée dans un BLOC DE CODE (triple backtick),
-  // comme demandé. Les backticks saisis par le membre sont neutralisés pour que
-  // le bloc ne se referme pas au milieu de la raison.
+  // La raison est affichée dans un BLOC DE CODE (triple backtick), SANS libellé.
+  // Les backticks saisis par le membre sont neutralisés pour que le bloc ne se
+  // referme pas au milieu de la raison.
   if (t.sujet) {
     const raison = String(t.sujet).replace(/`/g, "'").replace(/\r/g, '');
-    infos.push(`📝 **Raison de l'ouverture** :\n\`\`\`\n${raison}\n\`\`\``);
+    infos.push(`\`\`\`\n${raison}\n\`\`\``);
   }
   if ((t.membres || []).length) infos.push(`👥 **Membres ajoutés** : ${t.membres.map(u => `<@${u}>`).join(', ')}`);
   carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(infos.join('\n')));
   carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-  carte.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `-# Utilise les boutons ci-dessous · ouvert le ${dateFr(t.createdAt)}`
-    )
-  );
+  // (ligne de bas de carte « Utilise les boutons ci-dessous » retirée sur demande)
   carte.addActionRowComponents(boutonsTicket(t), menuActionsTicket(t));
   return carte;
 }

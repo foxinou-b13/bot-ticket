@@ -459,7 +459,7 @@ function monde(opts = {}) {
     const t = { numero: 3, userId: 'u1', staffRoleIds: [], claimedBy: null, createdAt: Date.now(), sujet: 'Mon souci de connexion' };
     const texte = h.carteTicket(t).toJSON().components.filter(c => c.type === 10).map(c => c.content).join('\n');
     if (!texte.includes('```\nMon souci de connexion\n```')) throw new Error('bloc de code absent : ' + texte);
-    if (!texte.includes("Raison de l'ouverture")) throw new Error('libellé absent');
+    if (texte.includes("Raison de l'ouverture")) throw new Error('le libellé devrait être retiré');
   });
 
   await test('un backtick saisi par le membre ne casse pas le format', () => {
@@ -488,6 +488,24 @@ function monde(opts = {}) {
       const morceau = bloc.slice(0, 260);
       if (!morceau.includes('TextInputStyle.Paragraph')) throw new Error('champ non multi-lignes : ' + morceau.slice(0, 120));
       if (!morceau.includes('setMaxLength(400)')) throw new Error('limite de 400 caractères absente');
+    }
+  });
+
+
+  await test('la carte n\'a plus de ligne « Utilise les boutons ci-dessous »', () => {
+    const t = { numero: 3, userId: 'u1', staffRoleIds: [], claimedBy: null, createdAt: Date.now(), sujet: 'x' };
+    const texte = h.carteTicket(t).toJSON().components.filter(c => c.type === 10).map(c => c.content).join('\n');
+    if (/Utilise les boutons/i.test(texte)) throw new Error('ligne de pied encore présente');
+    if (/ouvert le/i.test(texte)) throw new Error('date de pied encore présente');
+  });
+
+  await test('le bouton affiche toujours « Pris en charge »', () => {
+    for (const claimedBy of [null, 'u9']) {
+      const t = { numero: 3, userId: 'u1', staffRoleIds: [], claimedBy, createdAt: Date.now(), sujet: 'x' };
+      const row = h.carteTicket(t).toJSON().components.find(c => c.type === 1);
+      const btn = row.components.find(b => b.type === 2);
+      if (btn.label !== 'Pris en charge') throw new Error('libellé = ' + btn.label);
+      if (!!btn.disabled !== !!claimedBy) throw new Error('état désactivé incohérent');
     }
   });
 
