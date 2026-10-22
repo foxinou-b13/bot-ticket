@@ -460,7 +460,7 @@ function monde(opts = {}) {
     const texte = h.carteTicket(t).toJSON().components.filter(c => c.type === 10).map(c => c.content).join('\n');
     if (!texte.includes('```\nMon souci de connexion\n```')) throw new Error('bloc de code absent : ' + texte);
     if (texte.includes("de l'ouverture")) throw new Error('« de l\'ouverture » devrait être retiré');
-    if (!texte.includes('📝 **Raison** :')) throw new Error('libellé « Raison : » absent');
+    if (!/\*\*Raison\*\* :/.test(texte)) throw new Error('libellé « Raison : » absent : ' + texte);
   });
 
   await test('un backtick saisi par le membre ne casse pas le format', () => {
@@ -508,6 +508,27 @@ function monde(opts = {}) {
       if (btn.label !== 'Pris en charge') throw new Error('libellé = ' + btn.label);
       if (!!btn.disabled !== !!claimedBy) throw new Error('état désactivé incohérent');
     }
+  });
+
+
+  await test('emojis : repli automatique sur l\'emoji classique si non installé', () => {
+    const e = require('../utils/emojis');
+    if (e.NOMS.length !== 50) throw new Error('catalogue incomplet : ' + e.NOMS.length);
+    for (const nom of e.NOMS) {
+      const valeur = e.ej('serveur-inconnu', nom);
+      if (!valeur) throw new Error('aucun secours pour ' + nom);
+      const objet = e.emojiPour('serveur-inconnu', nom);
+      if (typeof objet === 'string' && !objet) throw new Error('emojiPour vide pour ' + nom);
+    }
+  });
+
+  await test('emojis : chaque image du catalogue existe dans assets', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const e = require('../utils/emojis');
+    const dossier = path.join(__dirname, '..', 'assets', 'emojis');
+    const manquants = e.NOMS.filter(n => !fs.existsSync(path.join(dossier, n + '.png')));
+    if (manquants.length) throw new Error('images manquantes : ' + manquants.join(', '));
   });
 
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);

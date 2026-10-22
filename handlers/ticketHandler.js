@@ -33,6 +33,7 @@ const store = require('../utils/store');
 const { genererBanniere } = require('../utils/banniere');
 const { repondre, maj, carte, payload } = require('../utils/panneaux');
 const { autorise, nettoyerTexte, nettoyerMultiligne, permissionsManquantes } = require('../utils/securite');
+const emojis = require('../utils/emojis');
 
 // ─── Anti double-clic (comme les bots pro) : un seul ticket créé à la fois par membre ───
 const creationEnCours = new Set();
@@ -1069,7 +1070,7 @@ function boutonsTicket(t) {
     new ButtonBuilder()
       .setCustomId('ticket:reclamer')
       .setLabel('Pris en charge')
-      .setEmoji('🔔')
+      .setEmoji(emojis.emojiPour(t.guildId, 'oa_pris'))
       .setStyle(ButtonStyle.Primary)
       .setDisabled(!!t.claimedBy)
   );
@@ -1079,29 +1080,29 @@ function boutonsTicket(t) {
 function menuActionsTicket(t) {
   const menu = new StringSelectMenuBuilder()
     .setCustomId('ticket:actions')
-    .setPlaceholder('⚙️ Gérer ce ticket…')
+    .setPlaceholder('Gérer ce ticket…')
     .setMinValues(1)
     .setMaxValues(1)
     .addOptions(
       new StringSelectMenuOptionBuilder()
         .setLabel('Ajouter un membre')
         .setValue('ajouter')
-        .setEmoji('➕')
+        .setEmoji(emojis.emojiPour(t.guildId, 'oa_ajouter'))
         .setDescription('Donner accès au ticket à une personne'),
       new StringSelectMenuOptionBuilder()
         .setLabel(`Retirer un membre${(t.membres || []).length ? ` (${t.membres.length})` : ''}`)
         .setValue('retirer')
-        .setEmoji('➖')
+        .setEmoji(emojis.emojiPour(t.guildId, 'oa_retirer'))
         .setDescription('Retirer une personne ajoutée au ticket'),
       new StringSelectMenuOptionBuilder()
         .setLabel('Renommer le ticket')
         .setValue('renommer')
-        .setEmoji('✏️')
+        .setEmoji(emojis.emojiPour(t.guildId, 'oa_renommer'))
         .setDescription('Changer le nom du salon du ticket'),
       new StringSelectMenuOptionBuilder()
         .setLabel('Fermer le ticket')
         .setValue('fermer')
-        .setEmoji('🔒')
+        .setEmoji(emojis.emojiPour(t.guildId, 'oa_fermer'))
         .setDescription('Fermer le ticket (raison demandée)')
     );
   return new ActionRowBuilder().addComponents(menu);
@@ -1121,22 +1122,22 @@ function dateFr(ms) {
 function carteTicket(t, options = {}) {
   const carte = new ContainerBuilder();
   const mentions = options.mentions ? [`<@${t.userId}>`, ...(t.staffRoleIds || []).map(r => `<@&${r}>`)].join(' ') : null;
-  const entete = [`## 🎫 Ticket #${t.numero}`, mentions].filter(Boolean).join('\n');
+  const entete = [`## ${emojis.ej(t.guildId, 'oa_billet')} Ticket #${t.numero}`, mentions].filter(Boolean).join('\n');
   carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(entete));
   carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   const infos = [
-    `👤 **Ouvert par** : <@${t.userId}>`,
-    `📌 **Statut** : ${t.claimedBy ? `pris en charge par <@${t.claimedBy}>` : '⏳ en attente du staff'}`,
+    `${emojis.ej(t.guildId, 'oa_membre')} **Ouvert par** : <@${t.userId}>`,
+    `${emojis.ej(t.guildId, 'oa_attente')} **Statut** : ${t.claimedBy ? `pris en charge par <@${t.claimedBy}>` : 'en attente du staff'}`,
   ];
-  if (t.typeNom) infos.push(`🏷️ **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
+  if (t.typeNom) infos.push(`${emojis.ej(t.guildId, 'oa_epingle')} **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
   // Libellé « Raison : » (le « de l'ouverture » a été retiré sur demande) puis
   // la raison dans un BLOC DE CODE (triple backtick). Les backticks saisis par
   // le membre sont neutralisés pour que le bloc ne se referme pas au milieu.
   if (t.sujet) {
     const raison = String(t.sujet).replace(/`/g, "'").replace(/\r/g, '');
-    infos.push(`📝 **Raison** :\n\`\`\`\n${raison}\n\`\`\``);
+    infos.push(`${emojis.ej(t.guildId, 'oa_note')} **Raison** :\n\`\`\`\n${raison}\n\`\`\``);
   }
-  if ((t.membres || []).length) infos.push(`👥 **Membres ajoutés** : ${t.membres.map(u => `<@${u}>`).join(', ')}`);
+  if ((t.membres || []).length) infos.push(`${emojis.ej(t.guildId, 'oa_ajouter')} **Membres ajoutés** : ${t.membres.map(u => `<@${u}>`).join(', ')}`);
   carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(infos.join('\n')));
   carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   // (ligne de bas de carte « Utilise les boutons ci-dessous » retirée sur demande)
@@ -1311,6 +1312,7 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
     staffRoleIds,
     claimedBy: null,
     createdAt: Date.now(),
+    guildId: interaction.guildId,
   };
 
   // Tout dans UNE SEULE carte arrondie (membres + rôles staff mentionnés DEDANS)
@@ -1356,11 +1358,11 @@ async function fermerTicket(interaction, t, raisonBrute) {
     if (logChannel) {
       await assurerAccesBot(logChannel);
       const infos = [
-        `👤 **Ouvert par** : <@${t.userId}>`,
+        `${emojis.ej(t.guildId, 'oa_membre')} **Ouvert par** : <@${t.userId}>`,
         `🔒 **Fermé par** : <@${interaction.user.id}>`,
         `📝 **Raison** : ${raison || 'Aucune'}`,
       ];
-      if (t.typeNom) infos.push(`🏷️ **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
+      if (t.typeNom) infos.push(`${emojis.ej(t.guildId, 'oa_epingle')} **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
       infos.push(`🕒 **Fermé le** : ${dateFr(Date.now())}`);
       await logChannel
         .send({

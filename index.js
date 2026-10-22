@@ -12,6 +12,7 @@ const { MessageFlags } = require('discord.js');
 const store = require('./utils/store');
 const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
+const emojis = require('./utils/emojis');
 
 // ─── Version du bot (vérifiable sur /health) ───
 const VERSION = 'v2026-10-22-compteur-uptimerobot';
@@ -73,6 +74,16 @@ client.once(Events.ClientReady, async readyClient => {
   // Discord peut perdre la presence apres une reconnexion : on la reapplique
   setInterval(appliquerStatut, 10 * 60 * 1000);
 
+  // ─── Emojis maison : on les crée sur chaque serveur où le bot est présent ───
+  for (const guild of readyClient.guilds.cache.values()) {
+    try {
+      const resultat = await emojis.installerSiBesoin(guild);
+      if (resultat.erreur) console.log(`😀 ${guild.name} : ${resultat.erreur}`);
+    } catch (erreur) {
+      console.error(`Emojis (${guild.name}) :`, erreur.message);
+    }
+  }
+
   // ─── Vérification automatique au démarrage ───
   // Uniquement sur les serveurs où les tickets sont DÉJÀ configurés : le bot
   // ne crée jamais de catégorie ou de salon sur un serveur où on ne lui a
@@ -112,6 +123,16 @@ client.once(Events.ClientReady, async readyClient => {
 
 // ─── Salon / catégorie supprimé → réparation automatique ───
 // (exemple vécu : le salon de logs supprimé laissait une configuration morte)
+// ─── Le bot arrive sur un nouveau serveur : on installe les emojis maison ───
+client.on(Events.GuildCreate, async guild => {
+  try {
+    await emojis.installer(guild);
+    ticket.preparerInfra(guild).catch(() => null);
+  } catch (erreur) {
+    console.error(`Emojis (${guild.name}) :`, erreur.message);
+  }
+});
+
 client.on(Events.ChannelDelete, async channel => {
   try {
     const guild = channel.guild;
@@ -127,6 +148,11 @@ client.on(Events.ChannelDelete, async channel => {
 });
 
 // ─── Toutes les interactions : commandes, boutons, formulaires ───
+// ─── Le serveur ajoute/retire un emoji : on met le cache à jour ───
+const majEmojis = guild => { try { emojis.rafraichir(guild); } catch { /* ignoré */ } };
+client.on(Events.GuildEmojiCreate, majEmojis);
+client.on(Events.GuildEmojiDelete, majEmojis);
+
 client.on(Events.InteractionCreate, async interaction => {
   try {
     // ─── Sécurité : tout se passe sur un serveur, jamais en MP ───
