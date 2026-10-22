@@ -1129,7 +1129,9 @@ function carteTicket(t, options = {}) {
     `📌 **Statut** : ${t.claimedBy ? `pris en charge par <@${t.claimedBy}>` : '⏳ en attente du staff'}`,
   ];
   if (t.typeNom) infos.push(`🏷️ **Type** : ${t.typeEmoji ? t.typeEmoji + ' ' : ''}${t.typeNom}`);
-  if (t.sujet) infos.push(`📝 **Sujet** : ${t.sujet}`);
+  // La raison de l'ouverture est affichée en `code` (backticks), comme demandé.
+  // On retire d'éventuels backticks saisis par le membre pour ne pas casser le format.
+  if (t.sujet) infos.push(`📝 **Raison de l'ouverture** : \`${String(t.sujet).replace(/`/g, "'")}\``);
   if ((t.membres || []).length) infos.push(`👥 **Membres ajoutés** : ${t.membres.map(u => `<@${u}>`).join(', ')}`);
   carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(infos.join('\n')));
   carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
