@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-statut-regarde';
+const VERSION = 'v2026-10-22-regarde-seul';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -53,38 +53,24 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Bot connecté : ${readyClient.user.tag}`);
   console.log(`🌍 Présent sur ${readyClient.guilds.cache.size} serveur(s).`);
-  // ─── Statut affiché sous le nom du bot ───
-  // IMPORTANT (limite Discord) : un bot ne peut afficher QU'UNE SEULE activité.
-  // Si on envoie plusieurs activités, Discord n'en garde qu'une et ignore les
-  // autres silencieusement → on n'envoie donc volontairement qu'une ligne.
-  // Pour changer de style, il suffit de modifier ces deux constantes :
-  //   MODE_STATUT = 'regarde' → « Regarde vos tickets · réponse 24h/24 🎫 »
-  //   MODE_STATUT = 'bulle'   → bulle personnalisée (sans préfixe)
-  const MODE_STATUT = 'regarde';
-  const TEXTE_STATUT = 'Bonjour, je suis One Assist — Assistant Ticket 🎫';
+  // ─── Statut du bot : UNIQUEMENT l'activité « Regarde » ───
+  // (un bot ne peut afficher qu'une seule activité ; le statut personnalisé
+  //  « bulle » a été retiré volontairement — c'est le « Regarde » qui est gardé)
   const TEXTE_ACTIVITE = 'vos tickets · réponse 24h/24 🎫';
   const appliquerStatut = () => {
     try {
-      if (MODE_STATUT === 'bulle') {
-        readyClient.user.setPresence({
-          status: 'online',
-          activities: [{ name: 'Custom Status', type: ActivityType.Custom, state: TEXTE_STATUT }],
-        });
-        console.log(`💬 Statut personnalisé : ${TEXTE_STATUT}`);
-      } else {
-        readyClient.user.setPresence({
-          status: 'online',
-          activities: [{ name: TEXTE_ACTIVITE, type: ActivityType.Watching }],
-        });
-        console.log(`👀 Activité : Regarde ${TEXTE_ACTIVITE}`);
-      }
+      readyClient.user.setPresence({
+        status: 'online',
+        activities: [{ name: TEXTE_ACTIVITE, type: ActivityType.Watching }],
+      });
+      console.log(`Statut : Regarde ${TEXTE_ACTIVITE}`);
     } catch (erreur) {
-      console.error('Statut refusé, activité de secours :', erreur.message);
       readyClient.user.setActivity(TEXTE_ACTIVITE, { type: ActivityType.Watching });
+      console.error('Statut reapplique autrement :', erreur.message);
     }
   };
   appliquerStatut();
-  // Discord peut perdre la présence après une reconnexion : on la réapplique régulièrement
+  // Discord peut perdre la presence apres une reconnexion : on la reapplique
   setInterval(appliquerStatut, 10 * 60 * 1000);
 
   // ─── Vérification automatique au démarrage ───
