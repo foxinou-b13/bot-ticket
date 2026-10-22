@@ -14,7 +14,7 @@ const { genererBanniere } = require('./utils/banniere');
 const ticket = require('./handlers/ticketHandler');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-anti-veille-2';
+const VERSION = 'v2026-10-22-compteur-uptimerobot';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Vérification de la configuration ───
@@ -196,9 +196,26 @@ const PAGE_ACCUEIL = `<!doctype html>
 </body>
 </html>`;
 
+// ─── Compteur de visites : permet de PROUVER qu'UptimeRobot passe bien ───
+// On garde la trace des 8 dernières visites (qui + quand + quel chemin).
+const VISITES = { uptimerobot: 0, dernierUptimeRobot: 'jamais', autres: 0, journal: [] };
+function noterVisite(req, url) {
+  const ua = String(req.headers['user-agent'] || '(sans nom)');
+  const estRobot = /uptimerobot|uptime-robot/i.test(ua);
+  if (estRobot) {
+    VISITES.uptimerobot += 1;
+    VISITES.dernierUptimeRobot = `${new Date().toLocaleTimeString('fr-FR')} (${url})`;
+  } else {
+    VISITES.autres += 1;
+  }
+  VISITES.journal.unshift(`${new Date().toLocaleTimeString('fr-FR')} · ${estRobot ? '🤖 UptimeRobot' : '👤 ' + ua.slice(0, 22)} · ${url}`);
+  VISITES.journal = VISITES.journal.slice(0, 8);
+}
+
 http
   .createServer((req, res) => {
     const url = (req.url || '/').split('?')[0];
+    noterVisite(req, url);
     if (url === '/health') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       // Diagnostic complet : la version, l'état RÉEL de la connexion à Discord,
@@ -211,7 +228,10 @@ http
         `Bot Discord en ligne · ${VERSION}` +
           `\ngateway=${connecte} · ping=${ping} · serveurs=${serveurs}` +
           `\nuptime=${depuis} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}` +
-          `\nauto-appel=${DERNIER_AUTO_APPEL}`
+          `\nauto-appel=${DERNIER_AUTO_APPEL}` +
+          `\nuptimerobot=${VISITES.uptimerobot} visite(s) · dernier : ${VISITES.dernierUptimeRobot}` +
+          `\nautres-visites=${VISITES.autres}` +
+          `\ndernieres-visites :\n${VISITES.journal.length ? VISITES.journal.join('\n') : '(aucune)'}`
       );
     }
     if (url === '/banniere.png') {
