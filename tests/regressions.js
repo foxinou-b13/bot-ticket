@@ -459,7 +459,8 @@ function monde(opts = {}) {
     const t = { numero: 3, userId: 'u1', staffRoleIds: [], claimedBy: null, createdAt: Date.now(), sujet: 'Mon souci de connexion' };
     const texte = h.carteTicket(t).toJSON().components.filter(c => c.type === 10).map(c => c.content).join('\n');
     if (!texte.includes('```\nMon souci de connexion\n```')) throw new Error('bloc de code absent : ' + texte);
-    if (texte.includes("Raison de l'ouverture")) throw new Error('le libellé devrait être retiré');
+    if (texte.includes("de l'ouverture")) throw new Error('« de l\'ouverture » devrait être retiré');
+    if (!texte.includes('📝 **Raison** :')) throw new Error('libellé « Raison : » absent');
   });
 
   await test('un backtick saisi par le membre ne casse pas le format', () => {
