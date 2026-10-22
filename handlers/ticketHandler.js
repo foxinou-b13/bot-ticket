@@ -32,7 +32,7 @@ const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
 const { genererBanniere } = require('../utils/banniere');
 const { repondre, maj, carte, payload } = require('../utils/panneaux');
-const { autorise, nettoyerTexte, permissionsManquantes } = require('../utils/securite');
+const { autorise, nettoyerTexte, nettoyerMultiligne, permissionsManquantes } = require('../utils/securite');
 
 // ─── Anti double-clic (comme les bots pro) : un seul ticket créé à la fois par membre ───
 const creationEnCours = new Set();
@@ -1210,7 +1210,8 @@ async function rafraichirMessageTicket(interaction, t) {
 // ─── Ouverture d'un ticket (bouton OU type du menu) ───
 async function creerTicket(interaction, sujetBrut, typeId) {
   const guild = interaction.guild;
-  const sujet = nettoyerTexte(sujetBrut, 100);
+  // La raison peut tenir sur plusieurs lignes (elle est affichée dans un bloc de code)
+  const sujet = nettoyerMultiligne(sujetBrut, 400);
   const config = store.getGuild(guild.id);
   const type = typeId ? store.getType(guild.id, typeId) : null;
 
@@ -1417,9 +1418,9 @@ async function handleButton(interaction) {
     const champ = new TextInputBuilder()
       .setCustomId('sujet')
       .setLabel('Raison de ta demande *')
-      .setPlaceholder('Explique ton problème en quelques mots')
-      .setStyle(TextInputStyle.Short)
-      .setMaxLength(100)
+      .setPlaceholder('Explique ta demande. Tu peux écrire plusieurs lignes.')
+      .setStyle(TextInputStyle.Paragraph)
+      .setMaxLength(400)
       .setRequired(true);
     modal.addComponents(new ActionRowBuilder().addComponents(champ));
     return interaction.showModal(modal);
@@ -1747,9 +1748,9 @@ async function handleSelectMenu(interaction) {
     const champ = new TextInputBuilder()
       .setCustomId('sujet')
       .setLabel('Raison de ta demande *')
-      .setPlaceholder('Explique ta demande en quelques mots')
-      .setStyle(TextInputStyle.Short)
-      .setMaxLength(100)
+      .setPlaceholder('Explique ta demande. Tu peux écrire plusieurs lignes.')
+      .setStyle(TextInputStyle.Paragraph)
+      .setMaxLength(400)
       .setRequired(true);
     modal.addComponents(new ActionRowBuilder().addComponents(champ));
     return interaction.showModal(modal);

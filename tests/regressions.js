@@ -470,5 +470,26 @@ function monde(opts = {}) {
     if (texte.includes('pirate\n```\n```')) throw new Error('bloc cassé par la saisie du membre');
   });
 
+
+  await test('raison multi-lignes conservée dans le bloc de code', () => {
+    const t = { numero: 3, userId: 'u1', staffRoleIds: [], claimedBy: null, createdAt: Date.now(),
+      sujet: "Bonsoir\n\nJ'ai mon bot ticket à vendre si ça vous intéresse." };
+    const texte = h.carteTicket(t).toJSON().components.filter(c => c.type === 10).map(c => c.content).join('\n');
+    if (!texte.includes('```\nBonsoir\n\n')) throw new Error('ligne vide perdue : ' + texte);
+    if ((texte.match(/```/g) || []).length !== 2) throw new Error('bloc mal fermé');
+  });
+
+  await test('le formulaire d\'ouverture accepte plusieurs lignes (Paragraph, 400 car.)', () => {
+    // Vérifie la définition réelle du champ dans le code
+    const source = require('fs').readFileSync(require('path').join(__dirname, '..', 'handlers', 'ticketHandler.js'), 'utf8');
+    const blocs = source.split("setCustomId('sujet')").slice(1);
+    if (!blocs.length) throw new Error('champ sujet introuvable');
+    for (const bloc of blocs) {
+      const morceau = bloc.slice(0, 260);
+      if (!morceau.includes('TextInputStyle.Paragraph')) throw new Error('champ non multi-lignes : ' + morceau.slice(0, 120));
+      if (!morceau.includes('setMaxLength(400)')) throw new Error('limite de 400 caractères absente');
+    }
+  });
+
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
 })();

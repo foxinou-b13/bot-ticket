@@ -41,6 +41,23 @@ function nettoyerTexte(texte, max = 200) {
     .slice(0, max);
 }
 
+/**
+ * Nettoie un texte MULTI-LIGNES (raison d'ouverture) :
+ *  - garde les retours à la ligne et les lignes vides
+ *  - supprime les caractères invisibles et neutralise @everyone / @here
+ *  - supprime les espaces en trop en fin de ligne
+ */
+function nettoyerMultiligne(texte, max = 400) {
+  return String(texte || '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/@(everyone|here)/gi, '@\u200B$1')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{4,}/g, '\n\n\n')
+    .trim()
+    .slice(0, max);
+}
+
 // Permissions que le bot doit posséder pour faire fonctionner les tickets
 const BESOINS = [
   ['GérerLesSalons', PermissionFlagsBits.ManageChannels],
@@ -60,4 +77,4 @@ function permissionsManquantes(guild) {
   return BESOINS.filter(([, bit]) => !me.permissions.has(bit)).map(([nom]) => nom);
 }
 
-module.exports = { autorise, nettoyerTexte, permissionsManquantes };
+module.exports = { autorise, nettoyerTexte, nettoyerMultiligne, permissionsManquantes };
