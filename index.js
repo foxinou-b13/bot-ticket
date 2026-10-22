@@ -16,8 +16,28 @@ const emojis = require('./utils/emojis');
 const { permissionsManquantes } = require('./utils/securite');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-22-securite-2';
+const VERSION = 'v2026-10-22-diagnostic';
 const { repondre } = require('./utils/panneaux');
+
+// ─── Journal de diagnostic ───
+// Garde les 120 dernières lignes (logs ET erreurs) en mémoire, lisibles à distance
+// sur /diagnostic. Indispensable pour comprendre un redémarrage surprise.
+const JOURNAL = [];
+function noter(ligne) {
+  try {
+    JOURNAL.push(`${new Date().toISOString().slice(11, 19)} ${ligne}`);
+    if (JOURNAL.length > 120) JOURNAL.shift();
+  } catch {}
+}
+for (const niveau of ['log', 'error', 'warn']) {
+  const original = console[niveau].bind(console);
+  console[niveau] = (...args) => {
+    original(...args);
+    try {
+      noter(args.map(a => (a && a.stack) || String(a)).join(' ').slice(0, 400));
+    } catch {}
+  };
+}
 
 // ─── Vérification de la configuration ───
 const token = (process.env.DISCORD_TOKEN || '').trim();
@@ -341,6 +361,8 @@ function repondreSante(res) {
     const serveurs = client.isReady() ? client.guilds.cache.size : 0;
     morceaux.push(`gateway=${connecte} · ping=${ping} · serveurs=${serveurs}`);
     morceaux.push(`uptime=${Math.round(process.uptime() / 60)} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}`);
+    const mo = process.memoryUsage();
+    morceaux.push(`memoire=${Math.round(mo.rss / 1048576)} Mo (tas ${Math.round(mo.heapUsed / 1048576)} Mo) · journal=${JOURNAL.length} ligne(s)`);
     morceaux.push(`auto-appel=${DERNIER_AUTO_APPEL}`);
     morceaux.push(`uptimerobot=${VISITES.uptimerobot} visite(s) · dernier : ${VISITES.dernierUptimeRobot}`);
     morceaux.push(`autres-visites=${VISITES.autres}`);
@@ -380,6 +402,10 @@ http
         res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
         return res.end(`Bot Discord en ligne · ${VERSION}\n(diagnostic indisponible : ${erreur.message})`);
       }
+    }
+    if (url === '/diagnostic') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(`--- Diagnostic ${VERSION} ---\n${JOURNAL.join('\n') || '(vide)'}`);
     }
     if (url === '/banniere.png') {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
@@ -472,9 +498,15 @@ store
 // ─── Surveillance : si la connexion Discord est perdue (déconnexion non
 // récupérée), on redémarre le processus : l'hébergeur relance automatiquement.
 let dernierReady = Date.now();
-client.on(Events.ShardDisconnect, () => {
-  console.error('⚠️ Connexion Discord perdue, tentative de reconnexion...');
+client.on(Events.ShardDisconnect, evenement => {
+  // Le code de fermeture est LA clé du diagnostic :
+  // 4004 = token refusé · 4014 = intents refusés · 1000/1006 = coupure réseau.
+  console.error(
+    `⚠️ Connexion Discord perdue (code ${evenement?.code ?? '?'} ${evenement?.reason || ''} · propre=${evenement?.wasClean ?? '?'}) — reconnexion en cours...`
+  );
 });
+client.on(Events.ShardReconnecting, id => console.log(`🔄 Reconnexion à Discord (shard ${id})...`));
+client.on(Events.ShardError, (erreur, id) => console.error(`❌ Erreur gateway (shard ${id}) : ${erreur?.message || erreur}`));
 client.on(Events.ShardResume, () => {
   dernierReady = Date.now();
   console.log('🔁 Connexion Discord rétablie');
