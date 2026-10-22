@@ -8,22 +8,7 @@
       "panelSent": true,
       "panelMessageId": "1562027684718977095",
       "counter": 8,
-      "open": {
-        "1562824331921465416": {
-          "numero": 8,
-          "userId": "1497375017980137534",
-          "sujet": "Hey! Thanks for reaching out. Could you explain what kind of services you offer for community growth and marketing? Is it free or paid?",
-          "typeId": "tmvfptavd3ha8",
-          "typeNom": "bug",
-          "typeEmoji": "🎄",
-          "staffRoleIds": [
-            "1511382517385527466"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1792676756738,
-          "messageId": "1562824333431144609"
-        }
-      },
+      "open": {},
       "panelMode": "menu",
       "panel": {
         "titre": null,
