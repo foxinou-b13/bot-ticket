@@ -129,9 +129,22 @@ test('panneau MENU porte le flag v2 (32768)', () => {
   if (p.flags !== 32768) throw new Error('flags = ' + p.flags);
   if (!p.components.length) throw new Error('components vides');
 });
-test('panneau BOUTON porte le flag v2 (32768)', () => {
-  const p = h.construirePanneau({ ...config, panelMode: 'bouton', types: [] }, {}, 'Serveur Test');
-  if (p.flags !== 32768) throw new Error('flags = ' + p.flags);
+test('panneau BOUTON : embed autonome, sans bannière ni texte du menu', () => {
+  const p = h.construirePanneau(
+    { ...config, panelMode: 'bouton', types: [], bouton: { ...(config.bouton || {}), configure: true } },
+    {},
+    'Serveur Test'
+  );
+  if (!p.embeds || !p.embeds.length) throw new Error('aucun embed');
+  const json = JSON.stringify(p.toJSON ? p.toJSON() : p);
+  if (json.includes('attachment://')) throw new Error('bannière présente dans le panneau bouton');
+  if (json.includes('Informations importantes')) throw new Error('texte du panneau menu repris');
+  if (p.flags === 32768) throw new Error('le panneau bouton ne doit pas être une carte v2');
+  const data = p.embeds[0].data || p.embeds[0];
+  if (!data.title || !data.description) throw new Error('titre ou description manquant');
+  const row = (p.components[0].toJSON ? p.components[0].toJSON() : p.components[0]);
+  const bouton = (row.components || [])[0];
+  if (!bouton || bouton.type !== 2) throw new Error('bouton absent');
 });
 
 console.log('── Bannière : noms de serveur « exotiques » ──');

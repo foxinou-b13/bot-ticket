@@ -253,10 +253,10 @@ async function test(nom, fn) {
       update: r => { maj = r; },
     };
     await h.handleSelectMenu(inter);
-    if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé ou sans flag');
-    const carte = payload.components[0].toJSON();
-    const last = carte.components[carte.components.length - 1];
-    if (last.type !== 1 || last.components[0].type !== 2) throw new Error('bouton pas en bas de la carte : ' + JSON.stringify(last).slice(0, 120));
+    if (!payload || !payload.embeds || !payload.embeds.length) throw new Error('panneau non envoyé (embed attendu)');
+    const row = payload.components[0].toJSON();
+    if (row.type !== 1 || row.components[0].type !== 2) throw new Error('bouton absent : ' + JSON.stringify(row).slice(0, 120));
+    if (JSON.stringify(payload).includes('attachment://')) throw new Error('bannière présente dans le panneau bouton');
     if (!texteDe(maj).includes('BOUTON publié')) throw new Error('confirmation : ' + texteDe(maj));
   });
 

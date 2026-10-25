@@ -77,12 +77,12 @@ function estStaffTicket(member, config, t) {
 }
 
 // ─── Panneau public ───
-function boutonOuvrir() {
+function boutonOuvrir(libelle, emoji) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('ticket:ouvrir')
-      .setLabel('Ouvrir un ticket')
-      .setEmoji('🎫')
+      .setLabel(coupe(libelle || 'Ouvrir un ticket', 80))
+      .setEmoji(emoji || '🎫')
       .setStyle(ButtonStyle.Success)
   );
 }
@@ -171,11 +171,67 @@ function modePanneau(config) {
   return config.types.length ? 'menu' : 'bouton';
 }
 
+// Réglages ACTIFS selon le système choisi par le serveur.
+// Le système BOUTON a ses propres salons / rôles / textes (autonome) ;
+// s'ils ne sont pas encore réglés, on retombe sur les anciens réglages.
+function reglages(config) {
+  const b = config.bouton || {};
+  if (modePanneau(config) === 'bouton' && b.configure) {
+    return {
+      categoryId: b.categoryId || config.categoryId,
+      logChannelId: b.logChannelId || config.logChannelId,
+      panelChannelId: b.panelChannelId || config.panelChannelId,
+      panelMessageId: b.panelMessageId || null,
+      staffRoleIds: (b.staffRoleIds && b.staffRoleIds.length) ? b.staffRoleIds : (config.staffRoleIds || []),
+      panel: b.panel || {},
+    };
+  }
+  return {
+    categoryId: config.categoryId,
+    logChannelId: config.logChannelId,
+    panelChannelId: config.panelChannelId,
+    panelMessageId: config.panelMessageId,
+    staffRoleIds: config.staffRoleIds || [],
+    panel: config.panel || {},
+  };
+}
+
+// Panneau du systeme BOUTON (style Ticket Tool)
+// Un embed simple : titre + description + bouton. AUCUNE banniere,
+// AUCUN texte repris du panneau du menu. Textes 100% reglables.
+function panneauBouton(p = {}, options = {}, guildName = null) {
+  const nom = guildName || 'ce serveur';
+  const description =
+    options.description ||
+    p.description ||
+    [
+      `Bienvenue sur le support de **${nom}**.`,
+      '',
+      "Clique sur le bouton ci-dessous pour ouvrir un ticket privé : un salon réservé à toi et à l'équipe s'ouvre aussitôt.",
+      'Décris ta demande en quelques lignes, un membre du staff te répondra dès que possible.',
+    ].join('\n');
+
+  const embed = new EmbedBuilder()
+    // Meme couleur que le fond sombre Discord : aucune ligne coloree visible
+    .setColor(0x2b2d31)
+    .setTitle(coupe(options.titre || p.titre || `🎫 Support | ${nom}`, 256))
+    .setDescription(coupe(description, 4096));
+  const lien = options.image || p.image;
+  if (lien && /^https?:\/\//.test(lien)) embed.setImage(lien);
+  return {
+    embeds: [embed],
+    components: [boutonOuvrir(p.bouton, p.boutonEmoji)],
+    allowedMentions: { parse: [] },
+  };
+}
+
 function construirePanneau(config, options = {}, guildName = null) {
   // Structure IDENTIQUE à la référence : components v2 Discord
   // (blocs de texte + séparateurs gris + galerie d'image + menu),
   // PAS d'embed → aucune bordure colorée nulle part.
-  const p = config.panel || {};
+  const mode = modePanneau(config);
+  if (mode === 'bouton') return panneauBouton(reglages(config).panel || {}, options, guildName);
+  const p = reglages(config).panel || {};
   const nom = guildName || 'ce serveur';
   const fichiers = [];
 
@@ -197,53 +253,39 @@ function construirePanneau(config, options = {}, guildName = null) {
     new TextDisplayBuilder().setContent(options.titre || p.titre || `**👑 ${serifBold('Support | ' + nom)}**`)
   );
 
-  if (modePanneau(config) === 'menu') {
-    carte.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        options.description ||
-          p.description ||
-          [
-            `Bienvenue sur le support officiel de ${serifBold(nom)}`,
-            '',
-            'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
-          ].join('\n')
-      )
-    );
-    carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    carte.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
+  carte.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      options.description ||
+        p.description ||
         [
-          'ⓘ\uFE0E __**Informations importantes :**__',
-          '• Soyez clairs et précis dans vos demandes.',
-          '• Le manque de respect envers le staff est strictement interdit.',
-          '• Évitez les mentions inutiles.',
-          '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
+          `Bienvenue sur le support officiel de ${serifBold(nom)}`,
+          '',
+          'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
         ].join('\n')
-      )
-    );
-    carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    carte.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.*')
-    );
-  } else {
-    carte.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        options.description ||
-          p.description ||
-          "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.\nUn salon privé sera créé pour toi et notre équipe te répondra."
-      )
-    );
-    carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    carte.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.*')
-    );
-  }
+    )
+  );
+  carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+  carte.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      [
+        'ⓘ\uFE0E __**Informations importantes :**__',
+        '• Soyez clairs et précis dans vos demandes.',
+        '• Le manque de respect envers le staff est strictement interdit.',
+        '• Évitez les mentions inutiles.',
+        '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
+      ].join('\n')
+    )
+  );
+  carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+  carte.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.*')
+  );
 
   if (galerie) carte.addMediaGalleryComponents(galerie);
 
   // Le menu / bouton est DEDANS la carte, tout en bas — vérifié au zoom 4x
   // sur la référence (le sélecteur y est encadré par le fond de la carte).
-  carte.addActionRowComponents(modePanneau(config) === 'menu' ? rowTypes(config) : boutonOuvrir());
+  carte.addActionRowComponents(mode === 'menu' ? rowTypes(config) : boutonOuvrir(p.bouton));
 
   const components = [carte];
 
@@ -270,17 +312,18 @@ async function assurerAccesBot(channel) {
 }
 
 async function envoyerPanel(guild, config, options = {}) {
+  const actif = reglages(config);
   let channel = null;
-  if (config.panelChannelId) {
-    channel = await guild.channels.fetch(config.panelChannelId).catch(() => null);
+  if (actif.panelChannelId) {
+    channel = await guild.channels.fetch(actif.panelChannelId).catch(() => null);
   }
   if (!channel) return null;
   await assurerAccesBot(channel);
 
   // Si un panneau existe déjà, on le met à jour au lieu d'en empiler
   let message = null;
-  if (config.panelMessageId) {
-    message = await channel.messages.fetch(config.panelMessageId).catch(() => null);
+  if (actif.panelMessageId) {
+    message = await channel.messages.fetch(actif.panelMessageId).catch(() => null);
   }
   const contenu = construirePanneau(config, options, guild.name);
   try {
@@ -296,7 +339,13 @@ async function envoyerPanel(guild, config, options = {}) {
     console.error('Erreur envoi du panneau :', erreur.message);
     return null;
   }
-  store.setGuild(guild.id, { panelMessageId: message.id, panelSent: true });
+  if (modePanneau(config) === 'bouton' && config.bouton && config.bouton.configure) {
+    store.setGuild(guild.id, {
+      bouton: { ...config.bouton, panelMessageId: message.id, panelChannelId: channel.id },
+    });
+  } else {
+    store.setGuild(guild.id, { panelMessageId: message.id, panelSent: true });
+  }
   return channel;
 }
 
@@ -580,56 +629,6 @@ async function ticketOuvertReel(guild, userId) {
 }
 
 // ─── /setup ticket bouton : le système BOUTON, configuré en une commande ───
-async function configBouton(interaction) {
-  if (!estAdmin(interaction.member)) {
-    return repondre(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
-  }
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  const guild = interaction.guild;
-  let config;
-  try {
-    config = await preparerInfra(guild);
-    store.setGuild(guild.id, { panelMode: 'bouton' });
-    config = store.getGuild(guild.id);
-  } catch (erreur) {
-    console.error('Erreur infrastructure :', erreur.message);
-    return repondre(interaction, { texte: '❌ Le bot a besoin de la permission **« Gérer les salons »** pour créer la catégorie et les salons. Donne-la lui, puis retape `/setup ticket bouton`.' });
-  }
-
-  // Il manque les rôles staff → on les demande (une seule étape)
-  if (!config.staffRoleIds.length) {
-    return repondre(interaction, {
-      couleur: 'info',
-      titre: '🔘 Mode BOUTON choisi',
-      texte: 'Le panneau aura un bouton « 🎫 Ouvrir un ticket ».',
-      lignes: [
-        [
-          `📁 Catégorie : <#${config.categoryId}>`,
-          `🎫 Salon du panneau : <#${config.panelChannelId}>`,
-          `📜 Salon de logs : <#${config.logChannelId}>`,
-        ].join('\n'),
-        '👥 **Dernière étape : choisis le(s) rôle(s) du staff** dans le menu ci-dessous.\nTu peux sélectionner **plusieurs rôles** en même temps.',
-      ],
-      composants: [menuRoles()],
-    });
-  }
-
-  const channel = await envoyerPanel(guild, config);
-  return repondre(interaction, {
-    couleur: channel ? 'succes' : 'attention',
-    titre: channel ? '✅ Système BOUTON configuré' : '⚠️ Système configuré, panneau non publié',
-    lignes: [
-      [
-        `👥 Rôles staff (${config.staffRoleIds.length}) : ${config.staffRoleIds.map(id => `<@&${id}>`).join(', ')}`,
-        `📁 Catégorie : <#${config.categoryId}>`,
-        `📜 Salon de logs : <#${config.logChannelId}>`,
-        channel ? `🎫 Panneau bouton : publié dans ${channel}` : '❌ Panneau impossible à envoyer : vérifie que le bot peut écrire dans le salon du panneau.',
-      ].join('\n'),
-      '💡 Pour passer au **menu des types** plus tard : `/setup ticket menu`.',
-    ],
-  });
-}
-
 // ════════════════════════════════════════════════════════
 // ASSISTANT DES TYPES DE TICKETS (/setup ticket menu)
 // ════════════════════════════════════════════════════════
@@ -1212,10 +1211,11 @@ async function creerTicket(interaction, sujetBrut, typeId) {
   const config = store.getGuild(guild.id);
   const type = typeId ? store.getType(guild.id, typeId) : null;
 
-  const categoryId = (type && type.categoryId) || config.categoryId;
+  const actif = reglages(config);
+  const categoryId = (type && type.categoryId) || actif.categoryId;
   const staffRoleIds = (type && type.staffRoleIds && type.staffRoleIds.length)
     ? type.staffRoleIds
-    : config.staffRoleIds;
+    : actif.staffRoleIds;
 
   if (!categoryId || !staffRoleIds || staffRoleIds.length === 0) {
     return {
@@ -1346,15 +1346,16 @@ async function fermerTicket(interaction, t, raisonBrute) {
   const raison = nettoyerTexte(raisonBrute, 200);
   fermeturesEnAttente.delete(interaction.channel.id);
   const config = store.getGuild(guild.id);
+  const actif = reglages(config);
 
   // Transcription des 100 derniers messages → salon de logs
   const messages = await interaction.channel.messages.fetch({ limit: 100 }).catch(() => null);
-  if (config.logChannelId && messages) {
+  if (actif.logChannelId && messages) {
     const lignes = [...messages.values()]
       .reverse()
       .map(m => `[${new Date(m.createdTimestamp).toLocaleString('fr-FR')}] ${m.author.tag} : ${m.content || '(image / fichier / embed)'}`)
       .join('\n');
-    const logChannel = await guild.channels.fetch(config.logChannelId).catch(() => null);
+    const logChannel = await guild.channels.fetch(actif.logChannelId).catch(() => null);
     if (logChannel) {
       await assurerAccesBot(logChannel);
       const infos = [
@@ -1592,7 +1593,451 @@ async function handleButton(interaction) {
 // ════════════════════════════════════════════════════════
 // MENUS DÉROULANTS
 // ════════════════════════════════════════════════════════
+
+
+// ════════════════════════════════════════════════════════
+// ASSISTANT DU SYSTÈME BOUTON (autonome)
+// Tout se règle ici : salons, catégorie, rôles, titre,
+// description, texte et emoji du bouton. Rien n'est imposé.
+// ════════════════════════════════════════════════════════
+const BT = {
+  salon: 'tktb:salon',
+  categorie: 'tktb:cat',
+  logs: 'tktb:logs',
+  roles: 'tktb:roles',
+  textes: 'tktb:textes',
+  bouton: 'tktb:bouton',
+  auto: 'tktb:auto',
+  terminer: 'tktb:fin',
+};
+
+function configBoutonDe(guildId) {
+  return store.getGuild(guildId).bouton;
+}
+
+function texteBouton(p) {
+  return `${p.boutonEmoji || '🎫'} « ${coupe(p.bouton || 'Ouvrir un ticket', 60)} »`;
+}
+
+// Récapitulatif : ce qui est réglé, et ce qui manque encore
+function texteAssistantBouton(guild, b) {
+  const p = b.panel || {};
+  const roles = b.staffRoleIds.length ? b.staffRoleIds.map(r => `<@&${r}>`).join(' ') : '*non réglé*';
+  const manques = [];
+  if (!b.panelChannelId) manques.push('le salon du panneau');
+  if (!b.categoryId) manques.push('la catégorie des tickets');
+  if (!b.logChannelId) manques.push('le salon de logs');
+  if (!b.staffRoleIds.length) manques.push('au moins un rôle staff');
+
+  return [
+    '**🔘 Système BOUTON — réglages**',
+    'Tout est indépendant du système MENU : ce que tu règles ici ne touche pas à l\'autre.',
+    '',
+    `📬 **Salon du panneau** : ${b.panelChannelId ? `<#${b.panelChannelId}>` : '*non réglé*'}`,
+    `📁 **Catégorie des tickets** : ${b.categoryId ? `<#${b.categoryId}>` : '*non réglé*'}`,
+    `📜 **Salon de logs** : ${b.logChannelId ? `<#${b.logChannelId}>` : '*non réglé*'}`,
+    `👥 **Rôles staff** : ${roles}`,
+    '',
+    `🎨 **Titre** : ${coupe(p.titre || '🎫 Support | ' + guild.name, 90)}`,
+    `📝 **Description** : ${p.description ? coupe(String(p.description).replace(/\n/g, ' '), 110) + '…' : '*texte par défaut*'}`,
+    `🔘 **Bouton** : ${texteBouton(p)}`,
+    '',
+    manques.length
+      ? `⚠️ Il reste à choisir : ${manques.join(', ')}.`
+      : '✅ Tout est prêt : choisis « Terminer et publier le panneau ».',
+  ].join('\n');
+}
+
+function selecteurAssistantBouton(b) {
+  const p = b.panel || {};
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('tktb:main')
+    .setPlaceholder('⚙️ Que veux-tu régler ?')
+    .setMinValues(1)
+    .setMaxValues(1)
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Salon du panneau')
+        .setValue('salon')
+        .setEmoji('📬')
+        .setDescription(b.panelChannelId ? 'Changer le salon où le panneau est publié' : 'Choisir où publier le panneau'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Catégorie des tickets')
+        .setValue('categorie')
+        .setEmoji('📁')
+        .setDescription(b.categoryId ? 'Changer la catégorie des salons de ticket' : 'Choisir où créer les salons de ticket'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Salon de logs')
+        .setValue('logs')
+        .setEmoji('📜')
+        .setDescription(b.logChannelId ? 'Changer le salon des transcriptions' : 'Choisir le salon des transcriptions'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Rôles du staff')
+        .setValue('roles')
+        .setEmoji('👥')
+        .setDescription(b.staffRoleIds.length ? `${b.staffRoleIds.length} rôle(s) — modifier` : 'Qui peut voir et traiter les tickets'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Titre et description')
+        .setValue('textes')
+        .setEmoji('🎨')
+        .setDescription('Les textes affichés dans le panneau'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Texte et emoji du bouton')
+        .setValue('bouton')
+        .setEmoji('🔘')
+        .setDescription(texteBouton(p)),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Créer les salons automatiquement')
+        .setValue('auto')
+        .setEmoji('➕')
+        .setDescription('Le bot crée la catégorie, le salon du panneau et les logs'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Terminer et publier le panneau')
+        .setValue('terminer')
+        .setEmoji('✅')
+        .setDescription('Enregistre tout et envoie le panneau dans le salon choisi')
+    );
+  return new ActionRowBuilder().addComponents(menu);
+}
+
+function carteAssistantBouton(guild, b, complement) {
+  return {
+    titre: '🔘 Système BOUTON — configuration',
+    texte: (complement ? complement + '\n\n' : '') + texteAssistantBouton(guild, b),
+    composants: [selecteurAssistantBouton(b)],
+  };
+}
+
+// Point d'entrée : /setup ticket bouton
+async function configBouton(interaction) {
+  if (!estAdmin(interaction.member)) {
+    return repondre(interaction, { couleur: 'erreur', texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
+  }
+  const b = configBoutonDe(interaction.guild.id);
+  return repondre(interaction, carteAssistantBouton(interaction.guild, b));
+}
+
+function selecteurSalonBouton(customId, placeholder, type) {
+  return new ActionRowBuilder().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId(customId)
+      .setPlaceholder(placeholder)
+      .setChannelTypes([type])
+      .setMinValues(1)
+      .setMaxValues(1)
+  );
+}
+
+function selecteurRolesBouton() {
+  return new ActionRowBuilder().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId(BT.roles)
+      .setPlaceholder('👥 Choisis le(s) rôle(s) du staff')
+      .setMinValues(1)
+      .setMaxValues(10)
+  );
+}
+
+function modalTextesBouton(b) {
+  const p = b.panel || {};
+  const modal = new ModalBuilder().setCustomId(BT.textes).setTitle('🎨 Textes du panneau');
+  const titre = new TextInputBuilder()
+    .setCustomId('titre')
+    .setLabel('Titre du panneau (vide = défaut)')
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(90)
+    .setRequired(false)
+    .setValue(p.titre || '');
+  const description = new TextInputBuilder()
+    .setCustomId('description')
+    .setLabel('Description (vide = défaut)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(1500)
+    .setRequired(false)
+    .setValue(p.description || '');
+  const image = new TextInputBuilder()
+    .setCustomId('image')
+    .setLabel("Lien d'une image (facultatif)")
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(300)
+    .setRequired(false)
+    .setValue(p.image || '');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(titre),
+    new ActionRowBuilder().addComponents(description),
+    new ActionRowBuilder().addComponents(image)
+  );
+  return modal;
+}
+
+function modalBoutonBouton(b) {
+  const p = b.panel || {};
+  const modal = new ModalBuilder().setCustomId(BT.bouton).setTitle('🔘 Bouton du panneau');
+  const libelle = new TextInputBuilder()
+    .setCustomId('libelle')
+    .setLabel('Texte du bouton (vide = Ouvrir un ticket)')
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(80)
+    .setRequired(false)
+    .setValue(p.bouton || '');
+  const emoji = new TextInputBuilder()
+    .setCustomId('emoji')
+    .setLabel('Emoji du bouton (vide = 🎫)')
+    .setStyle(TextInputStyle.Short)
+    .setMaxLength(60)
+    .setRequired(false)
+    .setValue(p.boutonEmoji || '');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(libelle),
+    new ActionRowBuilder().addComponents(emoji)
+  );
+  return modal;
+}
+
+function majBouton(guildId, modifications) {
+  const b = configBoutonDe(guildId);
+  const nouveau = {
+    ...b,
+    ...modifications,
+    panel: { ...b.panel, ...(modifications.panel || {}) },
+  };
+  store.setGuild(guildId, { bouton: nouveau });
+  return nouveau;
+}
+
+// Création automatique des salons
+async function creerSalonsBouton(guild, b) {
+  const crees = [];
+  let categorie = b.categoryId ? await guild.channels.fetch(b.categoryId).catch(() => null) : null;
+  if (!categorie) {
+    categorie = await guild.channels.create({
+      name: '🎫 Tickets',
+      type: ChannelType.GuildCategory,
+      reason: 'Système BOUTON : catégorie des tickets',
+    });
+    crees.push('catégorie 🎫 Tickets');
+  }
+  let logs = b.logChannelId ? await guild.channels.fetch(b.logChannelId).catch(() => null) : null;
+  if (!logs) {
+    logs = await guild.channels.create({
+      name: '🔒・logs-tickets',
+      type: ChannelType.GuildText,
+      parent: categorie.id,
+      permissionOverwrites: permsLogs(guild, b.staffRoleIds || []),
+      reason: 'Système BOUTON : salon des transcriptions',
+    });
+    crees.push('salon 🔒・logs-tickets');
+  }
+  let panneau = b.panelChannelId ? await guild.channels.fetch(b.panelChannelId).catch(() => null) : null;
+  if (!panneau) {
+    panneau = await guild.channels.create({
+      name: 'ouvrir-un-ticket',
+      type: ChannelType.GuildText,
+      parent: categorie.id,
+      reason: 'Système BOUTON : salon du panneau',
+    });
+    crees.push('salon ouvrir-un-ticket');
+  }
+  return { categorie, logs, panneau, crees };
+}
+
+// ─── Formulaires du système BOUTON (textes + bouton) ───
+async function routeurModalBouton(interaction) {
+  const id = interaction.customId || '';
+  if (id !== BT.textes && id !== BT.bouton) return false;
+
+  if (!estAdmin(interaction.member)) {
+    await repondre(interaction, { couleur: 'erreur', texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
+    return true;
+  }
+  const guild = interaction.guild;
+  const b = configBoutonDe(guild.id);
+  let nouveau;
+
+  if (id === BT.textes) {
+    const titre = (interaction.fields.getTextInputValue('titre') || '').trim();
+    const description = (interaction.fields.getTextInputValue('description') || '').trim();
+    const image = (interaction.fields.getTextInputValue('image') || '').trim();
+    nouveau = majBouton(guild.id, {
+      panel: {
+        titre: titre || null,
+        description: description || null,
+        image: /^https?:\/\//.test(image) ? image : null,
+      },
+    });
+    await repondre(interaction, carteAssistantBouton(guild, nouveau, '✅ Titre et description enregistrés.'));
+    return true;
+  }
+
+  // Bouton : texte + emoji
+  const libelle = (interaction.fields.getTextInputValue('libelle') || '').trim();
+  const emoji = (interaction.fields.getTextInputValue('emoji') || '').trim();
+  if (emoji && !/^(\p{Extended_Pictographic}|<a?:\w+:\d+>)/u.test(emoji)) {
+    await repondre(interaction, carteAssistantBouton(
+      guild,
+      b,
+      "❌ Cet emoji n'est pas valide. Colle un emoji simple (ex. 🎫) ou un emoji du serveur, ou laisse vide."
+    ));
+    return true;
+  }
+  nouveau = majBouton(guild.id, {
+    panel: { bouton: libelle || null, boutonEmoji: emoji || null },
+  });
+  await repondre(interaction, carteAssistantBouton(
+    guild,
+    nouveau,
+    `✅ Bouton enregistré : ${nouveau.panel.boutonEmoji || '🎫'} « ${nouveau.panel.bouton || 'Ouvrir un ticket'} ».`
+  ));
+  return true;
+}
+
+// ─── Routeur des interactions du système BOUTON ───
+// Renvoie true si l'interaction appartenait à l'assistant bouton.
+async function routeurAssistantBouton(interaction) {
+  const id = interaction.customId || '';
+  if (!id.startsWith('tktb:')) return false;
+
+  if (!estAdmin(interaction.member)) {
+    await repondre(interaction, { couleur: 'erreur', texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
+    return true;
+  }
+  const guild = interaction.guild;
+  const b = configBoutonDe(guild.id);
+
+  // ── Menu principal : quelle étape ? ──
+  if (id === 'tktb:main') {
+    const choix = interaction.values[0];
+
+    if (choix === 'salon') {
+      await maj(interaction, {
+        ...carteAssistantBouton(guild, b, '📬 **Choisis le salon où publier le panneau.**'),
+        composants: [
+          selecteurSalonBouton(BT.salon, '📬 Salon du panneau…', ChannelType.GuildText),
+          selecteurAssistantBouton(b),
+        ],
+      });
+    }
+    if (choix === 'categorie') {
+      await maj(interaction, {
+        ...carteAssistantBouton(guild, b, '📁 **Choisis la catégorie où les salons de ticket seront créés.**'),
+        composants: [
+          selecteurSalonBouton(BT.categorie, '📁 Catégorie des tickets…', ChannelType.GuildCategory),
+          selecteurAssistantBouton(b),
+        ],
+      });
+    }
+    if (choix === 'logs') {
+      await maj(interaction, {
+        ...carteAssistantBouton(guild, b, '📜 **Choisis le salon qui recevra les transcriptions.**'),
+        composants: [
+          selecteurSalonBouton(BT.logs, '📜 Salon de logs…', ChannelType.GuildText),
+          selecteurAssistantBouton(b),
+        ],
+      });
+    }
+    if (choix === 'roles') {
+      await maj(interaction, {
+        ...carteAssistantBouton(guild, b, '👥 **Choisis le(s) rôle(s) du staff** (plusieurs possibles).'),
+        composants: [selecteurRolesBouton(), selecteurAssistantBouton(b)],
+      });
+    }
+    if (choix === 'textes') {
+      await interaction.showModal(modalTextesBouton(b));
+      return true;
+    }
+    if (choix === 'bouton') {
+      await interaction.showModal(modalBoutonBouton(b));
+      return true;
+    }
+    if (choix === 'auto') {
+      try {
+        const r = await creerSalonsBouton(guild, b);
+        const maj_ = majBouton(guild.id, {
+          categoryId: r.categorie.id,
+          logChannelId: r.logs.id,
+          panelChannelId: r.panneau.id,
+        });
+        await maj(interaction, carteAssistantBouton(
+          guild,
+          maj_,
+          r.crees.length
+            ? `➕ Créé : ${r.crees.join(', ')}.`
+            : '✅ Les salons nécessaires existaient déjà : ils ont été réutilisés.'
+        ));
+      } catch (erreur) {
+        console.error('Création des salons (bouton) :', erreur.message);
+        await maj(interaction, carteAssistantBouton(
+          guild,
+          b,
+          "❌ Je n'ai pas pu créer les salons. Il me faut la permission **« Gérer les salons »**."
+        ));
+      }
+    }
+    if (choix === 'terminer') {
+      const manques = [];
+      if (!b.panelChannelId) manques.push('le salon du panneau');
+      if (!b.categoryId) manques.push('la catégorie des tickets');
+      if (!b.logChannelId) manques.push('le salon de logs');
+      if (!b.staffRoleIds.length) manques.push('au moins un rôle staff');
+      if (manques.length) {
+        await maj(interaction, carteAssistantBouton(
+          guild,
+          b,
+          `⚠️ Il manque encore : **${manques.join('**, **')}**. Règle cela puis reviens sur « Terminer ».`
+        ));
+        return true;
+      }
+      const pret = majBouton(guild.id, { configure: true });
+      store.setGuild(guild.id, { panelMode: 'bouton' });
+      const config = store.getGuild(guild.id);
+      const salon = await envoyerPanel(guild, config);
+      await maj(interaction, {
+        couleur: salon ? 'succes' : 'attention',
+        titre: salon ? '✅ Système BOUTON prêt' : '⚠️ Réglé, mais panneau non publié',
+        texte: [
+          salon
+            ? `Le panneau est publié dans ${salon}.`
+            : `Je n'ai pas pu écrire dans <#${pret.panelChannelId}> : vérifie mes permissions dans ce salon.`,
+          '',
+          `👥 Staff : ${pret.staffRoleIds.map(r => `<@&${r}>`).join(' ')}`,
+          `📁 Catégorie des tickets : <#${pret.categoryId}>`,
+          `📜 Logs : <#${pret.logChannelId}>`,
+          '',
+          salon ? 'Un membre qui clique sur le bouton ouvre un ticket privé.' : '',
+        ].filter(Boolean).join('\n'),
+      });
+      return true;
+    }
+    return true;
+  }
+
+  // ── Choix d'un salon : panneau / catégorie / logs ──
+  if (id === BT.salon || id === BT.categorie || id === BT.logs) {
+    const salonId = interaction.values[0];
+    const champ = id === BT.salon ? 'panelChannelId' : id === BT.categorie ? 'categoryId' : 'logChannelId';
+    const libelle = id === BT.salon ? '📬 Salon du panneau' : id === BT.categorie ? '📁 Catégorie des tickets' : '📜 Salon de logs';
+    const nouveau = majBouton(guild.id, { [champ]: salonId });
+    await maj(interaction, carteAssistantBouton(guild, nouveau, `✅ ${libelle} → <#${salonId}>.`));
+    return true;
+  }
+
+  // ── Rôles staff ──
+  if (id === BT.roles) {
+    const roles = interaction.values;
+    const nouveau = majBouton(guild.id, { staffRoleIds: roles });
+    await maj(interaction, carteAssistantBouton(
+      guild,
+      nouveau,
+      `✅ Rôles staff : ${roles.map(r => `<@&${r}>`).join(' ')}`
+    ));
+    return true;
+  }
+
+  return true;
+}
+
 async function handleSelectMenu(interaction) {
+  if (await routeurAssistantBouton(interaction)) return;
   const guild = interaction.guild;
   const id = interaction.customId;
 
@@ -1896,6 +2341,7 @@ async function handleSelectMenu(interaction) {
 // FORMULAIRES (MODALS)
 // ════════════════════════════════════════════════════════
 async function handleModal(interaction) {
+  if (await routeurModalBouton(interaction)) return;
   const guild = interaction.guild;
   const id = interaction.customId;
 

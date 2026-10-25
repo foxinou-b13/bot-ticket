@@ -171,6 +171,16 @@ function getGuild(guildId) {
       open: {},
       panelMode: null, // 'bouton' ou 'menu' : le choix du serveur
       panel: { titre: null, description: null, selecteur: null, image: null }, // textes du panneau
+      // ─── Système BOUTON : réglages AUTONOMES (indépendants du menu) ───
+      bouton: {
+        configure: false, // true quand l'assistant a été terminé
+        categoryId: null, // catégorie où vivent les salons de ticket
+        panelChannelId: null, // salon où le panneau bouton est publié
+        logChannelId: null, // salon des transcriptions
+        staffRoleIds: [], // rôles qui voient/traitent les tickets
+        panelMessageId: null, // le message du panneau (pour le mettre à jour, pas l'empiler)
+        panel: { titre: null, description: null, image: null, bouton: null }, // textes du panneau bouton
+      },
       types: [], // types de tickets : { id, nom, emoji, description, categoryId, staffRoleIds[] }
     };
     sauvegarder();
@@ -187,6 +197,20 @@ function getGuild(guildId) {
   if (!g.panel) g.panel = { titre: null, description: null, selecteur: null, image: null };
   if (g.panel.image === undefined) g.panel.image = null;
   if (!Array.isArray(g.types)) g.types = [];
+  // Compatibilité : le bloc « bouton » a été ajouté après coup
+  if (!g.bouton || typeof g.bouton !== 'object') g.bouton = {};
+  const b = g.bouton;
+  if (b.configure === undefined) b.configure = false;
+  if (b.categoryId === undefined) b.categoryId = null;
+  if (b.panelChannelId === undefined) b.panelChannelId = null;
+  if (b.logChannelId === undefined) b.logChannelId = null;
+  if (!Array.isArray(b.staffRoleIds)) b.staffRoleIds = [];
+  if (b.panelMessageId === undefined) b.panelMessageId = null;
+  if (!b.panel || typeof b.panel !== 'object') b.panel = {};
+  if (b.panel.titre === undefined) b.panel.titre = null;
+  if (b.panel.description === undefined) b.panel.description = null;
+  if (b.panel.image === undefined) b.panel.image = null;
+  if (b.panel.bouton === undefined) b.panel.bouton = null;
   if (g.panelMode !== 'bouton' && g.panelMode !== 'menu') g.panelMode = null;
   return g;
 }

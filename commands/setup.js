@@ -1,8 +1,9 @@
 /**
  * commands/setup.js — la commande /setup et ses sous-commandes
  *
- * /setup ticket bouton → système BOUTON : panneau avec « 🎫 Ouvrir un ticket »
- *                        (tout est créé automatiquement : catégorie, salons, rôles)
+ * /setup ticket bouton → système BOUTON : assistant autonome
+ *                        (salon du panneau, catégorie, logs, rôles, titre,
+ *                         description, texte et emoji du bouton)
  * /setup ticket menu   → système MENU : assistant des types de tickets
  *                        (nom, emoji, description, catégorie, rôles staff par type)
  *
@@ -22,7 +23,7 @@ module.exports = {
         .addSubcommand(sub =>
           sub
             .setName('bouton')
-            .setDescription('Système BOUTON : panneau « 🎫 Ouvrir un ticket » (configuration automatique)')
+            .setDescription('Système BOUTON : assistant de configuration (salons, rôles, textes, bouton)')
         )
         .addSubcommand(sub =>
           sub
