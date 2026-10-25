@@ -91,7 +91,7 @@
         }
       ],
       "bouton": {
-        "configure": false,
+        "configure": true,
         "categoryId": "1558956375143489739",
         "panelChannelId": "1558958817868259448",
         "logChannelId": "1562098662434410576",
@@ -99,7 +99,7 @@
           "1558960795008897105",
           "1558960935006249071"
         ],
-        "panelMessageId": null,
+        "panelMessageId": "1563953003684307114",
         "panel": {
           "titre": "Créé un ticket",
           "description": "```Besoin d'aide cliquer sur le Bouton si dessous pour créer un ticket un staff va répondre le plus vite possible```",
