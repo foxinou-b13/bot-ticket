@@ -95,7 +95,10 @@
         "categoryId": "1558956375143489739",
         "panelChannelId": "1558958817868259448",
         "logChannelId": "1562098662434410576",
-        "staffRoleIds": [],
+        "staffRoleIds": [
+          "1558960795008897105",
+          "1558960935006249071"
+        ],
         "panelMessageId": null,
         "panel": {
           "titre": null,
