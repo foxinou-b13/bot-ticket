@@ -43,7 +43,21 @@
             "1511382517385527466"
           ]
         }
-      ]
+      ],
+      "bouton": {
+        "configure": false,
+        "categoryId": null,
+        "panelChannelId": null,
+        "logChannelId": null,
+        "staffRoleIds": [],
+        "panelMessageId": null,
+        "panel": {
+          "titre": null,
+          "description": null,
+          "image": null,
+          "bouton": null
+        }
+      }
     },
     "1558915513634005024": {
       "categoryId": "1558956375143489739",
@@ -75,7 +89,21 @@
             "1558960872448204960"
           ]
         }
-      ]
+      ],
+      "bouton": {
+        "configure": false,
+        "categoryId": null,
+        "panelChannelId": null,
+        "logChannelId": null,
+        "staffRoleIds": [],
+        "panelMessageId": null,
+        "panel": {
+          "titre": null,
+          "description": null,
+          "image": null,
+          "bouton": null
+        }
+      }
     },
     "1562104315043385394": {
       "categoryId": "1562104813456728104",
@@ -122,7 +150,21 @@
         "selecteur": null,
         "image": null
       },
-      "types": []
+      "types": [],
+      "bouton": {
+        "configure": false,
+        "categoryId": null,
+        "panelChannelId": null,
+        "logChannelId": null,
+        "staffRoleIds": [],
+        "panelMessageId": null,
+        "panel": {
+          "titre": null,
+          "description": null,
+          "image": null,
+          "bouton": null
+        }
+      }
     }
   }
 }
