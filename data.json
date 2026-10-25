@@ -104,7 +104,8 @@
           "titre": "Créé un ticket",
           "description": "```Besoin d'aide cliquer sur le Bouton si dessous pour créer un ticket un staff va répondre le plus vite possible```",
           "image": null,
-          "bouton": null
+          "bouton": "Ouvrir un ticket",
+          "boutonEmoji": "📨"
         }
       }
     },
