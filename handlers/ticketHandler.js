@@ -350,6 +350,53 @@ async function assurerAccesBot(channel) {
   }
 }
 
+// ─── Reconnaissance et nettoyage des panneaux ───
+// Un panneau du bot = un message DU BOT qui contient nos boutons/menus.
+// Cela permet de ne jamais empiler deux panneaux, même après un redémarrage
+// qui aurait perdu l'identifiant du message.
+function estPanneauDuBot(message, client) {
+  if (!message) return false;
+  const botId = client?.user?.id || message.client?.user?.id;
+  if (botId && message.author?.id && message.author.id !== botId) return false;
+  if (message.author?.bot === false) return false;
+
+  const json = typeof message.toJSON === 'function' ? message.toJSON() : message;
+  const texte = JSON.stringify(json.components || []);
+  return (
+    texte.includes('"custom_id":"ticket:ouvrir') ||
+    texte.includes('"custom_id":"tkt:type-ouvrir"')
+  );
+}
+
+// Trouve tous les panneaux du bot dans un salon (les plus récents d'abord)
+async function trouverPanneaux(channel, client, limite = 50) {
+  if (!channel || typeof channel.messages?.fetch !== 'function') return [];
+  const messages = await channel.messages.fetch({ limit: limite }).catch(() => null);
+  if (!messages) return [];
+  let liste = [];
+  if (typeof messages.values === 'function') liste = [...messages.values()];
+  else if (Array.isArray(messages)) liste = messages;
+  else if (typeof messages[Symbol.iterator] === 'function') liste = [...messages];
+  else if (messages.id) liste = [messages];
+  else liste = [];
+  return liste
+    .filter(m => estPanneauDuBot(m, client))
+    .sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+}
+
+// Supprime les panneaux en trop (garde celui qu'on veut conserver)
+async function supprimerPanneauxEnTrop(channel, client, garderId = null) {
+  const panneaux = await trouverPanneaux(channel, client);
+  let supprimes = 0;
+  for (const m of panneaux) {
+    if (garderId && m.id === garderId) continue;
+    if (typeof m.delete !== 'function') continue;
+    await m.delete().catch(() => {});
+    supprimes += 1;
+  }
+  return supprimes;
+}
+
 async function envoyerPanel(guild, config, options = {}) {
   const actif = reglages(config);
   let channel = null;
@@ -359,16 +406,26 @@ async function envoyerPanel(guild, config, options = {}) {
   if (!channel) return null;
   await assurerAccesBot(channel);
 
-  // Si un panneau existe déjà, on le met à jour au lieu d'en empiler
+  const client = guild.client;
+  // 1. Le panneau connu par son identifiant
   let message = null;
   if (actif.panelMessageId) {
     message = await channel.messages.fetch(actif.panelMessageId).catch(() => null);
   }
+  // 2. Sinon : on retrouve un panneau déjà présent au lieu d'en empiler un autre
+  //    (identifiant perdu après un redémarrage, changement de salon, etc.)
+  if (!message) {
+    const existants = await trouverPanneaux(channel, client);
+    message = existants[0] || null;
+  }
+
   const contenu = construirePanneau(config, options, guild.name);
   try {
     if (message) {
-      // embeds: [] → retire l'ancien embed (interdit avec le flag v2)
-      await message.edit({ ...contenu, embeds: [] }).catch(async () => {
+      // Les cartes v2 (mode menu) interdisent les embeds : on ne les vide QUE dans
+      // ce cas. Le panneau bouton, lui, EST un embed : le vider le cassait.
+      const estCarteV2 = contenu.flags === MessageFlags.IsComponentsV2;
+      await message.edit(estCarteV2 ? { ...contenu, embeds: [] } : contenu).catch(async () => {
         message = await channel.send(contenu);
       });
     } else {
@@ -378,14 +435,38 @@ async function envoyerPanel(guild, config, options = {}) {
     console.error('Erreur envoi du panneau :', erreur.message);
     return null;
   }
+
+  // 3. On nettoie les doublons éventuels (anciens panneaux restés dans le salon)
+  await supprimerPanneauxEnTrop(channel, client, message.id);
+
   if (modePanneau(config) === 'bouton' && config.bouton && config.bouton.configure) {
     store.setGuild(guild.id, {
-      bouton: { ...config.bouton, panelMessageId: message.id, panelChannelId: channel.id },
+      bouton: { ...store.getGuild(guild.id).bouton, panelMessageId: message.id, panelChannelId: channel.id },
     });
   } else {
     store.setGuild(guild.id, { panelMessageId: message.id, panelSent: true });
   }
   return channel;
+}
+
+
+/**
+ * Au démarrage : supprime les panneaux du bot en double dans le salon du panneau.
+ * Ne touche jamais à autre chose qu'aux messages DU BOT qui sont des panneaux.
+ */
+async function nettoyerPanneauxGuild(guild) {
+  const config = store.getGuild(guild.id);
+  const actif = reglages(config);
+  if (!actif.panelChannelId) return { supprimes: 0 };
+  const channel = await guild.channels.fetch(actif.panelChannelId).catch(() => null);
+  if (!channel) return { supprimes: 0 };
+  const panneaux = await trouverPanneaux(channel, guild.client);
+  if (panneaux.length <= 1) return { supprimes: 0 };
+  const garder = actif.panelMessageId && panneaux.some(p => p.id === actif.panelMessageId)
+    ? actif.panelMessageId
+    : panneaux[0].id;
+  const supprimes = await supprimerPanneauxEnTrop(channel, guild.client, garder);
+  return { supprimes };
 }
 
 // Sélecteur du /ticket panel : quel panneau envoyer ?
@@ -1742,6 +1823,11 @@ function selecteurAssistantBouton(b) {
         .setEmoji('🧩')
         .setDescription(b.items.length ? 'Ajouter, modifier ou supprimer un bouton' : 'Ajouter ton premier bouton'),
       new StringSelectMenuOptionBuilder()
+        .setLabel('Réinitialiser')
+        .setValue('reinit')
+        .setEmoji('🧹')
+        .setDescription('Effacer les panneaux en double et repartir de zéro'),
+      new StringSelectMenuOptionBuilder()
         .setLabel('Publier le panneau')
         .setValue('terminer')
         .setEmoji('✅')
@@ -2109,6 +2195,41 @@ async function routeurAssistantBouton(interaction) {
       });
       return true;
     }
+    if (choix === 'reinit') {
+      const panneaux = b.panelChannelId
+        ? await trouverPanneaux(await guild.channels.fetch(b.panelChannelId).catch(() => null), guild.client)
+        : [];
+      await maj(interaction, {
+        titre: '🧹 Réinitialiser',
+        texte: [
+          '**Ce que la réinitialisation fait :**',
+          '• efface **les panneaux du bot** dans le salon du panneau (y compris les doublons)',
+          '• remet à zéro les réglages du système BOUTON : salon, logs, titre, description, boutons',
+          '',
+          '**Ce qu\'elle ne touche pas :**',
+          '• tes salons, tes catégories et tes rôles',
+          '• les tickets déjà ouverts',
+          '• le système MENU et ses types',
+          '',
+          panneaux.length
+            ? `🧩 ${panneaux.length} panneau(x) trouvé(s) dans <#${b.panelChannelId}>.`
+            : '🧩 Aucun panneau trouvé pour le moment.',
+        ].join('\n'),
+        composants: [
+          new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('tktb:reinit-confirme')
+              .setPlaceholder('🧹 Confirmer la réinitialisation ?')
+              .addOptions(
+                new StringSelectMenuOptionBuilder().setLabel('Oui, tout réinitialiser').setValue('oui').setEmoji('🗑️').setDescription('Efface les panneaux du bot et remet les réglages à zéro'),
+                new StringSelectMenuOptionBuilder().setLabel('Non, annuler').setValue('non').setEmoji('↩️').setDescription('Revenir sans rien changer')
+              )
+          ),
+        ],
+      });
+      return true;
+    }
+
     if (choix === 'terminer') {
       const manques = [];
       if (!b.panelChannelId) manques.push('le salon du panneau');
@@ -2150,6 +2271,49 @@ async function routeurAssistantBouton(interaction) {
       });
       return true;
     }
+    return true;
+  }
+
+  // ── Réinitialisation confirmée ──
+  if (id === 'tktb:reinit-confirme') {
+    if (interaction.values[0] === 'non') {
+      await maj(interaction, carteAssistantBouton(guild, configBoutonDe(guild.id), '↩️ Réinitialisation annulée. Rien n\'a été changé.'));
+      return true;
+    }
+    // 1. On efface les panneaux du bot (jamais autre chose)
+    let supprimes = 0;
+    const salons = new Set([b.panelChannelId, configBoutonDe(guild.id) && store.getGuild(guild.id).panelChannelId].filter(Boolean));
+    for (const salonId of salons) {
+      const salon = await guild.channels.fetch(salonId).catch(() => null);
+      if (!salon) continue;
+      supprimes += await supprimerPanneauxEnTrop(salon, guild.client, null);
+    }
+    // 2. On remet les réglages du système bouton à zéro
+    store.setGuild(guild.id, {
+      panelMode: null,
+      panelMessageId: null,
+      panelSent: false,
+      bouton: {
+        configure: false,
+        categoryId: null,
+        panelChannelId: null,
+        logChannelId: null,
+        staffRoleIds: [],
+        panelMessageId: null,
+        items: [],
+        panel: { titre: null, description: null, image: null, bouton: null, boutonEmoji: null },
+      },
+    });
+    await maj(interaction, {
+      couleur: 'succes',
+      titre: '🧹 Réinitialisation terminée',
+      texte: [
+        supprimes ? `🗑️ ${supprimes} panneau(x) du bot supprimé(s).` : '🗑️ Aucun panneau à supprimer.',
+        '',
+        'Les réglages du système BOUTON sont à zéro : salon, logs, titre, description et boutons.',
+        'Tes salons, tes rôles et les tickets ouverts n\'ont pas été touchés.',
+      ].join('\n'),
+    });
     return true;
   }
 
@@ -2839,6 +3003,7 @@ module.exports = {
   payloadTicket,
   boutonsTicket,
   envoyerPanel,
+  nettoyerPanneauxGuild,
   menuChoixPanneau,
   menuRoles,
   estStaff,

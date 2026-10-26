@@ -16,7 +16,7 @@ const emojis = require('./utils/emojis');
 const { permissionsManquantes } = require('./utils/securite');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-26-boutons-personnalises';
+const VERSION = 'v2026-10-26-panneau-unique';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Journal de diagnostic ───
@@ -148,10 +148,14 @@ client.once(Events.ClientReady, async readyClient => {
       const purge = await ticket.purgerTicketsFantomes(guild, { verifierAcces: true });
       // Les cartes des tickets déjà ouverts prennent la nouvelle disposition
       const cartes = await ticket.rafraichirCartesTickets(guild);
+      // Un seul panneau par serveur : les doublons laissés par les anciennes
+      // versions sont effacés (uniquement des messages du bot).
+      const panneaux = await ticket.nettoyerPanneauxGuild(guild).catch(() => ({ supprimes: 0 }));
       console.log(
         `🛠️ ${guild.name} : ${infra.recrees.length ? 'réparé (' + infra.recrees.join(', ') + ')' : 'infrastructure OK'}` +
         ` · ${purge.purges} ticket(s) fantôme(s) supprimé(s)` +
-        ` · ${cartes.misAJour} carte(s) de ticket mise(s) à jour`
+        ` · ${cartes.misAJour} carte(s) de ticket mise(s) à jour` +
+        ` · ${panneaux.supprimes} panneau(x) en double supprimé(s)`
       );
     } catch (erreur) {
       console.error(`⚠️ Vérification de ${guild.name} impossible :`, erreur.message);

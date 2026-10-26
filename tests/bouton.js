@@ -547,6 +547,170 @@ function texteDe(o) {
     assert.ok(!/label:\s*'(Support|Bug|Achat)'/.test(src), 'un bouton est pré-rempli dans le code');
   });
 
+
+  console.log('── Panneaux en double ──');
+
+  function salonAvec(messages, journal) {
+    return {
+      id: 'salon-panneau',
+      permissionOverwrites: { edit: async () => {} },
+      messages: {
+        fetch: async arg => {
+          if (arg && typeof arg === 'object' && 'limit' in arg) {
+            const m = new Map();
+            messages.forEach(x => m.set(x.id, x));
+            return m;
+          }
+          return messages.find(x => x.id === arg) || null;
+        },
+      },
+      send: async p => {
+        const m = {
+          id: 'nouveau-' + (journal.length + 1), author: { id: 'bot', bot: true },
+          createdTimestamp: Date.now(),
+          toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'ticket:ouvrir:x' }] }] }),
+          edit: async q => { m.dernierEdite = q; return m; },
+          delete: async () => { journal.push('supprime:' + m.id); },
+        };
+        messages.push(m); journal.push('envoye:' + m.id);
+        return m;
+      },
+    };
+  }
+
+  await test('identifiant perdu → on RÉUTILISE le panneau existant (pas de doublon)', async () => {
+    reset();
+    const journal = [];
+    const existant = {
+      id: 'vieux-panneau', author: { id: 'bot', bot: true }, createdTimestamp: 1000,
+      toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'ticket:ouvrir:a' }] }] }),
+      edit: async q => { existant.dernierEdite = q; return existant; },
+      delete: async () => { journal.push('supprime:' + existant.id); },
+    };
+    const messages = [existant];
+    const canal = salonAvec(messages, journal);
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    guild.channels.fetch = async () => canal;
+    store.setGuild(GUILD, {
+      panelMode: 'bouton',
+      bouton: { configure: true, categoryId: 'c', panelChannelId: 'salon-panneau', logChannelId: 'l', staffRoleIds: [], panelMessageId: null,
+        items: [{ id: 'a', label: 'Support', couleur: 'vert', categoryId: 'c', staffRoleIds: ['r'] }], panel: {} },
+    });
+    await h.envoyerPanel(guild, store.getGuild(GUILD));
+    assert.ok(!journal.some(j => j.startsWith('envoye:')), 'un nouveau panneau a été envoyé : ' + journal.join(','));
+    assert.ok(existant.dernierEdite, 'le panneau existant n\'a pas été mis à jour');
+    assert.ok(existant.dernierEdite.embeds && existant.dernierEdite.embeds.length, 'l\'embed a été retiré du panneau bouton');
+  });
+
+  await test('plusieurs panneaux dans le salon → les doublons sont supprimés', async () => {
+    reset();
+    const journal = [];
+    const mk = (id, t) => ({
+      id, author: { id: 'bot', bot: true }, createdTimestamp: t,
+      toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'ticket:ouvrir:' + id }] }] }),
+      edit: async () => {}, delete: async () => { journal.push('supprime:' + id); },
+    });
+    const messages = [mk('vieux-1', 1000), mk('vieux-2', 2000), mk('recent', 3000)];
+    const canal = salonAvec(messages, journal);
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    guild.channels.fetch = async () => canal;
+    store.setGuild(GUILD, {
+      panelMode: 'bouton',
+      bouton: { configure: true, categoryId: 'c', panelChannelId: 'salon-panneau', logChannelId: 'l', staffRoleIds: [], panelMessageId: null,
+        items: [{ id: 'a', label: 'Support', couleur: 'vert', categoryId: 'c', staffRoleIds: ['r'] }], panel: {} },
+    });
+    await h.envoyerPanel(guild, store.getGuild(GUILD));
+    assert.deepEqual(journal.sort(), ['supprime:vieux-1', 'supprime:vieux-2'], 'doublons mal nettoyés : ' + journal.join(','));
+  });
+
+  await test('les messages des membres ne sont JAMAIS touchés', async () => {
+    reset();
+    const journal = [];
+    const membre = {
+      id: 'msg-membre', author: { id: 'humain', bot: false }, createdTimestamp: 500,
+      toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'ticket:ouvrir:fake' }] }] }),
+      edit: async () => {}, delete: async () => { journal.push('supprime:' + membre.id); },
+    };
+    const messages = [membre];
+    const canal = salonAvec(messages, journal);
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    guild.channels.fetch = async () => canal;
+    store.setGuild(GUILD, { panelMode: 'bouton', bouton: { configure: true, panelChannelId: 'salon-panneau', logChannelId: 'l', staffRoleIds: [], items: [{ id: 'a', label: 'S', couleur: 'vert', categoryId: 'c', staffRoleIds: ['r'] }], panel: {}, categoryId: 'c', panelMessageId: null } });
+    await h.envoyerPanel(guild, store.getGuild(GUILD));
+    assert.ok(!journal.includes('supprime:msg-membre'), 'un message de membre a été supprimé !');
+  });
+
+  console.log('── Réinitialisation ──');
+
+  await test('réinitialiser efface les panneaux du bot et remet les réglages à zéro', async () => {
+    reset();
+    const journal = [];
+    const mk = id => ({
+      id, author: { id: 'bot', bot: true }, createdTimestamp: 1000,
+      toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'ticket:ouvrir:' + id }] }] }),
+      edit: async () => {}, delete: async () => { journal.push('supprime:' + id); },
+    });
+    const canal = salonAvec([mk('p1'), mk('p2')], journal);
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    guild.channels.fetch = async () => canal;
+    store.setGuild(GUILD, {
+      panelMode: 'bouton',
+      bouton: { configure: true, categoryId: 'c', panelChannelId: 'salon-panneau', logChannelId: 'l', staffRoleIds: ['r'], panelMessageId: 'p1',
+        items: [{ id: 'a', label: 'Support', couleur: 'vert', categoryId: 'c', staffRoleIds: ['r'] }], panel: { titre: 'T' } },
+    });
+    let rep = null;
+    await h.handleSelectMenu({
+      customId: 'tktb:reinit-confirme', values: ['oui'], guild, member: admin,
+      reply: r => { rep = r; }, update: r => { rep = r; },
+    });
+    const g = store.getGuild(GUILD);
+    assert.deepEqual(g.bouton.items, [], 'boutons non effacés');
+    assert.equal(g.bouton.configure, false);
+    assert.equal(g.bouton.panelChannelId, null);
+    assert.equal(g.bouton.panel.titre, null);
+    assert.equal(g.panelMode, null);
+    assert.ok(journal.filter(j => j.startsWith('supprime')).length >= 2, 'panneaux non supprimés : ' + journal.join(','));
+    assert.match(texteDe(rep), /Réinitialisation terminée/);
+  });
+
+  await test('« Non » n\'efface rien', async () => {
+    reset();
+    const journal = [];
+    const guild = mockGuild();
+    guild.channels.fetch = async () => salonAvec([], journal);
+    guild.client = { user: { id: 'bot' } };
+    store.setGuild(GUILD, {
+      panelMode: 'bouton',
+      bouton: { configure: true, categoryId: 'c', panelChannelId: 'salon-panneau', logChannelId: 'l', staffRoleIds: ['r'], panelMessageId: 'p1',
+        items: [{ id: 'a', label: 'Support', couleur: 'vert', categoryId: 'c', staffRoleIds: ['r'] }], panel: {} },
+    });
+    await h.handleSelectMenu({ customId: 'tktb:reinit-confirme', values: ['non'], guild, member: admin, reply: () => {}, update: () => {} });
+    assert.equal(store.getGuild(GUILD).bouton.items.length, 1, 'les boutons ont été effacés alors qu\'on a dit non');
+  });
+
+
+  await test('au démarrage, les panneaux en double sont nettoyés (un seul gardé)', async () => {
+    reset();
+    const journal = [];
+    const mk = (id, t) => ({
+      id, author: { id: 'bot', bot: true }, createdTimestamp: t,
+      toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'ticket:ouvrir:' + id }] }] }),
+      edit: async () => {}, delete: async () => { journal.push('supprime:' + id); },
+    });
+    const canal = salonAvec([mk('a', 3000), mk('b', 2000), mk('c', 1000)], journal);
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    guild.channels.fetch = async () => canal;
+    store.setGuild(GUILD, { panelMode: 'bouton', bouton: { configure: true, panelChannelId: 'salon-panneau', logChannelId: 'l', staffRoleIds: [], categoryId: 'c', panelMessageId: null, items: [], panel: {} } });
+    const r = await h.nettoyerPanneauxGuild(guild);
+    assert.equal(r.supprimes, 2, 'doublons : ' + r.supprimes);
+    assert.deepEqual(journal.sort(), ['supprime:b', 'supprime:c'], 'mauvais panneau gardé : ' + journal.join(','));
+  });
+
   console.log(`\n${ok} tests du système BOUTON OK${ko ? ' — ÉCHEC de ' + ko : ' ✅'}`);
   process.exit(ko ? 1 : 0);
 })();
