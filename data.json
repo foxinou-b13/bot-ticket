@@ -104,7 +104,7 @@
             "id": "bmvons397q3j",
             "label": "Bug",
             "emoji": "🐛",
-            "couleur": "vert",
+            "couleur": "rouge",
             "categoryId": null,
             "staffRoleIds": []
           }
