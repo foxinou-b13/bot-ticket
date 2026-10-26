@@ -245,6 +245,7 @@ async function test(nom, fn) {
     let payload = null;
     const canal = { id: 'pan-sel2', permissionOverwrites: { edit: async () => {} }, messages: { fetch: async () => null }, send: async p => { payload = p; return { id: 'm-sel2' }; } };
     store.setGuild('g-test', { panelChannelId: 'pan-sel2', panelMessageId: null });
+    store.setGuild('g-test', { bouton: { ...store.getGuild('g-test').bouton, configure: true, items: [{ id: 'x', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }] } });
     let maj = null;
     const inter = {
       customId: 'tkt:panel-choix', values: ['bouton'],

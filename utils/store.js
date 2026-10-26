@@ -179,6 +179,9 @@ function getGuild(guildId) {
         logChannelId: null, // salon des transcriptions
         staffRoleIds: [], // rôles qui voient/traitent les tickets
         panelMessageId: null, // le message du panneau (pour le mettre à jour, pas l'empiler)
+        // Boutons du panneau : un par type de demande.
+        // { id, label, emoji, couleur: 'bleu'|'vert'|'gris'|'rouge', categoryId, staffRoleIds[] }
+        items: [],
         panel: { titre: null, description: null, image: null, bouton: null }, // textes du panneau bouton
       },
       types: [], // types de tickets : { id, nom, emoji, description, categoryId, staffRoleIds[] }
@@ -211,6 +214,16 @@ function getGuild(guildId) {
   if (b.panel.description === undefined) b.panel.description = null;
   if (b.panel.image === undefined) b.panel.image = null;
   if (b.panel.bouton === undefined) b.panel.bouton = null;
+  if (b.panel.boutonEmoji === undefined) b.panel.boutonEmoji = null;
+  if (!Array.isArray(b.items)) b.items = [];
+  b.items = b.items.filter(i => i && typeof i === 'object');
+  for (const item of b.items) {
+    if (!item.id) item.id = 'b' + Math.random().toString(36).slice(2, 8);
+    if (!item.couleur) item.couleur = 'bleu';
+    if (!Array.isArray(item.staffRoleIds)) item.staffRoleIds = [];
+    if (item.categoryId === undefined) item.categoryId = null;
+    if (item.emoji === undefined) item.emoji = null;
+  }
   if (g.panelMode !== 'bouton' && g.panelMode !== 'menu') g.panelMode = null;
   return g;
 }

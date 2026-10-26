@@ -59,10 +59,22 @@ test('structure référence : carte conteneur (17) + sélecteur hors carte + sé
   const dern = j[0].components[j[0].components.length - 1];
   if (dern.type !== 1 || dern.components[0].type !== 3) throw new Error('le sélecteur doit être DEDANS la carte, tout en bas');
 });
-test('panneau BOUTON', () => {
-  const p = h.construirePanneau({ ...config, panelMode: 'bouton' }, {}, 'Serveur Test');
+test('panneau BOUTON : affiche uniquement les boutons créés', () => {
+  const avecBouton = {
+    ...config,
+    panelMode: 'bouton',
+    bouton: {
+      ...(config.bouton || {}),
+      configure: true,
+      items: [{ id: 'x', label: 'Écrire au staff', emoji: '📩', couleur: 'bleu', categoryId: null, staffRoleIds: [] }],
+    },
+  };
+  const p = h.construirePanneau(avecBouton, {}, 'Serveur Test');
   const j = JSON.stringify(p.components);
-  if (!j.includes('Ouvrir un ticket')) throw new Error('bouton absent');
+  if (!j.includes('Écrire au staff')) throw new Error('bouton créé absent');
+  const vide = h.construirePanneau({ ...config, panelMode: 'bouton', bouton: { ...(config.bouton || {}), configure: true, items: [] } }, {}, 'S');
+  if (vide.components.length) throw new Error('bouton par défaut affiché alors qu\'aucun bouton n\'est créé');
+  return;
 });
 test('panneau avec textes perso + image', () => {
   const p = h.construirePanneau({ ...config, panel: { titre: 'Mon titre', description: 'Mon texte', selecteur: 'Choisis...', image: 'https://x.fr/i.png' } }, {}, 'S');
@@ -79,8 +91,12 @@ test('bannière auto-générée (components v2) + aucune bordure embed', () => {
   if (!j.includes('attachment://' + p.files[0].name)) throw new Error('image absente des components');
   if (p.embeds) throw new Error('encore un embed (la référence n\'en a pas)');
 });
-test('panneau menu sans types → retombe en bouton', () => {
-  const p = h.construirePanneau({ ...config, types: [] }, {}, 'S');
+test('panneau menu sans types → retombe en bouton (boutons créés)', () => {
+  const p = h.construirePanneau({
+    ...config,
+    types: [],
+    bouton: { ...(config.bouton || {}), configure: true, items: [{ id: 'x', label: 'Ouvrir un ticket', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }] },
+  }, {}, 'S');
   if (!JSON.stringify(p.components).includes('Ouvrir un ticket')) throw new Error('mauvais repli');
 });
 
@@ -131,7 +147,7 @@ test('panneau MENU porte le flag v2 (32768)', () => {
 });
 test('panneau BOUTON : embed autonome, sans bannière ni texte du menu', () => {
   const p = h.construirePanneau(
-    { ...config, panelMode: 'bouton', types: [], bouton: { ...(config.bouton || {}), configure: true } },
+    { ...config, panelMode: 'bouton', types: [], bouton: { ...(config.bouton || {}), configure: true, items: [{ id: 'x', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }] } },
     {},
     'Serveur Test'
   );
