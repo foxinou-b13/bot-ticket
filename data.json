@@ -55,8 +55,10 @@
           "titre": null,
           "description": null,
           "image": null,
-          "bouton": null
-        }
+          "bouton": null,
+          "boutonEmoji": null
+        },
+        "items": []
       }
     },
     "1558915513634005024": {
@@ -106,7 +108,8 @@
           "image": null,
           "bouton": "Ouvrir un ticket",
           "boutonEmoji": "📨"
-        }
+        },
+        "items": []
       }
     },
     "1562104315043385394": {
@@ -166,8 +169,10 @@
           "titre": null,
           "description": null,
           "image": null,
-          "bouton": null
-        }
+          "bouton": null,
+          "boutonEmoji": null
+        },
+        "items": []
       }
     }
   }
