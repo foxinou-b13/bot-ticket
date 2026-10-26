@@ -72,7 +72,7 @@
       "panelMessageId": null,
       "counter": 18,
       "open": {},
-      "panelMode": null,
+      "panelMode": "bouton",
       "panel": {
         "titre": null,
         "description": null,
@@ -93,12 +93,12 @@
         }
       ],
       "bouton": {
-        "configure": false,
+        "configure": true,
         "categoryId": null,
         "panelChannelId": "1558958817868259448",
         "logChannelId": "1562098662434410576",
         "staffRoleIds": [],
-        "panelMessageId": null,
+        "panelMessageId": "1564109405597728820",
         "items": [
           {
             "id": "bmvons397q3j",
