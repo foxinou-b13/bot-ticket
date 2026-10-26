@@ -220,8 +220,10 @@ function texteDe(o) {
       update: r => { conf = r; }, reply: r => { conf = r; },
     });
     const g = store.getGuild(GUILD);
-    assert.equal(g.panelMode, 'bouton', 'mode non enregistré');
     assert.equal(g.bouton.configure, true, 'pas marqué configuré');
+    // SÉPARATION : publier le panneau bouton ne change PAS le mode du serveur,
+    // donc le système menu n'est pas affecté.
+    assert.notEqual(g.panelMode, 'bouton', 'le mode global a été modifié : le menu est impacté');
     assert.equal(g.bouton.panelMessageId, 'msg-panneau', 'message non mémorisé');
     assert.ok(envoye && envoye.embeds && envoye.embeds.length, 'panneau non envoyé');
     assert.match(texteDe(conf), /publié|prêt/);
@@ -672,7 +674,6 @@ function texteDe(o) {
     assert.equal(g.bouton.configure, false);
     assert.equal(g.bouton.panelChannelId, null);
     assert.equal(g.bouton.panel.titre, null);
-    assert.equal(g.panelMode, null);
     assert.ok(journal.filter(j => j.startsWith('supprime')).length >= 2, 'panneaux non supprimés : ' + journal.join(','));
     assert.match(texteDe(rep), /Réinitialisation terminée/);
   });
@@ -709,6 +710,150 @@ function texteDe(o) {
     const r = await h.nettoyerPanneauxGuild(guild);
     assert.equal(r.supprimes, 2, 'doublons : ' + r.supprimes);
     assert.deepEqual(journal.sort(), ['supprime:b', 'supprime:c'], 'mauvais panneau gardé : ' + journal.join(','));
+  });
+
+
+  console.log('── SÉPARATION des deux systèmes ──');
+
+  function configMenuComplete() {
+    return {
+      categoryId: 'CAT-MENU', staffRoleIds: ['ROLE-MENU'], logChannelId: 'LOG-MENU',
+      panelChannelId: 'PAN-MENU', panelMessageId: 'MSG-MENU', panelSent: true,
+      panelMode: 'menu',
+      panel: { titre: 'Titre du MENU', description: 'Texte du MENU', selecteur: 'Choisir', image: null },
+      types: [{ id: 't1', nom: 'Problème', emoji: '🔴', categoryId: null, staffRoleIds: [] }],
+      open: {},
+    };
+  }
+
+  await test('configurer le système BOUTON ne modifie AUCUN réglage du MENU', async () => {
+    reset();
+    store.setGuild(GUILD, configMenuComplete());
+    const avant = JSON.parse(JSON.stringify({
+      categoryId: store.getGuild(GUILD).categoryId,
+      staffRoleIds: store.getGuild(GUILD).staffRoleIds,
+      logChannelId: store.getGuild(GUILD).logChannelId,
+      panelChannelId: store.getGuild(GUILD).panelChannelId,
+      panelMessageId: store.getGuild(GUILD).panelMessageId,
+      panelSent: store.getGuild(GUILD).panelSent,
+      panelMode: store.getGuild(GUILD).panelMode,
+      panel: store.getGuild(GUILD).panel,
+      types: store.getGuild(GUILD).types,
+    }));
+
+    // on configure entièrement le système bouton
+    await h.handleSelectMenu(interSelect('tktb:salon', ['PAN-BOUTON']));
+    await h.handleSelectMenu(interSelect('tktb:logs', ['LOG-BOUTON']));
+    await h.handleModal({
+      customId: 'tktb:textes', guild: mockGuild(), member: admin,
+      fields: { getTextInputValue: k => ({ titre: 'Titre BOUTON', description: 'Texte BOUTON', image: '' }[k] || '') },
+      reply: () => {}, update: () => {},
+    });
+    await h.handleModal({
+      customId: 'tktb:item-new', guild: mockGuild(), member: admin,
+      fields: { getTextInputValue: k => ({ libelle: 'Mon bouton', emoji: '🎫' }[k] || '') },
+      reply: () => {}, update: () => {},
+    });
+    const item = store.getGuild(GUILD).bouton.items[0];
+    await h.handleSelectMenu(interSelect('tktb:item-cat:' + item.id, ['CAT-BOUTON']));
+    await h.handleSelectMenu(interSelect('tktb:item-roles:' + item.id, ['ROLE-BOUTON']));
+
+    const apres = JSON.parse(JSON.stringify({
+      categoryId: store.getGuild(GUILD).categoryId,
+      staffRoleIds: store.getGuild(GUILD).staffRoleIds,
+      logChannelId: store.getGuild(GUILD).logChannelId,
+      panelChannelId: store.getGuild(GUILD).panelChannelId,
+      panelMessageId: store.getGuild(GUILD).panelMessageId,
+      panelSent: store.getGuild(GUILD).panelSent,
+      panelMode: store.getGuild(GUILD).panelMode,
+      panel: store.getGuild(GUILD).panel,
+      types: store.getGuild(GUILD).types,
+    }));
+    assert.deepEqual(apres, avant, 'le système MENU a été modifié : ' + JSON.stringify({ avant, apres }));
+  });
+
+  await test('réinitialiser le BOUTON ne touche pas le MENU', async () => {
+    reset();
+    store.setGuild(GUILD, configMenuComplete());
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    guild.channels.fetch = async () => salonAvec([], []);
+    await h.handleSelectMenu({
+      customId: 'tktb:reinit-confirme', values: ['oui'], guild, member: admin,
+      reply: () => {}, update: () => {},
+    });
+    const g = store.getGuild(GUILD);
+    assert.equal(g.categoryId, 'CAT-MENU');
+    assert.deepEqual(g.staffRoleIds, ['ROLE-MENU']);
+    assert.equal(g.logChannelId, 'LOG-MENU');
+    assert.equal(g.panelChannelId, 'PAN-MENU', 'le salon du panneau menu a été effacé');
+    assert.equal(g.panelMessageId, 'MSG-MENU', 'le message du panneau menu a été oublié');
+    assert.equal(g.panel.titre, 'Titre du MENU');
+    assert.equal(g.types.length, 1);
+    assert.deepEqual(g.bouton.items, [], 'les boutons n\'ont pas été remis à zéro');
+  });
+
+  await test('le panneau BOUTON n\'utilise jamais les textes/réglages du MENU', async () => {
+    reset();
+    store.setGuild(GUILD, {
+      ...configMenuComplete(),
+      bouton: { configure: true, categoryId: null, panelChannelId: null, logChannelId: null, staffRoleIds: [], panelMessageId: null, items: [{ id: 'a', label: 'Mon bouton', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: ['R'] }], panel: {} },
+    });
+    const cfg = store.getGuild(GUILD);
+    const r = h.construirePanneau(cfg, {}, 'S', 'bouton');
+    const json = JSON.stringify(r.toJSON ? r.toJSON() : r);
+    assert.ok(!json.includes('Titre du MENU'), 'titre du menu repris');
+    assert.ok(!json.includes('Texte du MENU'), 'texte du menu repris');
+    assert.ok(!json.includes('Choisir'), 'sélecteur du menu repris');
+    assert.ok(json.includes('Mon bouton'));
+  });
+
+  await test('ouvrir un ticket par un bouton n\'utilise jamais la catégorie/staff du MENU', async () => {
+    reset();
+    store.setGuild(GUILD, {
+      ...configMenuComplete(),
+      bouton: { configure: true, categoryId: null, panelChannelId: null, logChannelId: null, staffRoleIds: [], panelMessageId: null,
+        items: [{ id: 'a', label: 'Bug', emoji: '🐞', couleur: 'rouge', categoryId: 'CAT-BOUTON', staffRoleIds: ['ROLE-BOUTON'] }], panel: {} },
+    });
+    const guild = mockGuild();
+    let cree = null;
+    guild.channels.create = async o => {
+      cree = o;
+      return { id: 's', send: async () => ({ id: 'm', pin: async () => {} }), permissionOverwrites: { edit: async () => {} } };
+    };
+    const item = store.getGuild(GUILD).bouton.items[0];
+    const res = await h.creerTicket({ guild, user: { id: 'membre-separation-' + Date.now() }, client: { user: { id: 'bot' } } }, 'test', null, item);
+    assert.ok(res.salon, 'ticket non créé : ' + JSON.stringify(res));
+    assert.equal(cree.parent, 'CAT-BOUTON', 'mauvaise catégorie : ' + cree.parent);
+    const ids = cree.permissionOverwrites.map(p => p.id);
+    assert.ok(ids.includes('ROLE-BOUTON'));
+    assert.ok(!ids.includes('ROLE-MENU'), 'le staff du MENU a été ajouté');
+  });
+
+  await test('le panneau du MENU n\'est jamais supprimé par le système bouton', async () => {
+    reset();
+    const journal = [];
+    const panneauMenu = {
+      id: 'msg-menu', author: { id: 'bot', bot: true }, createdTimestamp: 1000,
+      toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'tkt:type-ouvrir' }] }] }),
+      edit: async () => {}, delete: async () => { journal.push('supprime:' + panneauMenu.id); },
+    };
+    const panneauBouton = {
+      id: 'msg-bouton', author: { id: 'bot', bot: true }, createdTimestamp: 2000,
+      toJSON: () => ({ components: [{ type: 1, components: [{ custom_id: 'ticket:ouvrir:a' }] }] }),
+      edit: async () => {}, delete: async () => { journal.push('supprime:' + panneauBouton.id); },
+    };
+    const canal = salonAvec([panneauMenu, panneauBouton], journal);
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    guild.channels.fetch = async () => canal;
+    store.setGuild(GUILD, {
+      ...configMenuComplete(),
+      bouton: { configure: true, panelChannelId: 'salon-panneau', logChannelId: 'l', categoryId: 'c', staffRoleIds: [], panelMessageId: 'msg-bouton',
+        items: [{ id: 'a', label: 'S', couleur: 'vert', categoryId: 'c', staffRoleIds: ['r'] }], panel: {} },
+    });
+    await h.nettoyerPanneauxGuild(guild);
+    assert.ok(!journal.includes('supprime:msg-menu'), 'le panneau du MENU a été supprimé !');
   });
 
   console.log(`\n${ok} tests du système BOUTON OK${ko ? ' — ÉCHEC de ' + ko : ' ✅'}`);

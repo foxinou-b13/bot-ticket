@@ -206,33 +206,35 @@ function modePanneau(config) {
 // Réglages ACTIFS selon le système choisi par le serveur.
 // Le système BOUTON a ses propres salons / rôles / textes (autonome) ;
 // s'ils ne sont pas encore réglés, on retombe sur les anciens réglages.
-function reglages(config) {
-  const b = config.bouton || {};
-  if (modePanneau(config) === 'bouton' && b.configure) {
+function reglages(config, mode = modePanneau(config)) {
+  // SÉPARATION STRICTE : le système BOUTON ne lit QUE ses propres réglages,
+  // le système MENU ne lit QUE les siens. Aucun repli de l'un vers l'autre.
+  if (mode === 'bouton') {
+    const b = config.bouton || {};
     return {
-      categoryId: b.categoryId || config.categoryId,
-      logChannelId: b.logChannelId || config.logChannelId,
-      panelChannelId: b.panelChannelId || config.panelChannelId,
+      categoryId: b.categoryId || null,
+      logChannelId: b.logChannelId || null,
+      panelChannelId: b.panelChannelId || null,
       panelMessageId: b.panelMessageId || null,
-      staffRoleIds: (b.staffRoleIds && b.staffRoleIds.length) ? b.staffRoleIds : (config.staffRoleIds || []),
+      staffRoleIds: b.staffRoleIds || [],
       panel: b.panel || {},
       items: b.items || [],
     };
   }
   return {
-    categoryId: config.categoryId,
-    logChannelId: config.logChannelId,
-    panelChannelId: config.panelChannelId,
-    panelMessageId: config.panelMessageId,
+    categoryId: config.categoryId || null,
+    logChannelId: config.logChannelId || null,
+    panelChannelId: config.panelChannelId || null,
+    panelMessageId: config.panelMessageId || null,
     staffRoleIds: config.staffRoleIds || [],
     panel: config.panel || {},
     items: [],
   };
 }
 
-// Panneau du systeme BOUTON (style Ticket Tool)
-// Un embed simple : titre + description + bouton. AUCUNE banniere,
-// AUCUN texte repris du panneau du menu. Textes 100% reglables.
+// Panneau du système BOUTON (style Ticket Tool)
+// Un embed simple : titre + description + boutons. AUCUNE bannière,
+// AUCUN texte repris du panneau du menu. Textes 100% réglables.
 function panneauBouton(p = {}, options = {}, guildName = null) {
   const nom = guildName || 'ce serveur';
   const description =
@@ -254,23 +256,22 @@ function panneauBouton(p = {}, options = {}, guildName = null) {
   if (lien && /^https?:\/\//.test(lien)) embed.setImage(lien);
   return {
     embeds: [embed],
-    // Aucun bouton par défaut : le panneau n'affiche que les boutons créés
-    // par la personne qui configure le bot.
+    // Aucun bouton par défaut : uniquement ceux créés par la personne.
     components: lignesBoutons(p.items || []),
     allowedMentions: { parse: [] },
   };
 }
 
-function construirePanneau(config, options = {}, guildName = null) {
+function construirePanneau(config, options = {}, guildName = null, modeForce = null) {
   // Structure IDENTIQUE à la référence : components v2 Discord
   // (blocs de texte + séparateurs gris + galerie d'image + menu),
   // PAS d'embed → aucune bordure colorée nulle part.
-  const mode = modePanneau(config);
+  const mode = modeForce || modePanneau(config);
   if (mode === 'bouton') {
-    const r = reglages(config);
+    const r = reglages(config, 'bouton');
     return panneauBouton({ ...(r.panel || {}), items: r.items || [] }, options, guildName);
   }
-  const p = reglages(config).panel || {};
+  const p = reglages(config, 'menu').panel || {};
   const nom = guildName || 'ce serveur';
   const fichiers = [];
 
@@ -397,11 +398,55 @@ async function supprimerPanneauxEnTrop(channel, client, garderId = null) {
   return supprimes;
 }
 
+// ─── Système BOUTON uniquement ───
+// Ne reconnaît QUE les panneaux du système bouton. Le panneau du MENU
+// (menu déroulant "tkt:type-ouvrir") n'est jamais vu par ces fonctions.
+function estPanneauBouton(message, client) {
+  if (!message) return false;
+  const botId = client?.user?.id || message.client?.user?.id;
+  if (botId && message.author?.id && message.author.id !== botId) return false;
+  if (message.author?.bot === false) return false;
+  const json = typeof message.toJSON === 'function' ? message.toJSON() : message;
+  const texte = JSON.stringify(json.components || []);
+  return texte.includes('"custom_id":"ticket:ouvrir');
+}
+
+async function trouverPanneauxBouton(channel, client, limite = 50) {
+  if (!channel || typeof channel.messages?.fetch !== 'function') return [];
+  const messages = await channel.messages.fetch({ limit: limite }).catch(() => null);
+  if (!messages) return [];
+  let liste = [];
+  if (typeof messages.values === 'function') liste = [...messages.values()];
+  else if (Array.isArray(messages)) liste = messages;
+  else if (typeof messages[Symbol.iterator] === 'function') liste = [...messages];
+  else if (messages.id) liste = [messages];
+  return liste
+    .filter(m => estPanneauBouton(m, client))
+    .sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+}
+
+async function supprimerPanneauxBoutonEnTrop(channel, client, garderId = null) {
+  const panneaux = await trouverPanneauxBouton(channel, client);
+  let supprimes = 0;
+  for (const m of panneaux) {
+    if (garderId && m.id === garderId) continue;
+    if (typeof m.delete !== 'function') continue;
+    await m.delete().catch(() => {});
+    supprimes += 1;
+  }
+  return supprimes;
+}
+
 async function envoyerPanel(guild, config, options = {}) {
-  const actif = reglages(config);
+  // Le système qui publie est TOUJOURS explicite : aucun mélange possible.
+  const mode = options.mode || modePanneau(config);
+  const actif = reglages(config, mode);
+  // options.channelId : salon imposé par l'appelant (/ticket panel), sans
+  // écrire dans les réglages de l'autre système.
+  const channelId = options.channelId || actif.panelChannelId;
   let channel = null;
-  if (actif.panelChannelId) {
-    channel = await guild.channels.fetch(actif.panelChannelId).catch(() => null);
+  if (channelId) {
+    channel = await guild.channels.fetch(channelId).catch(() => null);
   }
   if (!channel) return null;
   await assurerAccesBot(channel);
@@ -415,11 +460,13 @@ async function envoyerPanel(guild, config, options = {}) {
   // 2. Sinon : on retrouve un panneau déjà présent au lieu d'en empiler un autre
   //    (identifiant perdu après un redémarrage, changement de salon, etc.)
   if (!message) {
-    const existants = await trouverPanneaux(channel, client);
+    const existants = mode === 'bouton'
+      ? await trouverPanneauxBouton(channel, client)
+      : await trouverPanneaux(channel, client);
     message = existants[0] || null;
   }
 
-  const contenu = construirePanneau(config, options, guild.name);
+  const contenu = construirePanneau(config, options, guild.name, mode);
   try {
     if (message) {
       // Les cartes v2 (mode menu) interdisent les embeds : on ne les vide QUE dans
@@ -436,13 +483,21 @@ async function envoyerPanel(guild, config, options = {}) {
     return null;
   }
 
-  // 3. On nettoie les doublons éventuels (anciens panneaux restés dans le salon)
-  await supprimerPanneauxEnTrop(channel, client, message.id);
+  // 3. On nettoie les doublons — uniquement pour le système BOUTON,
+  //    et uniquement des panneaux bouton (jamais celui du MENU).
+  if (mode === 'bouton') await supprimerPanneauxBoutonEnTrop(channel, client, message.id);
 
-  if (modePanneau(config) === 'bouton' && config.bouton && config.bouton.configure) {
-    store.setGuild(guild.id, {
-      bouton: { ...store.getGuild(guild.id).bouton, panelMessageId: message.id, panelChannelId: channel.id },
-    });
+  if (mode === 'bouton') {
+    // Uniquement le bloc bouton — le panneau du MENU n'est pas touché
+    if (!options.channelId) {
+      store.setGuild(guild.id, {
+        bouton: { ...store.getGuild(guild.id).bouton, panelMessageId: message.id, panelChannelId: channel.id },
+      });
+    } else {
+      store.setGuild(guild.id, {
+        bouton: { ...store.getGuild(guild.id).bouton, panelMessageId: message.id },
+      });
+    }
   } else {
     store.setGuild(guild.id, { panelMessageId: message.id, panelSent: true });
   }
@@ -456,16 +511,18 @@ async function envoyerPanel(guild, config, options = {}) {
  */
 async function nettoyerPanneauxGuild(guild) {
   const config = store.getGuild(guild.id);
-  const actif = reglages(config);
-  if (!actif.panelChannelId) return { supprimes: 0 };
-  const channel = await guild.channels.fetch(actif.panelChannelId).catch(() => null);
+  const b = config.bouton || {};
+  // Uniquement le salon du panneau BOUTON, et uniquement des panneaux BOUTON :
+  // le panneau du système MENU ne doit jamais être touché.
+  if (!b.panelChannelId) return { supprimes: 0 };
+  const channel = await guild.channels.fetch(b.panelChannelId).catch(() => null);
   if (!channel) return { supprimes: 0 };
-  const panneaux = await trouverPanneaux(channel, guild.client);
+  const panneaux = await trouverPanneauxBouton(channel, guild.client);
   if (panneaux.length <= 1) return { supprimes: 0 };
-  const garder = actif.panelMessageId && panneaux.some(p => p.id === actif.panelMessageId)
-    ? actif.panelMessageId
+  const garder = b.panelMessageId && panneaux.some(p => p.id === b.panelMessageId)
+    ? b.panelMessageId
     : panneaux[0].id;
-  const supprimes = await supprimerPanneauxEnTrop(channel, guild.client, garder);
+  const supprimes = await supprimerPanneauxBoutonEnTrop(channel, guild.client, garder);
   return { supprimes };
 }
 
@@ -495,16 +552,22 @@ function rowSalonChoix() {
 }
 
 // Publication + confirmation après choix dans le sélecteur du /ticket panel
-async function publierDepuisChoix(interaction, cfg) {
-  const channel = await envoyerPanel(interaction.guild, cfg);
-  const mode = modePanneau(cfg);
+async function publierDepuisChoix(interaction, cfg, modeDemande = null) {
+  const mode = modeDemande || modePanneau(cfg);
+  const salonCible = mode === 'bouton'
+    ? (cfg.bouton?.panelChannelId || cfg.panelChannelId)
+    : cfg.panelChannelId;
+  const channel = await envoyerPanel(interaction.guild, cfg, { mode, channelId: salonCible });
   let texte;
   if (!channel) {
     texte = `❌ Impossible d'envoyer le panneau dans <#${cfg.panelChannelId}>. Vérifie que le bot a la permission d'y écrire.`;
   } else if (mode === 'menu') {
     texte = `✅ **Panneau 📋 MENU publié dans ${channel}** — bannière + menu déroulant (${cfg.types.length} type(s) de tickets).`;
   } else {
-    texte = `✅ **Panneau 🔘 BOUTON publié dans ${channel}** — bouton « 🎫 Ouvrir un ticket ».`;
+    const nb = (cfg.bouton?.items || []).length;
+    texte = nb
+      ? `✅ **Panneau 🔘 BOUTON publié dans ${channel}** — ${nb} bouton(s).`
+      : `✅ **Panneau 🔘 BOUTON publié dans ${channel}** — ajoute tes boutons avec \`/setup ticket bouton\`.`;
   }
   if (cfg.panelMode === 'menu' && !cfg.types.length) {
     texte += '\n⚠️ Aucun type de ticket créé : c\'est le panneau BOUTON qui est parti. Crée des types avec `/setup ticket menu`.';
@@ -2251,9 +2314,9 @@ async function routeurAssistantBouton(interaction) {
         return true;
       }
       const pret = majBouton(guild.id, { configure: true });
-      store.setGuild(guild.id, { panelMode: 'bouton' });
       const config = store.getGuild(guild.id);
-      const salon = await envoyerPanel(guild, config);
+      // on précise le mode : le panneau du MENU n'est jamais concerné
+      const salon = await envoyerPanel(guild, config, { mode: 'bouton' });
       await maj(interaction, {
         couleur: salon ? 'succes' : 'attention',
         titre: salon ? '✅ Système BOUTON prêt' : '⚠️ Réglé, mais panneau non publié',
@@ -2286,13 +2349,10 @@ async function routeurAssistantBouton(interaction) {
     for (const salonId of salons) {
       const salon = await guild.channels.fetch(salonId).catch(() => null);
       if (!salon) continue;
-      supprimes += await supprimerPanneauxEnTrop(salon, guild.client, null);
+      supprimes += await supprimerPanneauxBoutonEnTrop(salon, guild.client, null);
     }
     // 2. On remet les réglages du système bouton à zéro
     store.setGuild(guild.id, {
-      panelMode: null,
-      panelMessageId: null,
-      panelSent: false,
       bouton: {
         configure: false,
         categoryId: null,
@@ -2751,15 +2811,22 @@ async function handleSelectMenu(interaction) {
     const mode = interaction.values[0];
     store.setGuild(guild.id, { panelMode: mode });
     const cfg = store.getGuild(guild.id);
-    if (!cfg.panelChannelId) {
+    // Chaque système publie dans SON salon : le salon du panneau bouton
+    // n'est pas celui du panneau menu.
+    const salonCible = mode === 'bouton'
+      ? (cfg.bouton?.panelChannelId || cfg.panelChannelId)
+      : cfg.panelChannelId;
+    if (!salonCible) {
       return maj(interaction, {
         couleur: 'info',
         titre: `📬 Dans quel salon envoyer le panneau ${mode === 'menu' ? '📋 MENU' : '🔘 BOUTON'} ?`,
-        texte: 'Choisis un salon dans le menu ci-dessous.',
+        texte: mode === 'bouton'
+          ? 'Choisis un salon, ou configure tout avec `/setup ticket bouton`.'
+          : 'Choisis un salon dans le menu ci-dessous.',
         composants: [rowSalonChoix()],
       });
     }
-    return publierDepuisChoix(interaction, cfg);
+    return publierDepuisChoix(interaction, cfg, mode);
   }
 
   // ── /ticket panel : choix du salon (si aucun salon configuré) ──
@@ -2768,8 +2835,16 @@ async function handleSelectMenu(interaction) {
       return maj(interaction, { texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
     }
     const channelId = interaction.values[0];
-    store.setGuild(guild.id, { panelChannelId: channelId, panelMessageId: null });
-    return publierDepuisChoix(interaction, store.getGuild(guild.id));
+    const modeChoisi = store.getGuild(guild.id).panelMode === 'bouton' ? 'bouton' : 'menu';
+    if (modeChoisi === 'bouton') {
+      // on n'écrit que dans le bloc bouton
+      store.setGuild(guild.id, {
+        bouton: { ...store.getGuild(guild.id).bouton, panelChannelId: channelId, panelMessageId: null },
+      });
+    } else {
+      store.setGuild(guild.id, { panelChannelId: channelId, panelMessageId: null });
+    }
+    return publierDepuisChoix(interaction, store.getGuild(guild.id), modeChoisi);
   }
 
   // ── Assistant : choix du salon où envoyer le panneau menu ──
