@@ -126,7 +126,9 @@
             "emoji": "❓",
             "couleur": "rouge",
             "categoryId": "1558956375143489739",
-            "staffRoleIds": []
+            "staffRoleIds": [
+              "1558960935006249071"
+            ]
           }
         ]
       }
