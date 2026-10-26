@@ -129,6 +129,14 @@
             "staffRoleIds": [
               "1558960935006249071"
             ]
+          },
+          {
+            "id": "bmvor03xhg26",
+            "label": "Achat",
+            "emoji": "🤝",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
           }
         ],
         "panel": {
