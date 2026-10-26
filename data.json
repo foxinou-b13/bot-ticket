@@ -109,7 +109,16 @@
           "bouton": "Ouvrir un ticket",
           "boutonEmoji": "📨"
         },
-        "items": []
+        "items": [
+          {
+            "id": "bmvojlyg56cz",
+            "label": "Bug",
+            "emoji": "🐛",
+            "couleur": "vert",
+            "categoryId": "1558956375143489739",
+            "staffRoleIds": []
+          }
+        ]
       }
     },
     "1562104315043385394": {
