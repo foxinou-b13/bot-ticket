@@ -109,6 +109,14 @@
             "staffRoleIds": [
               "1558960935006249071"
             ]
+          },
+          {
+            "id": "bmvont5zu82v",
+            "label": "Report",
+            "emoji": "📨",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
           }
         ],
         "panel": {
