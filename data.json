@@ -99,7 +99,16 @@
         "logChannelId": "1562098662434410576",
         "staffRoleIds": [],
         "panelMessageId": null,
-        "items": [],
+        "items": [
+          {
+            "id": "bmvons397q3j",
+            "label": "Bug",
+            "emoji": "🐛",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
+          }
+        ],
         "panel": {
           "titre": "Créé un ticket",
           "description": "```Besoin d'aide cliquer sur le bouton ci-dessous pour créer un ticket un membre de l'équipe va vous répondre```",
