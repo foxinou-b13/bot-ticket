@@ -119,6 +119,14 @@
             "staffRoleIds": [
               "1558960935006249071"
             ]
+          },
+          {
+            "id": "bmvonu92165w",
+            "label": "Question",
+            "emoji": "❓",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
           }
         ],
         "panel": {
