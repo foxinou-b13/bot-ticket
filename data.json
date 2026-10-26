@@ -71,23 +71,7 @@
       "panelSent": false,
       "panelMessageId": null,
       "counter": 19,
-      "open": {
-        "1564109665908953139": {
-          "numero": 19,
-          "userId": "1497375017980137534",
-          "sujet": "Test",
-          "typeId": "bouton:bmvons397q3j",
-          "typeNom": "Bug",
-          "typeEmoji": "🐛",
-          "staffRoleIds": [
-            "1558960935006249071"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1792983204273,
-          "guildId": "1558915513634005024",
-          "messageId": "1564109667729281115"
-        }
-      },
+      "open": {},
       "panelMode": "bouton",
       "panel": {
         "titre": null,
