@@ -172,7 +172,7 @@ function texteDe(o) {
 
   await test('non-admin refusé sur tous les réglages', async () => {
     reset();
-    for (const id of ['tktb:salon', 'tktb:cat', 'tktb:logs', 'tktb:roles', 'tktb:main']) {
+    for (const id of ['tktb:salon', 'tktb:logs', 'tktb:etape:1', 'tktb:publier', 'tktb:reinit']) {
       let rep = null;
       await h.handleSelectMenu({
         customId: id, values: ['x'], guild: mockGuild(),
@@ -184,18 +184,18 @@ function texteDe(o) {
     assert.equal(store.getGuild(GUILD).bouton.categoryId, null);
   });
 
-  await test('« Terminer » refuse si un réglage manque, et dit lequel', async () => {
+  await test('« Publier » refuse si un réglage manque, et dit lequel', async () => {
     reset();
-    const i = interSelect('tktb:main', ['terminer']);
-    await h.handleSelectMenu(i);
-    const t = texteDe(i.out);
+    const it = { customId: 'tktb:publier', guild: mockGuild(), member: admin, reply: r => { it.out = r; }, update: r => { it.out = r; } };
+    await h.handleButton(it);
+    const t = texteDe(it.out);
     assert.match(t, /salon du panneau/);
     assert.match(t, /salon de logs/);
     assert.match(t, /au moins un bouton/);
-    assert.equal(store.getGuild(GUILD).panelMode, null, 'config enregistrée alors qu\'il manque des réglages');
+    assert.equal(store.getGuild(GUILD).bouton.configure, false, 'publié alors qu\'il manque des réglages');
   });
 
-  await test('« Terminer » complet → panneau publié dans le salon choisi', async () => {
+  await test('« Publier » complet → panneau publié dans le salon choisi', async () => {
     reset();
     store.setGuild(GUILD, {
       bouton: {
@@ -216,7 +216,7 @@ function texteDe(o) {
     const guild = mockGuild();
     guild.channels.fetch = async id => (id === 'salon-panneau' ? canal : { id, permissionOverwrites: { edit: async () => {} } });
     await h.handleSelectMenu({
-      customId: 'tktb:main', values: ['terminer'], guild, member: admin,
+      customId: 'tktb:publier', guild, member: admin,
       update: r => { conf = r; }, reply: r => { conf = r; },
     });
     const g = store.getGuild(GUILD);
@@ -241,9 +241,9 @@ function texteDe(o) {
         panel: {},
       },
     });
-    const i = interSelect('tktb:main', ['terminer']);
-    await h.handleSelectMenu(i);
-    const t = texteDe(i.out);
+    const it = { customId: 'tktb:publier', guild: mockGuild(), member: admin, reply: r => { it.out = r; }, update: r => { it.out = r; } };
+    await h.handleButton(it);
+    const t = texteDe(it.out);
     assert.match(t, /Bug/);
     assert.match(t, /catégorie/);
     assert.match(t, /staff/);
@@ -297,10 +297,38 @@ function texteDe(o) {
       { id: 'a', label: 'A', couleur: 'bleu', categoryId: null, staffRoleIds: [] },
       { id: 'b', label: 'B', couleur: 'bleu', categoryId: null, staffRoleIds: [] },
     ] } });
-    await h.handleSelectMenu(interSelect('tktb:item-action:b', ['supprimer']));
+    const it = interSelect('tktb:items', ['__del__']);
+    await h.handleSelectMenu(it);
+    assert.match(texteDe(it.out), /quel bouton veux-tu supprimer/i, 'le menu de suppression ne s\'ouvre pas');
+    await h.handleSelectMenu(interSelect('tktb:items-suppr', ['b']));
     const items = store.getGuild(GUILD).bouton.items;
     assert.equal(items.length, 1);
     assert.equal(items[0].id, 'a');
+  });
+
+  await test('le sélecteur de boutons propose Ajouter et Supprimer, pas de Retour en double', async () => {
+    reset();
+    store.setGuild(GUILD, { bouton: { ...store.getGuild(GUILD).bouton,
+      items: [{ id: 'a', label: 'A', couleur: 'bleu', categoryId: null, staffRoleIds: [] }] } });
+    const it = { customId: 'tktb:etape:5', guild: mockGuild(), member: admin, reply: r => { it.out = r; }, update: r => { it.out = r; }, showModal: () => {} };
+    await h.handleButton(it);
+    const valeurs = [];
+    const d = n => { if (!n) return; const j = n.toJSON ? n.toJSON() : n;
+      if (j.type === 3 && j.custom_id === 'tktb:items') (j.options || []).forEach(o => valeurs.push(o.value));
+      (j.components || []).forEach(d); };
+    (it.out.components || []).forEach(d);
+    assert.ok(valeurs.includes('__add__'), 'Ajouter manquant');
+    assert.ok(valeurs.includes('__del__'), 'Supprimer manquant');
+    assert.ok(!valeurs.includes('__back__'), 'le doublon Retour est encore là');
+  });
+
+  await test('choisir un bouton ouvre son parcours à l\'étape 1 (plus d\'écran fourre-tout)', async () => {
+    reset();
+    store.setGuild(GUILD, { bouton: { ...store.getGuild(GUILD).bouton,
+      items: [{ id: 'zz', label: 'Aide', couleur: 'bleu', categoryId: null, staffRoleIds: [] }] } });
+    const it = interSelect('tktb:items', ['zz']);
+    await h.handleSelectMenu(it);
+    assert.match(texteDe(it.out), /1\/4/);
   });
 
   await test('le panneau affiche tous les boutons, 5 par ligne', async () => {
@@ -442,28 +470,16 @@ function texteDe(o) {
   });
 
 
-  await test('l\'écran principal ne propose plus catégorie/staff/auto', async () => {
+  await test('aucun écran ne propose plus catégorie/staff/auto au niveau du panneau', async () => {
     reset();
-    store.setGuild(GUILD, {
-      bouton: { configure: false, categoryId: null, panelChannelId: 'p', logChannelId: 'l', staffRoleIds: [], items: [], panel: {}, panelMessageId: null },
-    });
-    const i = interSelect('tktb:main', ['salon']);
-    await h.handleSelectMenu(i);
-    // les composants sont imbriqués dans une carte : on descend récursivement
-    const valeurs = [];
-    const descendre = node => {
-      if (!node) return;
-      const j = node.toJSON ? node.toJSON() : node;
-      if (j.type === 3 && Array.isArray(j.options)) j.options.forEach(o => valeurs.push(o.value));
-      (j.components || []).forEach(descendre);
-    };
-    (i.out.components || []).forEach(descendre);
-    assert.ok(valeurs.includes('salon'), 'menu principal absent');
-    assert.ok(!valeurs.includes('categorie'), 'option « catégorie » encore présente');
-    assert.ok(!valeurs.includes('roles'), 'option « rôles staff » encore présente');
-    assert.ok(!valeurs.includes('auto'), 'option « créer automatiquement » encore présente');
-    assert.ok(!valeurs.includes('bouton'), 'option « texte et emoji du bouton » encore présente');
-    assert.ok(valeurs.includes('items') && valeurs.includes('textes') && valeurs.includes('terminer'));
+    // on parcourt les 6 étapes et on relève tous les identifiants de composants
+    for (let n = 1; n <= 6; n++) {
+      const it = { customId: `tktb:etape:${n}`, guild: mockGuild(), member: admin, reply: r => { it.out = r; }, update: r => { it.out = r; }, showModal: () => {} };
+      await h.handleButton(it);
+      const json = JSON.stringify(it.out ? (it.out.toJSON ? it.out.toJSON() : it.out) : {});
+      assert.ok(!json.includes('"tktb:cat"'), 'sélecteur catégorie présent à l\'étape ' + n);
+      assert.ok(!json.includes('tktb:auto'), 'bouton automatique présent à l\'étape ' + n);
+    }
   });
 
   await test('chaque bouton a SA catégorie et SON staff, indépendants', async () => {
@@ -528,8 +544,8 @@ function texteDe(o) {
     });
     const gVide = mockGuild();
     gVide.id = neuf;
-    const i = { customId: 'tktb:main', values: ['terminer'], guild: gVide, member: admin, reply: () => {}, update: r => { i.out = r; } };
-    await h.handleSelectMenu(i);
+    const i = { customId: 'tktb:publier', guild: gVide, member: admin, reply: () => {}, update: r => { i.out = r; } };
+    await h.handleButton(i);
     assert.match(texteDe(i.out), /au moins un bouton/);
     assert.equal(store.getGuild(neuf).bouton.configure, false, 'publié malgré l\'absence de bouton');
   });
@@ -665,10 +681,8 @@ function texteDe(o) {
         items: [{ id: 'a', label: 'Support', couleur: 'vert', categoryId: 'c', staffRoleIds: ['r'] }], panel: { titre: 'T' } },
     });
     let rep = null;
-    await h.handleSelectMenu({
-      customId: 'tktb:reinit-confirme', values: ['oui'], guild, member: admin,
-      reply: r => { rep = r; }, update: r => { rep = r; },
-    });
+    const chk = { customId: 'tktb:reinit-confirme', values: ['oui'], guild, member: admin, reply: r => { rep = r; }, update: r => { rep = r; } };
+    await h.handleSelectMenu(chk);
     const g = store.getGuild(GUILD);
     assert.deepEqual(g.bouton.items, [], 'boutons non effacés');
     assert.equal(g.bouton.configure, false);
@@ -854,6 +868,221 @@ function texteDe(o) {
     });
     await h.nettoyerPanneauxGuild(guild);
     assert.ok(!journal.includes('supprime:msg-menu'), 'le panneau du MENU a été supprimé !');
+  });
+
+
+  console.log('── Assistant Suivant / Retour (6 étapes) ──');
+
+  function interB(customId, extra = {}) {
+    const it = {
+      customId, guild: mockGuild(), member: admin,
+      reply: r => { it.out = r; }, update: r => { it.out = r; }, showModal: m => { it.modal = m; },
+      ...extra,
+    };
+    return it;
+  }
+
+  function btnsDe(o) {
+    const acc = [];
+    const d = n => {
+      if (!n) return;
+      const j = n.toJSON ? n.toJSON() : n;
+      if (j.type === 1 && j.components) j.components.forEach(c => { if (c.type === 2) acc.push(c); });
+      (j.components || []).forEach(d);
+    };
+    (o.components || []).forEach(d);
+    return acc;
+  }
+
+  await test('/setup ticket bouton ouvre l\'étape 1 sur 6', async () => {
+    reset();
+    const it = interB('x');
+    await h.configBouton(it);
+    assert.match(texteDe(it.out), /1\/6/);
+    const btns = btnsDe(it.out);
+    assert.ok(btns.find(b => b.label === 'Retour' && b.disabled === true), 'Retour doit être grisé');
+    assert.ok(btns.find(b => b.label === 'Suivant'), 'Suivant manquant');
+    assert.ok(!btns.find(b => b.label.includes('automatiquement')), 'le mode automatique ne doit pas exister');
+  });
+
+  await test('chaque étape ne demande QU\'UNE chose', async () => {
+    reset();
+    store.setGuild(GUILD, { bouton: { ...store.getGuild(GUILD).bouton, panelChannelId: 'P', logChannelId: 'L' } });
+    const attendus = { 1: 'Salon du panneau', 2: 'Salon de logs', 3: 'Titre du panneau', 4: 'Description du panneau', 5: 'Boutons du panneau' };
+    for (const [n, nom] of Object.entries(attendus)) {
+      const it = interB(`tktb:etape:${n}`);
+      await h.handleButton(it);
+      assert.match(texteDe(it.out), new RegExp(nom), 'étape ' + n);
+    }
+  });
+
+  await test('Suivant sans salon choisi → bloqué, on reste à l\'étape 1', async () => {
+    reset();
+    const it = interB('tktb:etape:2');
+    await h.handleButton(it);
+    const t = texteDe(it.out);
+    assert.match(t, /1\/6/);
+    assert.match(t, /Choisis d'abord le salon du panneau/);
+  });
+
+  await test('Suivant sans salon de logs → bloqué à l\'étape 2', async () => {
+    reset();
+    store.setGuild(GUILD, { bouton: { ...store.getGuild(GUILD).bouton, panelChannelId: 'P' } });
+    const it = interB('tktb:etape:3');
+    await h.handleButton(it);
+    assert.match(texteDe(it.out), /Choisis d'abord le salon de logs/);
+  });
+
+  await test('parcours complet 1 → 2 → 3 → 4 → 5 → 6', async () => {
+    reset();
+    await h.handleSelectMenu(interSelect('tktb:salon', ['PAN']));
+    let it = interB('tktb:etape:2');
+    await h.handleButton(it);
+    assert.match(texteDe(it.out), /2\/6/);
+
+    await h.handleSelectMenu(interSelect('tktb:logs', ['LOG']));
+    it = interB('tktb:etape:3');
+    await h.handleButton(it);
+    assert.match(texteDe(it.out), /3\/6/);
+    assert.ok(btnsDe(it.out).find(b => b.label === 'Renommer'), 'bouton Renommer absent à l\'étape 3');
+
+    it = interB('tktb:etape:4');
+    await h.handleButton(it);
+    assert.match(texteDe(it.out), /4\/6/);
+
+    it = interB('tktb:etape:5');
+    await h.handleButton(it);
+    assert.match(texteDe(it.out), /5\/6/);
+
+    it = interB('tktb:etape:6');
+    await h.handleButton(it);
+    assert.match(texteDe(it.out), /au moins un bouton/, 'publication non bloquée sans bouton');
+  });
+
+  await test('Retour ramène à l\'étape précédente', async () => {
+    reset();
+    store.setGuild(GUILD, { bouton: { ...store.getGuild(GUILD).bouton, panelChannelId: 'P', logChannelId: 'L' } });
+    const it = interB('tktb:etape:2');
+    await h.handleButton(it);
+    const retour = btnsDe(it.out).find(b => b.label === 'Retour');
+    assert.equal(retour.custom_id, 'tktb:etape:1');
+    assert.ok(!retour.disabled);
+  });
+
+  await test('renommer le titre (étape 3) enregistre et revient à l\'étape 3', async () => {
+    reset();
+    let rep = null;
+    await h.handleModal({
+      customId: 'tktb:titre', guild: mockGuild(), member: admin,
+      fields: { getTextInputValue: () => 'Mon support génial' },
+      reply: r => { rep = r; }, update: r => { rep = r; },
+    });
+    assert.equal(store.getGuild(GUILD).bouton.panel.titre, 'Mon support génial');
+    assert.match(texteDe(rep), /Titre enregistré/);
+    assert.match(texteDe(rep), /3\/6/);
+  });
+
+  await test('modifier la description (étape 4)', async () => {
+    reset();
+    let rep = null;
+    await h.handleModal({
+      customId: 'tktb:desc', guild: mockGuild(), member: admin,
+      fields: { getTextInputValue: () => 'Écris-nous, on répond vite.' },
+      reply: r => { rep = r; }, update: r => { rep = r; },
+    });
+    assert.equal(store.getGuild(GUILD).bouton.panel.description, 'Écris-nous, on répond vite.');
+    assert.match(texteDe(rep), /4\/6/);
+  });
+
+  console.log('── Parcours d\'un bouton (4 étapes) ──');
+
+  function preparerItem() {
+    reset();
+    store.setGuild(GUILD, {
+      bouton: { ...store.getGuild(GUILD).bouton, panelChannelId: 'P', logChannelId: 'L',
+        items: [{ id: 'it', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }] },
+    });
+  }
+
+  await test('ajouter un bouton ouvre son parcours à l\'étape 1', async () => {
+    reset();
+    let rep = null;
+    await h.handleModal({
+      customId: 'tktb:item-new', guild: mockGuild(), member: admin,
+      fields: { getTextInputValue: k => ({ libelle: 'Bug', emoji: '🐞' }[k] || '') },
+      reply: r => { rep = r; }, update: r => { rep = r; },
+    });
+    const t = texteDe(rep);
+    assert.match(t, /1\/4/, 'le parcours du bouton ne démarre pas : ' + t.slice(0, 200));
+    assert.match(t, /Quel \*\*texte\*\*/);
+  });
+
+  await test('bouton : 4 étapes, une chose chacune', async () => {
+    preparerItem();
+    const attendus = { 1: 'texte', 2: 'couleur', 3: 'catégorie', 4: 'rôles du staff' };
+    for (const [n, mot] of Object.entries(attendus)) {
+      const it = interB(`tktb:btn:it:${n}`);
+      await h.handleButton(it);
+      assert.match(texteDe(it.out).toLowerCase(), new RegExp(mot), 'étape bouton ' + n);
+    }
+  });
+
+  await test('bouton : « Terminé » ramène à l\'étape 5 du panneau', async () => {
+    preparerItem();
+    const it = interB('tktb:btn:it:fin');
+    await h.handleButton(it);
+    assert.match(texteDe(it.out), /5\/6/);
+    assert.match(texteDe(it.out), /terminé/i);
+  });
+
+  await test('bouton : Retour existe et Suivant avance', async () => {
+    preparerItem();
+    const it = interB('tktb:btn:it:2');
+    await h.handleButton(it);
+    const btns = btnsDe(it.out);
+    assert.ok(btns.find(b => b.label === 'Retour' && b.custom_id === 'tktb:btn:it:1'), 'Retour mal câblé');
+    assert.ok(btns.find(b => b.label === 'Suivant' && b.custom_id === 'tktb:btn:it:3'), 'Suivant mal câblé');
+  });
+
+  await test('bouton : la couleur choisie reste dans le parcours', async () => {
+    preparerItem();
+    let rep = null;
+    await h.handleSelectMenu({ customId: 'tktb:item-couleur:it', values: ['rouge'], guild: mockGuild(), member: admin, reply: r => { rep = r; }, update: r => { rep = r; } });
+    assert.equal(store.getGuild(GUILD).bouton.items[0].couleur, 'rouge');
+    assert.match(texteDe(rep), /2\/4/);
+  });
+
+  await test('bouton : la catégorie et les rôles restent dans le parcours', async () => {
+    preparerItem();
+    let rep = null;
+    await h.handleSelectMenu({ customId: 'tktb:item-cat:it', values: ['CAT-X'], guild: mockGuild(), member: admin, reply: r => { rep = r; }, update: r => { rep = r; } });
+    assert.equal(store.getGuild(GUILD).bouton.items[0].categoryId, 'CAT-X');
+    assert.match(texteDe(rep), /3\/4/);
+    await h.handleSelectMenu({ customId: 'tktb:item-roles:it', values: ['R1'], guild: mockGuild(), member: admin, reply: r => { rep = r; }, update: r => { rep = r; } });
+    assert.deepEqual(store.getGuild(GUILD).bouton.items[0].staffRoleIds, ['R1']);
+    assert.match(texteDe(rep), /4\/4/);
+  });
+
+  await test('publication depuis l\'étape 6 → panneau envoyé', async () => {
+    reset();
+    const guild = mockGuild();
+    guild.client = { user: { id: 'bot' } };
+    let envoye = null;
+    const canal = {
+      id: 'PAN', permissionOverwrites: { edit: async () => {} },
+      messages: { fetch: async () => null },
+      send: async p => { envoye = p; return { id: 'msg-pub' }; },
+    };
+    guild.channels.fetch = async () => canal;
+    store.setGuild(GUILD, {
+      bouton: { configure: false, categoryId: null, panelChannelId: 'PAN', logChannelId: 'LOG', staffRoleIds: [], panelMessageId: null,
+        items: [{ id: 'a', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: 'CAT', staffRoleIds: ['ROLE'] }], panel: {} },
+    });
+    const it = interB('tktb:publier', { guild });
+    await h.handleButton(it);
+    assert.ok(envoye, 'panneau non envoyé');
+    assert.equal(store.getGuild(GUILD).bouton.configure, true);
+    assert.match(texteDe(it.out), /publié/);
   });
 
   console.log(`\n${ok} tests du système BOUTON OK${ko ? ' — ÉCHEC de ' + ko : ' ✅'}`);

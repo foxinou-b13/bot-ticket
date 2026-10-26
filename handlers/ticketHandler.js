@@ -1595,6 +1595,8 @@ async function fermerTicket(interaction, t, raisonBrute) {
 // BOUTONS
 // ════════════════════════════════════════════════════════
 async function handleButton(interaction) {
+  // Les boutons de l'assistant (Suivant / Retour / Publier) passent par son routeur
+  if (await routeurAssistantBouton(interaction)) return;
   const guild = interaction.guild;
   const config = store.getGuild(guild.id);
   const id = interaction.customId;
@@ -1821,91 +1823,8 @@ function configBoutonDe(guildId) {
 }
 
 // Récapitulatif : ce qui est réglé, et ce qui manque encore
-function texteAssistantBouton(guild, b) {
-  const p = b.panel || {};
-  const manques = [];
-  if (!b.panelChannelId) manques.push('le salon du panneau');
-  if (!b.logChannelId) manques.push('le salon de logs');
-  if (!b.items.length) manques.push('au moins un bouton');
-  const boutonsIncomplets = b.items.filter(i => !i.categoryId || !i.staffRoleIds.length);
-  for (const i of boutonsIncomplets) manques.push(`le bouton « ${coupe(i.label || '?', 40)} » (catégorie ou staff)`);
 
-  const listeBoutons = b.items.length
-    ? b.items
-        .map(i => {
-          const ok = i.categoryId && i.staffRoleIds.length;
-          const cat = i.categoryId ? `<#${i.categoryId}>` : '❌ catégorie';
-          const roles = i.staffRoleIds.length ? i.staffRoleIds.map(r => `<@&${r}>`).join(' ') : '❌ staff';
-          return `${ok ? '✅' : '⚠️'} ${i.emoji ? i.emoji + ' ' : ''}**${coupe(i.label || '?', 40)}** — ${cat} · ${roles}`;
-        })
-        .join('\n')
-    : '*aucun — ajoute ton premier bouton*';
 
-  return [
-    'Ici, on règle **le panneau**. Tout ce qui concerne un ticket (catégorie, staff) se règle dans chaque bouton.',
-    '',
-    `📬 **Salon où publier le panneau** : ${b.panelChannelId ? `<#${b.panelChannelId}>` : '*non réglé*'}`,
-    `📜 **Salon de logs** : ${b.logChannelId ? `<#${b.logChannelId}>` : '*non réglé*'}`,
-    `🎨 **Titre** : ${coupe(p.titre || '🎫 Support | ' + guild.name, 90)}`,
-    `📝 **Description** : ${p.description ? coupe(String(p.description).replace(/\n/g, ' '), 110) + '…' : '*texte par défaut*'}`,
-    '',
-    `🧩 **Boutons (${b.items.length})** :`,
-    listeBoutons,
-    '',
-    manques.length
-      ? `⚠️ Il manque encore : ${manques.join(', ')}.`
-      : '✅ Tout est prêt : choisis « Publier le panneau ».',
-  ].filter(l => l !== '').join('\n');
-}
-
-function selecteurAssistantBouton(b) {
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId('tktb:main')
-    .setPlaceholder('⚙️ Que veux-tu régler ?')
-    .setMinValues(1)
-    .setMaxValues(1)
-    .addOptions(
-      new StringSelectMenuOptionBuilder()
-        .setLabel('Salon du panneau')
-        .setValue('salon')
-        .setEmoji('📬')
-        .setDescription(b.panelChannelId ? 'Changer le salon où le panneau est publié' : 'Choisir où publier le panneau'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('Salon de logs')
-        .setValue('logs')
-        .setEmoji('📜')
-        .setDescription(b.logChannelId ? 'Changer le salon des transcriptions' : 'Choisir le salon des transcriptions'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('Titre et description')
-        .setValue('textes')
-        .setEmoji('🎨')
-        .setDescription('Les textes affichés dans le panneau'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel(`Boutons${b.items.length ? ` (${b.items.length})` : ''}`)
-        .setValue('items')
-        .setEmoji('🧩')
-        .setDescription(b.items.length ? 'Ajouter, modifier ou supprimer un bouton' : 'Ajouter ton premier bouton'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('Réinitialiser')
-        .setValue('reinit')
-        .setEmoji('🧹')
-        .setDescription('Effacer les panneaux en double et repartir de zéro'),
-      new StringSelectMenuOptionBuilder()
-        .setLabel('Publier le panneau')
-        .setValue('terminer')
-        .setEmoji('✅')
-        .setDescription("Enregistre tout et envoie le panneau dans le salon choisi")
-    );
-  return new ActionRowBuilder().addComponents(menu);
-}
-
-function carteAssistantBouton(guild, b, complement) {
-  return {
-    titre: '🔘 Panneau du système BOUTON',
-    texte: (complement ? complement + '\n\n' : '') + texteAssistantBouton(guild, b),
-    composants: [selecteurAssistantBouton(b)],
-  };
-}
 
 // Point d'entrée : /setup ticket bouton
 async function configBouton(interaction) {
@@ -1913,7 +1832,7 @@ async function configBouton(interaction) {
     return repondre(interaction, { couleur: 'erreur', texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
   }
   const b = configBoutonDe(interaction.guild.id);
-  return repondre(interaction, carteAssistantBouton(interaction.guild, b));
+  return repondre(interaction, carteEtapeBouton(interaction.guild, b, 1));
 }
 
 function selecteurSalonBouton(customId, placeholder, type) {
@@ -1927,47 +1846,7 @@ function selecteurSalonBouton(customId, placeholder, type) {
   );
 }
 
-function selecteurRolesBouton() {
-  return new ActionRowBuilder().addComponents(
-    new RoleSelectMenuBuilder()
-      .setCustomId(BT.roles)
-      .setPlaceholder('👥 Choisis le(s) rôle(s) du staff')
-      .setMinValues(1)
-      .setMaxValues(10)
-  );
-}
 
-function modalTextesBouton(b) {
-  const p = b.panel || {};
-  const modal = new ModalBuilder().setCustomId(BT.textes).setTitle('🎨 Textes du panneau');
-  const titre = new TextInputBuilder()
-    .setCustomId('titre')
-    .setLabel('Titre du panneau (vide = défaut)')
-    .setStyle(TextInputStyle.Short)
-    .setMaxLength(90)
-    .setRequired(false)
-    .setValue(p.titre || '');
-  const description = new TextInputBuilder()
-    .setCustomId('description')
-    .setLabel('Description (vide = défaut)')
-    .setStyle(TextInputStyle.Paragraph)
-    .setMaxLength(1500)
-    .setRequired(false)
-    .setValue(p.description || '');
-  const image = new TextInputBuilder()
-    .setCustomId('image')
-    .setLabel("Lien d'une image (facultatif)")
-    .setStyle(TextInputStyle.Short)
-    .setMaxLength(300)
-    .setRequired(false)
-    .setValue(p.image || '');
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(titre),
-    new ActionRowBuilder().addComponents(description),
-    new ActionRowBuilder().addComponents(image)
-  );
-  return modal;
-}
 
 // ════════════════════════════════════════════════════════
 // BOUTONS DU PANNEAU : chacun se règle entièrement
@@ -2020,9 +1899,13 @@ function selecteurBoutons(b) {
     menu.addOptions(o);
   }
   menu.addOptions(
-    new StringSelectMenuOptionBuilder().setLabel('Ajouter un bouton').setValue('__add__').setEmoji('➕').setDescription('Créer un bouton et le personnaliser'),
-    new StringSelectMenuOptionBuilder().setLabel('Retour').setValue('__back__').setEmoji('⬅️').setDescription('Revenir aux réglages du système bouton')
+    new StringSelectMenuOptionBuilder().setLabel('Ajouter un bouton').setValue('__add__').setEmoji('➕').setDescription('Créer un bouton et le personnaliser')
   );
+  if (b.items.length) {
+    menu.addOptions(
+      new StringSelectMenuOptionBuilder().setLabel('Supprimer un bouton').setValue('__del__').setEmoji('🗑️').setDescription('Retirer un bouton du panneau')
+    );
+  }
   return new ActionRowBuilder().addComponents(menu);
 }
 
@@ -2044,45 +1927,47 @@ function texteItem(item, b) {
   ].join('\n');
 }
 
-function menuItem(itemId) {
-  return new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId(`tktb:item-action:${itemId}`)
-      .setPlaceholder('⚙️ Modifier ce bouton…')
-      .setMinValues(1)
-      .setMaxValues(1)
-      .addOptions(
-        new StringSelectMenuOptionBuilder().setLabel('Texte et emoji').setValue('texte').setEmoji('✏️').setDescription('Le texte affiché sur le bouton et son emoji'),
-        new StringSelectMenuOptionBuilder().setLabel('Couleur').setValue('couleur').setEmoji('🎨').setDescription('Bleu, vert, gris ou rouge'),
-        new StringSelectMenuOptionBuilder().setLabel('Catégorie du ticket').setValue('categorie').setEmoji('📁').setDescription('Où le salon du ticket sera créé'),
-        new StringSelectMenuOptionBuilder().setLabel('Rôles du staff').setValue('roles').setEmoji('👥').setDescription('Qui traite les tickets de ce bouton'),
-        new StringSelectMenuOptionBuilder().setLabel('Supprimer ce bouton').setValue('supprimer').setEmoji('🗑️').setDescription('Retirer le bouton du panneau'),
-        new StringSelectMenuOptionBuilder().setLabel('Retour aux boutons').setValue('retour').setEmoji('⬅️').setDescription('Revenir à la liste')
-      )
-  );
-}
 
-function modalItem(item) {
-  const modal = new ModalBuilder().setCustomId(`tktb:item-texte:${item.id}`).setTitle('✏️ Texte du bouton');
-  const libelle = new TextInputBuilder()
-    .setCustomId('libelle')
-    .setLabel('Texte du bouton (80 caractères max)')
-    .setStyle(TextInputStyle.Short)
-    .setMaxLength(80)
-    .setRequired(true)
-    .setValue(item.label || '');
-  const emoji = new TextInputBuilder()
-    .setCustomId('emoji')
-    .setLabel('Emoji (vide = aucun)')
-    .setStyle(TextInputStyle.Short)
-    .setMaxLength(60)
-    .setRequired(false)
-    .setValue(item.emoji || '');
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(libelle),
-    new ActionRowBuilder().addComponents(emoji)
-  );
-  return modal;
+
+// Création automatique des salons du système BOUTON
+// (catégorie des tickets + salon de logs + salon du panneau)
+async function creerSalonsBouton(guild, b) {
+  const crees = [];
+
+  let categorie = b.categoryId ? await guild.channels.fetch(b.categoryId).catch(() => null) : null;
+  if (!categorie || categorie.type !== ChannelType.GuildCategory) {
+    categorie = await guild.channels.create({
+      name: '🎫 Tickets',
+      type: ChannelType.GuildCategory,
+      reason: 'Système BOUTON : catégorie des tickets',
+    });
+    crees.push('catégorie 🎫 Tickets');
+  }
+
+  let logs = b.logChannelId ? await guild.channels.fetch(b.logChannelId).catch(() => null) : null;
+  if (!logs) {
+    logs = await guild.channels.create({
+      name: '🔒・logs-tickets',
+      type: ChannelType.GuildText,
+      parent: categorie.id,
+      permissionOverwrites: permsLogs ? permsLogs(guild, b.staffRoleIds || []) : [],
+      reason: 'Système BOUTON : salon des transcriptions',
+    });
+    crees.push('salon 🔒・logs-tickets');
+  }
+
+  let panneau = b.panelChannelId ? await guild.channels.fetch(b.panelChannelId).catch(() => null) : null;
+  if (!panneau) {
+    panneau = await guild.channels.create({
+      name: 'ouvrir-un-ticket',
+      type: ChannelType.GuildText,
+      parent: categorie.id,
+      reason: 'Système BOUTON : salon du panneau',
+    });
+    crees.push('salon ouvrir-un-ticket');
+  }
+
+  return { categorie, logs, panneau, crees };
 }
 
 function majBouton(guildId, modifications) {
@@ -2096,16 +1981,6 @@ function majBouton(guildId, modifications) {
   return nouveau;
 }
 
-function renderItem(guild, itemId, complement, itemFait) {
-  const b = configBoutonDe(guild.id);
-  const item = itemFait || itemDe(b, itemId);
-  if (!item) return { titre: '🧩 Boutons du panneau', texte: texteListeBoutons(guild, b), composants: [selecteurBoutons(b)] };
-  return {
-    titre: '🧩 Bouton du panneau',
-    texte: (complement ? complement + '\n\n' : '') + texteItem(item, b),
-    composants: [menuItem(item.id)],
-  };
-}
 
 function majItem(guildId, itemId, modifications) {
   const b = configBoutonDe(guildId);
@@ -2118,7 +1993,8 @@ function majItem(guildId, itemId, modifications) {
 async function routeurModalBouton(interaction) {
   const id = interaction.customId || '';
   const estItem = id === 'tktb:item-new' || id.startsWith('tktb:item-texte:');
-  if (id !== BT.textes && !estItem) return false;
+  const estPanneau = id === 'tktb:titre' || id === 'tktb:desc';
+  if (id !== BT.textes && !estItem && !estPanneau) return false;
 
   if (!estAdmin(interaction.member)) {
     await repondre(interaction, { couleur: 'erreur', texte: '❌ Tu dois avoir la permission « Gérer le serveur ».' });
@@ -2133,15 +2009,15 @@ async function routeurModalBouton(interaction) {
     const libelle = (interaction.fields.getTextInputValue('libelle') || '').trim();
     const emoji = (interaction.fields.getTextInputValue('emoji') || '').trim();
     if (!libelle) {
-      await repondre(interaction, carteAssistantBouton(guild, b, '❌ Le texte du bouton est obligatoire.'));
+      await repondre(interaction, carteEtapeBouton(guild, b, 5, '❌ Le texte du bouton est obligatoire.'));
       return true;
     }
     if (emoji && !/^(\p{Extended_Pictographic}|<a?:\w+:\d+>)/u.test(emoji)) {
-      await repondre(interaction, carteAssistantBouton(guild, b, "❌ Cet emoji n'est pas valide."));
+      await repondre(interaction, carteEtapeBouton(guild, b, 5, "❌ Cet emoji n'est pas valide."));
       return true;
     }
     if (b.items.length >= 25) {
-      await repondre(interaction, carteAssistantBouton(guild, b, '❌ Maximum 25 boutons sur un panneau (limite Discord).'));
+      await repondre(interaction, carteEtapeBouton(guild, b, 5, '❌ Maximum 25 boutons sur un panneau (limite Discord).'));
       return true;
     }
     const item = {
@@ -2153,22 +2029,8 @@ async function routeurModalBouton(interaction) {
       staffRoleIds: [], // vide = staff général
     };
     store.setGuild(guild.id, { bouton: { ...b, items: [...b.items, item] } });
-    const b2 = configBoutonDe(guild.id);
-    await repondre(interaction, {
-      titre: '✅ Bouton ajouté',
-      texte: texteItem(item, b2) + [
-        '',
-        !item.categoryId || !item.staffRoleIds.length
-          ? '⚠️ **Il reste à régler pour ce bouton** :' +
-            (!item.categoryId ? '\n   📁 la catégorie où créer le ticket' : '') +
-            (!item.staffRoleIds.length ? '\n   👥 le ou les rôles du staff' : '')
-          : '✅ Ce bouton est complet.',
-        '',
-        '👉 Il apparaîtra sur le panneau après « Publier le panneau ».',
-      ].join('\n'),
-      composants: [menuItem(item.id)],
-    });
-    return true;
+    // On enchaîne directement sur le réglage de CE bouton, une chose à la fois
+    return afficherEtapeItem(interaction, item.id, 1, '✅ Bouton créé. Réglons-le ensemble, étape par étape.');
   }
 
   // ── Texte / emoji d'un bouton existant ──
@@ -2177,15 +2039,34 @@ async function routeurModalBouton(interaction) {
     const libelle = (interaction.fields.getTextInputValue('libelle') || '').trim();
     const emoji = (interaction.fields.getTextInputValue('emoji') || '').trim();
     if (!libelle) {
-      await repondre(interaction, renderItem(guild, itemId, '❌ Le texte du bouton est obligatoire.'));
+      await repondre(interaction, carteEtapeItem(guild, configBoutonDe(guild.id), itemId, 1, '❌ Le texte du bouton est obligatoire.'));
       return true;
     }
     if (emoji && !/^(\p{Extended_Pictographic}|<a?:\w+:\d+>)/u.test(emoji)) {
-      await repondre(interaction, renderItem(guild, itemId, "❌ Cet emoji n'est pas valide."));
+      await repondre(interaction, carteEtapeItem(guild, configBoutonDe(guild.id), itemId, 1, "❌ Cet emoji n'est pas valide."));
       return true;
     }
-    const item = majItem(guild.id, itemId, { label: coupe(libelle, 80), emoji: emoji || null });
-    await repondre(interaction, renderItem(guild, itemId, '✅ Texte enregistré.', item));
+    majItem(guild.id, itemId, { label: coupe(libelle, 80), emoji: emoji || null });
+    const bNow = configBoutonDe(guild.id);
+    await repondre(interaction, carteEtapeItem(guild, bNow, itemId, 1, '✅ Texte enregistré.'));
+    return true;
+  }
+
+  // ── Titre seul (étape 3) ──
+  if (id === 'tktb:titre') {
+    const titre = (interaction.fields.getTextInputValue('titre') || '').trim();
+    const nouveau = majBouton(guild.id, { panel: { titre: titre || null } });
+    const b3 = configBoutonDe(guild.id);
+    await repondre(interaction, carteEtapeBouton(guild, b3, 3, titre ? '✅ Titre enregistré.' : '✅ Titre remis par défaut.'));
+    return true;
+  }
+
+  // ── Description seule (étape 4) ──
+  if (id === 'tktb:desc') {
+    const description = (interaction.fields.getTextInputValue('description') || '').trim();
+    majBouton(guild.id, { panel: { description: description || null } });
+    const b4 = configBoutonDe(guild.id);
+    await repondre(interaction, carteEtapeBouton(guild, b4, 4, description ? '✅ Description enregistrée.' : '✅ Description remise par défaut.'));
     return true;
   }
 
@@ -2200,10 +2081,387 @@ async function routeurModalBouton(interaction) {
         image: /^https?:\/\//.test(image) ? image : null,
       },
     });
-    await repondre(interaction, carteAssistantBouton(guild, nouveau, '✅ Titre et description enregistrés.'));
+    await repondre(interaction, carteEtapeBouton(guild, nouveau, 6, '✅ Titre et description enregistrés.'));
     return true;
   }
 
+  return true;
+}
+
+
+// ════════════════════════════════════════════════════════
+// ASSISTANT ÉTAPE PAR ÉTAPE (Suivant / Retour)
+// Un écran = UNE seule chose : on renomme si c'est à renommer, on sélectionne
+// si c'est à sélectionner, puis on clique sur « Suivant ».
+// ════════════════════════════════════════════════════════
+const NB_ETAPES = 6;
+
+function navigation(etape, boutons, total = NB_ETAPES) {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(boutons.retour)
+      .setLabel('Retour')
+      .setEmoji('⬅️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(etape <= 1)
+  );
+  if (etape >= total) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(boutons.fin)
+        .setLabel(boutons.labelFin || 'Terminé')
+        .setEmoji('✅')
+        .setStyle(ButtonStyle.Success)
+    );
+  } else {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(boutons.suivant)
+        .setLabel('Suivant')
+        .setEmoji('➡️')
+        .setStyle(ButtonStyle.Primary)
+    );
+  }
+  return row;
+}
+
+function titreEtape(etape, total, nom) {
+  return `🔘 Configuration · ${etape}/${total} — ${nom}`;
+}
+
+// Une ligne qui montre la valeur actuelle d'un réglage
+function ligneValeur(label, valeur, vide) {
+  return `${label} : ${valeur || `*${vide}*`}`;
+}
+
+// ─── Les 6 étapes de la configuration du panneau ───
+function carteEtapeBouton(guild, b, etape, complement = '') {
+  const p = b.panel || {};
+  const composants = [];
+  let titre = '';
+  let texte = '';
+
+  if (etape === 1) {
+    titre = titreEtape(1, NB_ETAPES, 'Salon du panneau');
+    texte = [
+      'Dans quel salon veux-tu **publier le panneau** ?',
+      'Sélectionne-le dans le menu ci-dessous.',
+      '',
+      ligneValeur('📬 Actuel', b.panelChannelId ? `<#${b.panelChannelId}>` : null, 'pas encore choisi'),
+    ].join('\n');
+    composants.push(selecteurSalonBouton(BT.salon, '📬 Choisis le salon du panneau…', ChannelType.GuildText));
+  }
+
+  if (etape === 2) {
+    titre = titreEtape(2, NB_ETAPES, 'Salon de logs');
+    texte = [
+      'Dans quel salon veux-tu recevoir **les transcriptions** des tickets fermés ?',
+      'Sélectionne-le dans le menu ci-dessous.',
+      '',
+      ligneValeur('📜 Actuel', b.logChannelId ? `<#${b.logChannelId}>` : null, 'pas encore choisi'),
+    ].join('\n');
+    composants.push(selecteurSalonBouton(BT.logs, '📜 Choisis le salon de logs…', ChannelType.GuildText));
+  }
+
+  if (etape === 3) {
+    titre = titreEtape(3, NB_ETAPES, 'Titre du panneau');
+    texte = [
+      "Voici le titre affiché en haut du panneau.",
+      'Clique sur « ✏️ Renommer » pour le changer.',
+      '',
+      ligneValeur('🎨 Titre actuel', coupe(p.titre || `🎫 Support | ${guild.name}`, 90), 'aucun'),
+    ].join('\n');
+    composants.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('tktb:renommer-titre').setLabel('Renommer').setEmoji('✏️').setStyle(ButtonStyle.Secondary)
+      )
+    );
+  }
+
+  if (etape === 4) {
+    titre = titreEtape(4, NB_ETAPES, 'Description du panneau');
+    texte = [
+      'Voici le texte affiché sous le titre.',
+      'Clique sur « ✏️ Modifier » pour le changer.',
+      '',
+      ligneValeur('📝 Description actuelle', p.description ? coupe(String(p.description).replace(/\n/g, ' '), 140) : null, 'texte par défaut'),
+    ].join('\n');
+    composants.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('tktb:renommer-desc').setLabel('Modifier').setEmoji('✏️').setStyle(ButtonStyle.Secondary)
+      )
+    );
+  }
+
+  if (etape === 5) {
+    titre = titreEtape(5, NB_ETAPES, 'Boutons du panneau');
+    texte = [
+      b.items.length
+        ? `Tes boutons (${b.items.length}) — ils apparaissent sous le panneau :\n\n` +
+          b.items.map((item, i) => `**${i + 1}.** ${resumeItem(item, b)}`).join('\n')
+        : "Aucun bouton pour le moment.\nClique sur « ➕ Ajouter un bouton » pour créer le premier.",
+      '',
+      'Chaque bouton se règle ensuite tout seul, une chose à la fois.',
+    ].join('\n');
+    composants.push(selecteurBoutons(b));
+  }
+
+  if (etape === 6) {
+    const incomplets = b.items.filter(i => !i.categoryId || !i.staffRoleIds.length);
+    const manques = [];
+    if (!b.panelChannelId) manques.push('le salon du panneau');
+    if (!b.logChannelId) manques.push('le salon de logs');
+    if (!b.items.length) manques.push('au moins un bouton');
+    incomplets.forEach(i => manques.push(`le bouton « ${coupe(i.label || '?', 40)} »`));
+
+    titre = '🔘 Configuration · récapitulatif';
+    texte = [
+      '**Voilà ce qui va être publié :**',
+      '',
+      ligneValeur('📬 Salon du panneau', b.panelChannelId ? `<#${b.panelChannelId}>` : null, 'non réglé'),
+      ligneValeur('📜 Salon de logs', b.logChannelId ? `<#${b.logChannelId}>` : null, 'non réglé'),
+      ligneValeur('🎨 Titre', coupe(p.titre || `🎫 Support | ${guild.name}`, 90), 'aucun'),
+      ligneValeur('📝 Description', p.description ? coupe(String(p.description).replace(/\n/g, ' '), 110) + '…' : null, 'texte par défaut'),
+      '',
+      `🧩 **Boutons (${b.items.length})** :`,
+      b.items.length
+        ? b.items.map(i => `${i.categoryId && i.staffRoleIds.length ? '✅' : '⚠️'} ${i.emoji ? i.emoji + ' ' : ''}**${coupe(i.label || '?', 40)}** → <#${i.categoryId}> · ${i.staffRoleIds.map(r => `<@&${r}>`).join(' ')}`).join('\n')
+        : '*aucun*',
+      '',
+      manques.length
+        ? `⚠️ Il manque encore : ${manques.join(', ')}.`
+        : '✅ Tout est prêt : clique sur « Publier le panneau ».',
+    ].join('\n');
+
+    composants.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('tktb:publier')
+          .setLabel('Publier le panneau')
+          .setEmoji('✅')
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(manques.length > 0),
+        new ButtonBuilder()
+          .setCustomId('tktb:reinit')
+          .setLabel('Réinitialiser')
+          .setEmoji('🧹')
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+  }
+
+  if (complement) texte = complement + '\n\n' + texte;
+  // Dernière étape : la publication est déjà un bouton, on ne garde que « Retour »
+  if (etape >= NB_ETAPES) {
+    composants.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`tktb:etape:${etape - 1}`)
+          .setLabel('Retour')
+          .setEmoji('⬅️')
+          .setStyle(ButtonStyle.Secondary)
+      )
+    );
+  } else {
+    composants.push(
+      navigation(etape, {
+        retour: `tktb:etape:${etape - 1}`,
+        suivant: `tktb:etape:${etape + 1}`,
+      })
+    );
+  }
+  return { titre, texte, composants };
+}
+
+// ─── Les 4 étapes d'UN bouton (une chose à la fois) ───
+const NB_ETAPES_BOUTON = 4;
+
+function carteEtapeItem(guild, b, itemId, etape, complement = '') {
+  const item = itemDe(b, itemId);
+  if (!item) return carteEtapeBouton(guild, b, 5, "❌ Ce bouton n'existe plus.");
+  const composants = [];
+  let texte = '';
+
+  if (etape === 1) {
+    texte = [
+      'Quel **texte** afficher sur ce bouton ?',
+      'Clique sur « ✏️ Renommer » pour le changer (tu peux aussi changer l\'emoji).',
+      '',
+      ligneValeur('🔘 Texte actuel', coupe(item.label || '', 80), 'aucun'),
+      ligneValeur('😀 Emoji', item.emoji, 'aucun'),
+    ].join('\n');
+    composants.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`tktb:item-renommer:${itemId}`).setLabel('Renommer').setEmoji('✏️').setStyle(ButtonStyle.Secondary)
+      )
+    );
+  }
+
+  if (etape === 2) {
+    texte = [
+      'Quelle **couleur** pour ce bouton ?',
+      'Sélectionne-la dans le menu ci-dessous.',
+      '',
+      ligneValeur('🎨 Couleur actuelle', COULEUR_NOM[item.couleur] || '🔵 Bleu', 'bleu'),
+    ].join('\n');
+    composants.push(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`tktb:item-couleur:${itemId}`)
+          .setPlaceholder('🎨 Choisis une couleur…')
+          .addOptions(
+            new StringSelectMenuOptionBuilder().setLabel('Bleu').setValue('bleu').setEmoji('🔵').setDescription('Style principal'),
+            new StringSelectMenuOptionBuilder().setLabel('Vert').setValue('vert').setEmoji('🟢').setDescription('Action positive'),
+            new StringSelectMenuOptionBuilder().setLabel('Gris').setValue('gris').setEmoji('⚪').setDescription('Discret'),
+            new StringSelectMenuOptionBuilder().setLabel('Rouge').setValue('rouge').setEmoji('🔴').setDescription('Urgent / signalement')
+          )
+      )
+    );
+  }
+
+  if (etape === 3) {
+    texte = [
+      'Dans quelle **catégorie** les tickets de ce bouton seront-ils créés ?',
+      'Sélectionne-la dans le menu ci-dessous.',
+      '',
+      ligneValeur('📁 Catégorie actuelle', item.categoryId ? `<#${item.categoryId}>` : null, 'pas encore choisie'),
+    ].join('\n');
+    composants.push(selecteurSalonBouton(`tktb:item-cat:${itemId}`, '📁 Choisis la catégorie…', ChannelType.GuildCategory));
+  }
+
+  if (etape === 4) {
+    texte = [
+      'Quels **rôles du staff** traitent les tickets de ce bouton ?',
+      'Sélectionne-en un ou plusieurs dans le menu ci-dessous.',
+      '',
+      ligneValeur('👥 Rôles actuels', item.staffRoleIds.length ? item.staffRoleIds.map(r => `<@&${r}>`).join(' ') : null, 'pas encore choisis'),
+    ].join('\n');
+    composants.push(
+      new ActionRowBuilder().addComponents(
+        new RoleSelectMenuBuilder()
+          .setCustomId(`tktb:item-roles:${itemId}`)
+          .setPlaceholder('👥 Choisis le(s) rôle(s) du staff')
+          .setMinValues(1)
+          .setMaxValues(10)
+      )
+    );
+  }
+
+  if (complement) texte = complement + '\n\n' + texte;
+
+  composants.push(
+    navigation(etape, {
+      retour: `tktb:btn:${itemId}:${etape - 1}`,
+      suivant: `tktb:btn:${itemId}:${etape + 1}`,
+      fin: `tktb:btn:${itemId}:fin`,
+      labelFin: 'Terminé',
+    }, NB_ETAPES_BOUTON)
+  );
+
+  return {
+    titre: `🧩 Bouton ${item.emoji ? item.emoji + ' ' : ''}${coupe(item.label || '', 60)} · ${etape}/${NB_ETAPES_BOUTON}`,
+    texte,
+    composants,
+  };
+}
+
+async function afficherEtape(interaction, etape, complement = '') {
+  const b = configBoutonDe(interaction.guild.id);
+  await maj(interaction, carteEtapeBouton(interaction.guild, b, etape, complement));
+  return true;
+}
+
+async function afficherEtapeItem(interaction, itemId, etape, complement = '') {
+  const b = configBoutonDe(interaction.guild.id);
+  await maj(interaction, carteEtapeItem(interaction.guild, b, itemId, etape, complement));
+  return true;
+}
+
+// Publication du panneau (étape 5)
+async function publierPanneauBouton(interaction) {
+  const guild = interaction.guild;
+  const b = configBoutonDe(guild.id);
+  const manques = [];
+  if (!b.panelChannelId) manques.push('le salon du panneau');
+  if (!b.logChannelId) manques.push('le salon de logs');
+  if (!b.items.length) manques.push('au moins un bouton');
+  for (const i of b.items.filter(x => !x.categoryId || !x.staffRoleIds.length)) {
+    const details = [];
+    if (!i.categoryId) details.push('catégorie');
+    if (!i.staffRoleIds.length) details.push('staff');
+    manques.push(`le bouton « ${coupe(i.label || '?', 40)} » (${details.join(' + ')})`);
+  }
+  if (manques.length) {
+    await maj(interaction, carteEtapeBouton(guild, b, 5, `⚠️ Il manque encore : **${manques.join('**, **')}**.`));
+    return true;
+  }
+  const pret = majBouton(guild.id, { configure: true });
+  const config = store.getGuild(guild.id);
+  const salon = await envoyerPanel(guild, config, { mode: 'bouton' });
+  await maj(interaction, {
+    couleur: salon ? 'succes' : 'attention',
+    titre: salon ? '✅ Panneau publié' : '⚠️ Réglages enregistrés, panneau non publié',
+    texte: [
+      salon
+        ? `Le panneau est publié dans ${salon}.`
+        : `Je n'ai pas pu écrire dans <#${pret.panelChannelId}> : vérifie mes permissions dans ce salon.`,
+      '',
+      `📜 Logs : <#${pret.logChannelId}>`,
+      `🧩 Boutons publiés (${pret.items.length}) :`,
+      ...pret.items.map(i => `   ${i.emoji ? i.emoji + ' ' : ''}**${coupe(i.label, 40)}** → <#${i.categoryId}> · ${i.staffRoleIds.map(r => `<@&${r}>`).join(' ')}`),
+      '',
+      salon ? "Un membre qui clique sur un bouton ouvre un ticket privé, dans la catégorie et avec le staff de ce bouton." : '',
+      '',
+      'Pour revenir en arrière : `/setup ticket bouton`.',
+    ].filter(Boolean).join('\n'),
+  });
+  return true;
+}
+
+// Écran de confirmation de la réinitialisation
+async function ecranReinitialisation(interaction) {
+  const guild = interaction.guild;
+  const b = configBoutonDe(guild.id);
+  const panneaux = b.panelChannelId
+    ? await trouverPanneauxBouton(await guild.channels.fetch(b.panelChannelId).catch(() => null), guild.client)
+    : [];
+  await maj(interaction, {
+    titre: '🧹 Réinitialiser',
+    texte: [
+      '**Ce que la réinitialisation fait :**',
+      '• efface **les panneaux du bot** dans le salon du panneau (y compris les doublons)',
+      '• remet à zéro les réglages du système BOUTON : salon, logs, titre, description, boutons',
+      '',
+      "**Ce qu'elle ne touche pas :**",
+      '• tes salons, tes catégories et tes rôles',
+      '• les tickets déjà ouverts',
+      '• le système MENU et ses types',
+      '',
+      panneaux.length
+        ? `🧩 ${panneaux.length} panneau(x) trouvé(s) dans <#${b.panelChannelId}>.`
+        : '🧩 Aucun panneau trouvé pour le moment.',
+    ].join('\n'),
+    composants: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('tktb:reinit-confirme')
+          .setPlaceholder('🧹 Confirmer la réinitialisation ?')
+          .addOptions(
+            new StringSelectMenuOptionBuilder().setLabel('Oui, tout réinitialiser').setValue('oui').setEmoji('🗑️').setDescription('Efface les panneaux du bot et remet les réglages à zéro'),
+            new StringSelectMenuOptionBuilder().setLabel('Non, annuler').setValue('non').setEmoji('↩️').setDescription('Revenir sans rien changer')
+          )
+      ),
+    ],
+  });
+  return true;
+}
+
+// Affiche l'étape n (1 à 5)
+async function afficherEtape(interaction, etape, complement = '') {
+  const guild = interaction.guild;
+  const b = configBoutonDe(guild.id);
+  const carte = carteEtapeBouton(guild, b, etape, complement);
+  await maj(interaction, carte);
   return true;
 }
 
@@ -2220,138 +2478,142 @@ async function routeurAssistantBouton(interaction) {
   const guild = interaction.guild;
   const b = configBoutonDe(guild.id);
 
-  // ── Menu principal : quelle étape ? ──
-  if (id === 'tktb:main') {
-    const choix = interaction.values[0];
+  // ── Navigation entre les étapes (boutons Suivant / Retour) ──
+  if (id.startsWith('tktb:etape:')) {
+    const cible = parseInt(id.split(':')[2], 10);
+    if (cible < 1 || cible > NB_ETAPES) return true;
+    let complement = '';
 
-    if (choix === 'salon') {
-      await maj(interaction, {
-        ...carteAssistantBouton(guild, b, '📬 **Choisis le salon où publier le panneau.**'),
-        composants: [
-          selecteurSalonBouton(BT.salon, '📬 Salon du panneau…', ChannelType.GuildText),
-          selecteurAssistantBouton(b),
-        ],
-      });
+    // On empêche d'avancer sans avoir réglé l'essentiel de l'étape en cours
+    if (cible === 2 && !b.panelChannelId) {
+      return afficherEtape(interaction, 1, "⚠️ Choisis d'abord le salon du panneau dans le menu ci-dessous.");
     }
-    if (choix === 'logs') {
-      await maj(interaction, {
-        ...carteAssistantBouton(guild, b, '📜 **Choisis le salon qui recevra les transcriptions.**'),
-        composants: [
-          selecteurSalonBouton(BT.logs, '📜 Salon de logs…', ChannelType.GuildText),
-          selecteurAssistantBouton(b),
-        ],
-      });
+    if (cible === 3 && !b.logChannelId) {
+      return afficherEtape(interaction, 2, "⚠️ Choisis d'abord le salon de logs dans le menu ci-dessous.");
     }
-    if (choix === 'textes') {
-      await interaction.showModal(modalTextesBouton(b));
-      return true;
-    }
-    if (choix === 'bouton') {
-      await interaction.showModal(modalBoutonBouton(b));
-      return true;
-    }
-    if (choix === 'items') {
-      await maj(interaction, {
-        titre: '🧩 Boutons du panneau',
-        texte: texteListeBoutons(guild, b),
-        composants: [selecteurBoutons(b)],
-      });
-      return true;
-    }
-    if (choix === 'reinit') {
-      const panneaux = b.panelChannelId
-        ? await trouverPanneaux(await guild.channels.fetch(b.panelChannelId).catch(() => null), guild.client)
-        : [];
-      await maj(interaction, {
-        titre: '🧹 Réinitialiser',
-        texte: [
-          '**Ce que la réinitialisation fait :**',
-          '• efface **les panneaux du bot** dans le salon du panneau (y compris les doublons)',
-          '• remet à zéro les réglages du système BOUTON : salon, logs, titre, description, boutons',
-          '',
-          '**Ce qu\'elle ne touche pas :**',
-          '• tes salons, tes catégories et tes rôles',
-          '• les tickets déjà ouverts',
-          '• le système MENU et ses types',
-          '',
-          panneaux.length
-            ? `🧩 ${panneaux.length} panneau(x) trouvé(s) dans <#${b.panelChannelId}>.`
-            : '🧩 Aucun panneau trouvé pour le moment.',
-        ].join('\n'),
-        composants: [
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId('tktb:reinit-confirme')
-              .setPlaceholder('🧹 Confirmer la réinitialisation ?')
-              .addOptions(
-                new StringSelectMenuOptionBuilder().setLabel('Oui, tout réinitialiser').setValue('oui').setEmoji('🗑️').setDescription('Efface les panneaux du bot et remet les réglages à zéro'),
-                new StringSelectMenuOptionBuilder().setLabel('Non, annuler').setValue('non').setEmoji('↩️').setDescription('Revenir sans rien changer')
-              )
-          ),
-        ],
-      });
-      return true;
-    }
+    if (cible === 4 && b.logChannelId) complement = '';
+    if (cible === 5 && !b.items.length) complement = '⚠️ Ajoute au moins un bouton avant de publier.';
+    return afficherEtape(interaction, cible, complement);
+  }
 
-    if (choix === 'terminer') {
-      const manques = [];
-      if (!b.panelChannelId) manques.push('le salon du panneau');
-      if (!b.logChannelId) manques.push('le salon de logs');
-      if (!b.items.length) manques.push('au moins un bouton (🧩 Boutons)');
-      const incomplets = b.items.filter(i => !i.categoryId || !i.staffRoleIds.length);
-      for (const i of incomplets) {
-        const details = [];
-        if (!i.categoryId) details.push('catégorie');
-        if (!i.staffRoleIds.length) details.push('staff');
-        manques.push(`le bouton « ${coupe(i.label || '?', 40)} » (${details.join(' + ')})`);
-      }
-      if (manques.length) {
-        await maj(interaction, carteAssistantBouton(
-          guild,
-          b,
-          `⚠️ Il manque encore : **${manques.join('**, **')}**. Règle cela puis reviens sur « Terminer ».`
-        ));
-        return true;
-      }
-      const pret = majBouton(guild.id, { configure: true });
-      const config = store.getGuild(guild.id);
-      // on précise le mode : le panneau du MENU n'est jamais concerné
-      const salon = await envoyerPanel(guild, config, { mode: 'bouton' });
-      await maj(interaction, {
-        couleur: salon ? 'succes' : 'attention',
-        titre: salon ? '✅ Système BOUTON prêt' : '⚠️ Réglé, mais panneau non publié',
-        texte: [
-          salon
-            ? `Le panneau est publié dans ${salon}.`
-            : `Je n'ai pas pu écrire dans <#${pret.panelChannelId}> : vérifie mes permissions dans ce salon.`,
-          '',
-          `📜 Logs : <#${pret.logChannelId}>`,
-          `🧩 Boutons publiés (${pret.items.length}) :`,
-          ...pret.items.map(i => `   ${i.emoji ? i.emoji + ' ' : ''}**${coupe(i.label, 40)}** → <#${i.categoryId}> · ${i.staffRoleIds.map(r => `<@&${r}>`).join(' ')}`),
-          '',
-          salon ? "Un membre qui clique sur un bouton ouvre un ticket privé, dans la catégorie et avec le staff de ce bouton." : '',
-        ].filter(Boolean).join('\n'),
-      });
-      return true;
+  // ── Navigation entre les étapes du panneau ──
+  if (id.startsWith('tktb:etape:')) {
+    const cible = parseInt(id.split(':')[2], 10);
+    if (cible < 1 || cible > NB_ETAPES) return true;
+
+    // on ne saute pas une étape sans l'avoir réglée
+    if (cible === 2 && !b.panelChannelId) {
+      return afficherEtape(interaction, 1, "⚠️ Choisis d'abord le salon du panneau dans le menu.");
     }
+    if (cible === 3 && !b.logChannelId) {
+      return afficherEtape(interaction, 2, "⚠️ Choisis d'abord le salon de logs dans le menu.");
+    }
+    if (cible === 6 && !b.items.length) {
+      return afficherEtape(interaction, 5, "⚠️ Ajoute au moins un bouton avant de publier.");
+    }
+    return afficherEtape(interaction, cible);
+  }
+
+  // ── Navigation entre les étapes d'UN bouton ──
+  if (id.startsWith('tktb:btn:')) {
+    const [, , itemId, cible] = id.split(':');
+    if (cible === 'fin') return afficherEtape(interaction, 5, `✅ Bouton « ${coupe(itemDe(b, itemId)?.label || '', 40)} » terminé.`);
+    const n = parseInt(cible, 10);
+    if (n < 1 || n > NB_ETAPES_BOUTON) return afficherEtape(interaction, 5);
+    return afficherEtapeItem(interaction, itemId, n);
+  }
+
+  // ── Renommer le titre (étape 3) ──
+  if (id === 'tktb:renommer-titre') {
+    const p = b.panel || {};
+    const modal = new ModalBuilder().setCustomId('tktb:titre').setTitle('🎨 Titre du panneau');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('titre')
+          .setLabel('Titre (vide = titre par défaut)')
+          .setStyle(TextInputStyle.Short)
+          .setMaxLength(250)
+          .setRequired(false)
+          .setValue(p.titre || '')
+      )
+    );
+    await interaction.showModal(modal);
     return true;
+  }
+
+  // ── Renommer la description (étape 4) ──
+  if (id === 'tktb:renommer-desc') {
+    const p = b.panel || {};
+    const modal = new ModalBuilder().setCustomId('tktb:desc').setTitle('📝 Description du panneau');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('description')
+          .setLabel('Description (vide = texte par défaut)')
+          .setStyle(TextInputStyle.Paragraph)
+          .setMaxLength(1500)
+          .setRequired(false)
+          .setValue(p.description || '')
+      )
+    );
+    await interaction.showModal(modal);
+    return true;
+  }
+
+  // ── Renommer un bouton (texte + emoji) ──
+  if (id.startsWith('tktb:item-renommer:')) {
+    const itemId = id.split(':')[2];
+    const item = itemDe(b, itemId);
+    if (!item) return afficherEtape(interaction, 5, "❌ Ce bouton n'existe plus.");
+    const modal = new ModalBuilder().setCustomId(`tktb:item-texte:${itemId}`).setTitle('✏️ Texte du bouton');
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('libelle')
+          .setLabel('Texte du bouton (80 caractères max)')
+          .setStyle(TextInputStyle.Short)
+          .setMaxLength(80)
+          .setRequired(true)
+          .setValue(item.label || '')
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('emoji')
+          .setLabel('Emoji (vide = aucun)')
+          .setStyle(TextInputStyle.Short)
+          .setMaxLength(60)
+          .setRequired(false)
+          .setValue(item.emoji || '')
+      )
+    );
+    await interaction.showModal(modal);
+    return true;
+  }
+
+  // ── Bouton « Publier le panneau » (étape 6) ──
+  if (id === 'tktb:publier') {
+    return publierPanneauBouton(interaction);
+  }
+
+  // ── Bouton « Réinitialiser » (étape 6) ──
+  if (id === 'tktb:reinit') {
+    return ecranReinitialisation(interaction);
   }
 
   // ── Réinitialisation confirmée ──
   if (id === 'tktb:reinit-confirme') {
     if (interaction.values[0] === 'non') {
-      await maj(interaction, carteAssistantBouton(guild, configBoutonDe(guild.id), '↩️ Réinitialisation annulée. Rien n\'a été changé.'));
+      await afficherEtape(interaction, 6, "↩️ Réinitialisation annulée. Rien n'a été changé.");
       return true;
     }
-    // 1. On efface les panneaux du bot (jamais autre chose)
     let supprimes = 0;
-    const salons = new Set([b.panelChannelId, configBoutonDe(guild.id) && store.getGuild(guild.id).panelChannelId].filter(Boolean));
+    const salons = new Set([b.panelChannelId, store.getGuild(guild.id).panelChannelId].filter(Boolean));
     for (const salonId of salons) {
       const salon = await guild.channels.fetch(salonId).catch(() => null);
       if (!salon) continue;
       supprimes += await supprimerPanneauxBoutonEnTrop(salon, guild.client, null);
     }
-    // 2. On remet les réglages du système bouton à zéro
     store.setGuild(guild.id, {
       bouton: {
         configure: false,
@@ -2371,7 +2633,9 @@ async function routeurAssistantBouton(interaction) {
         supprimes ? `🗑️ ${supprimes} panneau(x) du bot supprimé(s).` : '🗑️ Aucun panneau à supprimer.',
         '',
         'Les réglages du système BOUTON sont à zéro : salon, logs, titre, description et boutons.',
-        'Tes salons, tes rôles et les tickets ouverts n\'ont pas été touchés.',
+        "Tes salons, tes rôles et les tickets ouverts n'ont pas été touchés.",
+        '',
+        'Pour recommencer : `/setup ticket bouton`.',
       ].join('\n'),
     });
     return true;
@@ -2381,7 +2645,7 @@ async function routeurAssistantBouton(interaction) {
   if (id === 'tktb:items') {
     const valeur = interaction.values[0];
     if (valeur === '__back__') {
-      await maj(interaction, carteAssistantBouton(guild, b));
+      await afficherEtape(interaction, 4);
       return true;
     }
     if (valeur === '__add__') {
@@ -2405,133 +2669,73 @@ async function routeurAssistantBouton(interaction) {
       await interaction.showModal(modal);
       return true;
     }
-    const item = itemDe(b, valeur);
-    if (!item) {
-      await maj(interaction, { titre: '🧩 Boutons du panneau', texte: texteListeBoutons(guild, b), composants: [selecteurBoutons(b)] });
+    if (valeur === '__del__') {
+      if (!b.items.length) {
+        await maj(interaction, carteEtapeBouton(guild, b, 5, '❌ Aucun bouton à supprimer.'));
+        return true;
+      }
+      const menuSuppr = new StringSelectMenuBuilder()
+        .setCustomId('tktb:items-suppr')
+        .setPlaceholder('🗑️ Quel bouton veux-tu supprimer ?')
+        .setMinValues(1)
+        .setMaxValues(1);
+      for (const it of b.items.slice(0, 25)) {
+        const o = new StringSelectMenuOptionBuilder()
+          .setLabel(coupe(it.label || 'Sans texte', 100))
+          .setValue(it.id)
+          .setDescription('Retirer ce bouton du panneau');
+        if (it.emoji) { try { o.setEmoji(it.emoji); } catch {} }
+        menuSuppr.addOptions(o);
+      }
+      await maj(interaction, {
+        titre: '🗑️ Supprimer un bouton',
+        texte: `${texteListeBoutons(guild, b)}\n\n⚠️ Choisis le bouton à retirer : il disparaîtra du panneau.`,
+        composants: [new ActionRowBuilder().addComponents(menuSuppr)],
+      });
       return true;
     }
-    await maj(interaction, {
-      titre: '🧩 Bouton du panneau',
-      texte: texteItem(item, b),
-      composants: [menuItem(item.id)],
-    });
+    const item = itemDe(b, valeur);
+    if (!item) {
+      await maj(interaction, carteEtapeBouton(guild, b, 5));
+      return true;
+    }
+    await afficherEtapeItem(interaction, item.id, 1);
+    return true;
+  }
+
+  // ── Suppression d'un bouton (depuis l'étape 5) ──
+  if (id === 'tktb:items-suppr') {
+    const item = itemDe(b, interaction.values[0]);
+    const nouveau = { ...b, items: b.items.filter(i => i.id !== interaction.values[0]) };
+    store.setGuild(guild.id, { bouton: nouveau });
+    await maj(interaction, carteEtapeBouton(guild, nouveau, 5,
+      `🗑️ Le bouton **${coupe(item ? item.label || '' : '', 80)}** a été retiré.`));
     return true;
   }
 
   // ── Actions sur un bouton ──
-  if (id.startsWith('tktb:item-action:')) {
-    const itemId = id.split(':')[2];
-    const item = itemDe(b, itemId);
-    if (!item) {
-      await maj(interaction, { titre: '🧩 Boutons du panneau', texte: texteListeBoutons(guild, b), composants: [selecteurBoutons(b)] });
-      return true;
-    }
-    const action = interaction.values[0];
-
-    if (action === 'retour') {
-      await maj(interaction, { titre: '🧩 Boutons du panneau', texte: texteListeBoutons(guild, b), composants: [selecteurBoutons(b)] });
-      return true;
-    }
-    if (action === 'texte') {
-      await interaction.showModal(modalItem(item));
-      return true;
-    }
-    if (action === 'couleur') {
-      await maj(interaction, {
-        titre: '🎨 Couleur du bouton',
-        texte: `**Couleur actuelle** : ${COULEUR_NOM[item.couleur] || '🔵 Bleu'}\n\nChoisis la nouvelle couleur.`,
-        composants: [
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId(`tktb:item-couleur:${itemId}`)
-              .setPlaceholder('🎨 Choisis une couleur…')
-              .addOptions(
-                new StringSelectMenuOptionBuilder().setLabel('Bleu').setValue('bleu').setEmoji('🔵').setDescription('Style principal'),
-                new StringSelectMenuOptionBuilder().setLabel('Vert').setValue('vert').setEmoji('🟢').setDescription('Action positive'),
-                new StringSelectMenuOptionBuilder().setLabel('Gris').setValue('gris').setEmoji('⚪').setDescription('Discret'),
-                new StringSelectMenuOptionBuilder().setLabel('Rouge').setValue('rouge').setEmoji('🔴').setDescription('Urgent / signalement')
-              )
-          ),
-          menuItem(itemId),
-        ],
-      });
-      return true;
-    }
-    if (action === 'categorie') {
-      await maj(interaction, {
-        titre: '📁 Catégorie du ticket',
-        texte: `**Bouton** : ${item.emoji ? item.emoji + ' ' : ''}${coupe(item.label || '', 80)}\n\nChoisis la catégorie où les tickets de **ce bouton** seront créés.`,
-        composants: [
-          selecteurSalonBouton(`tktb:item-cat:${itemId}`, '📁 Catégorie des tickets…', ChannelType.GuildCategory),
-          menuItem(itemId),
-        ],
-      });
-      return true;
-    }
-    if (action === 'roles') {
-      await maj(interaction, {
-        titre: '👥 Rôles staff du bouton',
-        texte: `**Bouton** : ${item.emoji ? item.emoji + ' ' : ''}${coupe(item.label || '', 80)}\n\nChoisis le(s) rôle(s) qui traitent les tickets de **ce bouton**.\nLaisse vide pour utiliser le staff général.`,
-        composants: [
-          new ActionRowBuilder().addComponents(
-            new RoleSelectMenuBuilder()
-              .setCustomId(`tktb:item-roles:${itemId}`)
-              .setPlaceholder('👥 Rôles staff de ce bouton')
-              .setMinValues(1)
-              .setMaxValues(10)
-          ),
-          menuItem(itemId),
-        ],
-      });
-      return true;
-    }
-    if (action === 'supprimer') {
-      const nouveau = { ...b, items: b.items.filter(i => i.id !== itemId) };
-      store.setGuild(guild.id, { bouton: nouveau });
-      await maj(interaction, {
-        titre: '🗑️ Bouton supprimé',
-        texte: `Le bouton **${coupe(item.label || '', 80)}** a été retiré du panneau.\n\n${texteListeBoutons(guild, nouveau)}`,
-        composants: [selecteurBoutons(nouveau)],
-      });
-      return true;
-    }
-    await maj(interaction, { titre: '🧩 Bouton du panneau', texte: texteItem(item, b), composants: [menuItem(itemId)] });
-    return true;
-  }
 
   // ── Couleur choisie ──
   if (id.startsWith('tktb:item-couleur:')) {
     const itemId = id.split(':')[2];
-    const item = majItem(guild.id, itemId, { couleur: interaction.values[0] });
-    await maj(interaction, {
-      titre: '🎨 Couleur enregistrée',
-      texte: texteItem(item, configBoutonDe(guild.id)),
-      composants: [menuItem(itemId)],
-    });
+    majItem(guild.id, itemId, { couleur: interaction.values[0] });
+    await maj(interaction, carteEtapeItem(guild, configBoutonDe(guild.id), itemId, 2, '✅ Couleur enregistrée.'));
     return true;
   }
 
   // ── Catégorie du bouton choisie ──
   if (id.startsWith('tktb:item-cat:')) {
     const itemId = id.split(':')[2];
-    const item = majItem(guild.id, itemId, { categoryId: interaction.values[0] });
-    await maj(interaction, {
-      titre: '📁 Catégorie enregistrée',
-      texte: texteItem(item, configBoutonDe(guild.id)),
-      composants: [menuItem(itemId)],
-    });
+    majItem(guild.id, itemId, { categoryId: interaction.values[0] });
+    await maj(interaction, carteEtapeItem(guild, configBoutonDe(guild.id), itemId, 3, '✅ Catégorie enregistrée.'));
     return true;
   }
 
   // ── Rôles du bouton choisis ──
   if (id.startsWith('tktb:item-roles:')) {
     const itemId = id.split(':')[2];
-    const item = majItem(guild.id, itemId, { staffRoleIds: interaction.values });
-    await maj(interaction, {
-      titre: '👥 Rôles enregistrés',
-      texte: texteItem(item, configBoutonDe(guild.id)),
-      composants: [menuItem(itemId)],
-    });
+    majItem(guild.id, itemId, { staffRoleIds: interaction.values });
+    await maj(interaction, carteEtapeItem(guild, configBoutonDe(guild.id), itemId, 4, '✅ Rôles enregistrés.'));
     return true;
   }
 
@@ -2541,19 +2745,15 @@ async function routeurAssistantBouton(interaction) {
     const champ = id === BT.salon ? 'panelChannelId' : 'logChannelId';
     const libelle = id === BT.salon ? '📬 Salon du panneau' : '📜 Salon de logs';
     const nouveau = majBouton(guild.id, { [champ]: salonId });
-    await maj(interaction, carteAssistantBouton(guild, nouveau, `✅ ${libelle} → <#${salonId}>.`));
+    await maj(interaction, carteEtapeBouton(guild, nouveau, id === BT.salon ? 1 : 2, `✅ ${libelle} → <#${salonId}>.`));
     return true;
   }
 
   // ── Rôles staff ──
   if (id === BT.roles) {
-    const roles = interaction.values;
-    const nouveau = majBouton(guild.id, { staffRoleIds: roles });
-    await maj(interaction, carteAssistantBouton(
-      guild,
-      nouveau,
-      `✅ Rôles staff : ${roles.map(r => `<@&${r}>`).join(' ')}`
-    ));
+    const nouveau = majBouton(guild.id, { staffRoleIds: interaction.values });
+    await maj(interaction, carteEtapeBouton(guild, nouveau, 6,
+      '⚠️ Le staff se règle maintenant **bouton par bouton** (écran 4 de chaque bouton).'));
     return true;
   }
 

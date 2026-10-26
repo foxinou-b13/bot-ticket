@@ -16,7 +16,7 @@ const emojis = require('./utils/emojis');
 const { permissionsManquantes } = require('./utils/securite');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-26-systemes-separes';
+const VERSION = 'v2026-10-26-une-chose-par-ecran';
 const { repondre } = require('./utils/panneaux');
 
 // ─── Journal de diagnostic ───
