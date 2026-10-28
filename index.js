@@ -494,6 +494,47 @@ function diagReseau() {
   s.setTimeout(15000, () => { console.log('🩺 TCP gateway.discord.gg:443 → TIMEOUT 15 s'); s.destroy(); });
 }
 
+// ─── Connexion à Discord avec reprise calme ───
+// Objectif : ne JAMAIS marteler Discord. Chaque échec espace la tentative
+// suivante (10 s, 20 s, 40 s… jusqu'à 5 min) et le processus reste en vie.
+let tentativesConnexion = 0;
+let repriseEnCours = false;
+
+function delaiReprise() {
+  return Math.min(10000 * Math.pow(2, Math.max(0, tentativesConnexion - 1)), 300000);
+}
+
+async function connecter() {
+  try {
+    await client.login(token);
+    tentativesConnexion = 0;
+    repriseEnCours = false;
+    return true;
+  } catch (erreur) {
+    const message = String(erreur && erreur.message ? erreur.message : erreur);
+    // Token refusé : inutile d'insister, on s'arrête avec un message clair.
+    if (/token|4014|4004/i.test(message) && /invalid|incorrect/i.test(message)) {
+      console.error('❌ Le token du bot est refusé. Vérifie la variable DISCORD_TOKEN sur Render.');
+      process.exit(1);
+    }
+    tentativesConnexion++;
+    const attente = delaiReprise();
+    console.error(`❌ Connexion Discord impossible (${message.slice(0, 120)}). Nouvelle tentative dans ${Math.round(attente / 1000)} s…`);
+    setTimeout(() => { repriseEnCours = false; connecter(); }, attente);
+    return false;
+  }
+}
+
+function reessayerConnexion(pourquoi) {
+  if (repriseEnCours) return;
+  repriseEnCours = true;
+  tentativesConnexion++;
+  const attente = delaiReprise();
+  console.error(`🔄 Reprise de la connexion (${pourquoi}) dans ${Math.round(attente / 1000)} s…`);
+  try { client.destroy(); } catch { /* déjà arrêté */ }
+  setTimeout(() => connecter(), attente);
+}
+
 // ─── Connexion à Discord (après chargement des données) ───
 store
   .initAsync()
@@ -502,11 +543,14 @@ store
     diagReseau();
     maintenirEveille();
 
-    // Filet de sécurité : si le bot n'est pas connecté après 60 s, on redémarre
-    // (l'hébergeur relancera le processus tout seul).
+    // Filet de sécurité : si le bot n'est pas connecté après 60 s, on RÉESSAIE
+    // proprement avec un délai qui grandit (5 s, 10 s, 20 s… jusqu'à 5 min).
+    // ⚠️ On ne redémarre plus le processus : c'était la cause des boucles de
+    // redémarrage qui aggravaient les limites Discord (erreur 1015).
     const watchdog = setTimeout(() => {
-      console.error('⏱️ Connexion à Discord impossible après 60 s → redémarrage automatique...');
-      process.exit(1);
+      if (client.isReady()) return;
+      console.error('⏱️ Connexion à Discord impossible après 60 s → nouvelle tentative calme...');
+      reessayerConnexion('délai de 60 s');
     }, 60000);
     client.once(Events.ClientReady, () => clearTimeout(watchdog));
 
@@ -533,12 +577,12 @@ setInterval(() => {
     return;
   }
   if (Date.now() - dernierReady > 180000) {
-    console.error('⏱️ Bot déconnecté depuis plus de 3 min → redémarrage automatique...');
-    process.exit(1);
+    console.error('⏱️ Bot déconnecté depuis plus de 3 min → tentative de reconnexion calme...');
+    reessayerConnexion('déconnecté depuis 3 min');
   }
 }, 60000);
 
-    return client.login(token);
+    return connecter();
   })
   .catch(error => {
     console.error("Erreur d'initialisation :", error);

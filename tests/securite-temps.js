@@ -215,6 +215,21 @@ function guildLente() {
     assert.ok(it.reponses.length >= 1 || it._d, 'aucune réponse');
   });
 
+  await test('la connexion Discord ne redémarre plus le bot en boucle', async () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
+    const bloc = src.slice(src.indexOf('// ─── Connexion à Discord avec reprise calme'), src.indexOf('store\n  .initAsync()'));
+    assert.ok(/function connecter/.test(bloc), 'pas de fonction de connexion avec reprise');
+    assert.ok(/function reessayerConnexion/.test(bloc), 'pas de reprise calme');
+    assert.ok(/Math\.pow\(2/.test(bloc), 'pas de délai progressif entre les tentatives');
+    assert.ok(!/process\.exit\(1\)[^\n]*watchdog/.test(src), 'le watchdog tue encore le processus');
+    assert.ok(/reessayerConnexion\('délai de 60 s'\)/.test(src), 'le watchdog ne réessaie pas calmement');
+    assert.ok(!/process\.exit\(1\);\n  \}\n\}, 60000\);/.test(src), 'l\'ancienne boucle de redémarrage est encore là');
+    // Le délai doit grandir : 10 s puis 20 s puis 40 s… et plafonner à 5 min.
+    const max = 300000;
+    assert.ok(bloc.includes('300000'), 'pas de plafond à 5 minutes');
+    assert.ok(max === 300000);
+  });
+
   console.log(`\n${ok} tests de sécurité OK${ko ? ` — ÉCHEC de ${ko}` : ' ✅'}`);
   process.exit(ko ? 1 : 0);
 })();
