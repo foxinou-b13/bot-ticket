@@ -507,6 +507,8 @@ function diagReseau() {
 // suivante (10 s, 20 s, 40 s… jusqu'à 5 min) et le processus reste en vie.
 let tentativesConnexion = 0;
 let repriseEnCours = false;
+let tentativeEnCours = false;
+let generation = 0; // empêche deux tentatives simultanées
 let derniereErreurConnexion = null;
 const etatConnexion = { tentatives: 0, derniereErreur: null, prochaineTentative: null };
 
@@ -515,50 +517,71 @@ function delaiReprise() {
   return Math.min(30000 * Math.pow(2, Math.max(0, tentativesConnexion - 1)), 600000);
 }
 
-const attendre = ms => new Promise(r => setTimeout(r, ms));
-
-async function connecter() {
+/**
+ * Tente de connecter le bot. Ne reste JAMAIS bloqué :
+ *  - succès  → on remet les compteurs à zéro ;
+ *  - échec   → on détruit proprement le client et on réessaie plus tard.
+ * On attend `Events.ClientReady` (et non la fin de login()) : une connexion
+ * lente mais réussie n'est ainsi jamais interrompue.
+ */
+function connecter() {
   repriseEnCours = false;
-  try {
-    // Un login ne doit jamais rester bloqué : au bout de 45 s on considère
-    // que la tentative a échoué et on réessaiera plus tard.
-    const resultat = await Promise.race([
-      client.login(token).then(() => 'ok'),
-      attendre(45000).then(() => 'delai'),
-    ]);
-    if (resultat === 'delai') throw new Error('délai de connexion dépassé (45 s)');
-    tentativesConnexion = 0;
-    etatConnexion.tentatives = 0;
-    etatConnexion.derniereErreur = null;
-    etatConnexion.prochaineTentative = null;
-    return true;
-  } catch (erreur) {
-    const message = String(erreur && erreur.message ? erreur.message : erreur).slice(0, 160);
-    derniereErreurConnexion = message;
-    etatConnexion.derniereErreur = message;
-    // Token refusé : inutile d'insister, on s'arrête avec un message clair.
-    if (/invalid token|tokeninvalid|4004/i.test(message)) {
+  tentativeEnCours = true;
+  const maGeneration = ++generation;
+  let regle = false;
+  let minuteur = null;
+
+  const terminer = (reussi, message) => {
+    if (regle) return;
+    regle = true;
+    tentativeEnCours = false;
+    if (maGeneration !== generation) return; // une tentative plus récente a pris la main
+    clearTimeout(minuteur);
+    try { client.removeListener(Events.ClientReady, surPret); } catch { /* rien */ }
+
+    if (reussi) {
+      tentativesConnexion = 0;
+      etatConnexion.tentatives = 0;
+      etatConnexion.derniereErreur = null;
+      etatConnexion.prochaineTentative = null;
+      derniereErreurConnexion = null;
+      return;
+    }
+
+    const texte = String(message || 'inconnu').slice(0, 160);
+    derniereErreurConnexion = texte;
+    etatConnexion.derniereErreur = texte;
+    if (/invalid token|tokeninvalid|An invalid token/i.test(texte)) {
       console.error('❌ Le token du bot est refusé. Vérifie la variable DISCORD_TOKEN sur Render.');
       process.exit(1);
     }
-    if (/1015|rate limit|429/i.test(message)) {
-      console.error('⏳ Discord limite temporairement ce serveur (erreur 1015/429). C\'est passager : on attend calmement.');
+    if (/1015|rate limit|429/i.test(texte)) {
+      console.error("⏳ Discord limite temporairement l'adresse du serveur (erreur 1015/429) : c'est passager.");
     }
     try { client.destroy(); } catch { /* déjà arrêté */ }
     tentativesConnexion++;
     etatConnexion.tentatives = tentativesConnexion;
     const attente = delaiReprise();
     etatConnexion.prochaineTentative = Date.now() + attente;
-    console.error(`❌ Connexion Discord impossible (${message}). Nouvelle tentative dans ${Math.round(attente / 1000)} s…`);
+    console.error(`❌ Connexion Discord impossible (${texte}). Nouvelle tentative dans ${Math.round(attente / 1000)} s…`);
     setTimeout(() => connecter(), attente);
-    return false;
-  } finally {
-    repriseEnCours = false;
+  };
+
+  const surPret = () => terminer(true);
+
+  client.once(Events.ClientReady, surPret);
+  minuteur = setTimeout(() => terminer(false, "délai de connexion dépassé (2 min)"), 120000);
+
+  try {
+    const p = client.login(token);
+    if (p && p.catch) p.catch(erreur => terminer(false, erreur && erreur.message ? erreur.message : erreur));
+  } catch (erreur) {
+    terminer(false, erreur && erreur.message ? erreur.message : erreur);
   }
 }
 
 function reessayerConnexion(pourquoi) {
-  if (repriseEnCours) return;
+  if (repriseEnCours || tentativeEnCours) return; // une tentative est déjà en cours
   repriseEnCours = true;
   tentativesConnexion++;
   etatConnexion.tentatives = tentativesConnexion;
@@ -578,7 +601,7 @@ store
     maintenirEveille();
 
     // Filet de sécurité : si le bot n'est pas connecté après 60 s, on RÉESSAIE
-    // proprement avec un délai qui grandit (5 s, 10 s, 20 s… jusqu'à 5 min).
+    // proprement avec un délai qui grandit (30 s, 60 s, 120 s… jusqu'à 10 min).
     // ⚠️ On ne redémarre plus le processus : c'était la cause des boucles de
     // redémarrage qui aggravaient les limites Discord (erreur 1015).
     const watchdog = setTimeout(() => {

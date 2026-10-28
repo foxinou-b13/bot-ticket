@@ -227,9 +227,12 @@ function guildLente() {
     // Le délai doit grandir : 30 s puis 60 s puis 120 s… et plafonner à 10 min.
     assert.ok(bloc.includes('600000'), 'pas de plafond à 10 minutes');
     // Une tentative de connexion ne doit jamais rester bloquée pour toujours.
-    assert.ok(/Promise\.race/.test(bloc), 'aucune limite de temps sur la tentative de connexion');
-    assert.ok(repriseLibre(bloc), 'la boucle peut rester bloquée : le drapeau de reprise n\'est jamais relâché');
-    function repriseLibre(txt) { return /finally\s*\{[^}]*repriseEnCours = false/.test(txt); }
+    assert.ok(/setTimeout\(\(\) => terminer\(false/.test(bloc), 'aucune limite de temps sur la tentative de connexion');
+    assert.ok(/Events\.ClientReady/.test(bloc), 'la connexion ne se base pas sur ClientReady');
+    assert.ok(/maGeneration !== generation/.test(bloc), 'deux tentatives peuvent se chevaucher');
+    // Le drapeau de reprise doit toujours être relâché (sinon plus aucune tentative)
+    assert.ok(/function connecter\(\) \{\s*repriseEnCours = false;/.test(bloc), 'le drapeau de reprise n\'est jamais relâché');
+    assert.ok(/if \(regle\) return;/.test(bloc), 'une tentative peut se terminer deux fois');
   });
 
   console.log(`\n${ok} tests de sécurité OK${ko ? ` — ÉCHEC de ${ko}` : ' ✅'}`);
