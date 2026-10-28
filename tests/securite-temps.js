@@ -235,6 +235,14 @@ function guildLente() {
     assert.ok(/if \(regle\) return;/.test(bloc), 'une tentative peut se terminer deux fois');
   });
 
+  await test('/health affiche l\'IP de sortie (pour vérifier un changement d\'IP)', async () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
+    assert.ok(/let ipSortie/.test(src), 'aucune détection d\'IP');
+    assert.ok(/ip-sortie=\$\{ipSortie\}/.test(src), '/health n\'affiche pas l\'IP');
+    assert.ok(/detecterIp\(\);/.test(src), 'la détection n\'est pas lancée au démarrage');
+    assert.ok(/api\.ipify\.org/.test(src), 'aucune source d\'IP');
+  });
+
   console.log(`\n${ok} tests de sécurité OK${ko ? ` — ÉCHEC de ${ko}` : ' ✅'}`);
   process.exit(ko ? 1 : 0);
 })();

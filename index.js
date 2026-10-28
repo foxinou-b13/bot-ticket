@@ -386,6 +386,7 @@ function repondreSante(res) {
     }
     const mo = process.memoryUsage();
     morceaux.push(`memoire=${Math.round(mo.rss / 1048576)} Mo (tas ${Math.round(mo.heapUsed / 1048576)} Mo) · journal=${JOURNAL.length} ligne(s)`);
+    morceaux.push(`ip-sortie=${ipSortie}`);
     morceaux.push(`auto-appel=${DERNIER_AUTO_APPEL}`);
     morceaux.push(`uptimerobot=${VISITES.uptimerobot} visite(s) · dernier : ${VISITES.dernierUptimeRobot}`);
     morceaux.push(`autres-visites=${VISITES.autres}`);
@@ -502,6 +503,25 @@ function diagReseau() {
   s.setTimeout(15000, () => { console.log('🩺 TCP gateway.discord.gg:443 → TIMEOUT 15 s'); s.destroy(); });
 }
 
+// ─── IP de sortie du serveur (sert à vérifier qu'un redémarrage change bien l'IP) ───
+let ipSortie = 'inconnue';
+
+function detecterIp() {
+  return new Promise(resoudre => {
+    const req = https.get('https://api.ipify.org', r => {
+      let b = '';
+      r.on('data', c => (b += c));
+      r.on('end', () => {
+        ipSortie = String(b).trim().slice(0, 45) || 'inconnue';
+        console.log(`🌍 IP de sortie : ${ipSortie}`);
+        resoudre(ipSortie);
+      });
+    });
+    req.on('error', () => resoudre(ipSortie));
+    req.setTimeout(8000, () => { req.destroy(); resoudre(ipSortie); });
+  });
+}
+
 // ─── Connexion à Discord avec reprise calme ───
 // Objectif : ne JAMAIS marteler Discord. Chaque échec espace la tentative
 // suivante (10 s, 20 s, 40 s… jusqu'à 5 min) et le processus reste en vie.
@@ -597,6 +617,7 @@ store
   .initAsync()
   .then(() => {
     console.log('🔑 Connexion à Discord en cours...');
+    detecterIp();
     diagReseau();
     maintenirEveille();
 
