@@ -16,8 +16,8 @@ const emojis = require('./utils/emojis');
 const { permissionsManquantes } = require('./utils/securite');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-26-une-chose-par-ecran';
-const { repondre } = require('./utils/panneaux');
+const VERSION = 'v2026-10-28-securite-anti-timeout';
+const { repondre, filetDeSecurite: poserFilet } = require('./utils/panneaux');
 
 // ─── Journal de diagnostic ───
 // Garde les 120 dernières lignes (logs ET erreurs) en mémoire, lisibles à distance
@@ -280,14 +280,25 @@ client.on(Events.InteractionCreate, async interaction => {
     }
     DERNIERE_ACTION.set(cleFlux, Date.now());
 
-    if (interaction.isButton()) await ticket.handleButton(interaction);
-    else if (interaction.isAnySelectMenu()) await ticket.handleSelectMenu(interaction);
-    else if (interaction.isModalSubmit()) await ticket.handleModal(interaction);
-    else if (interaction.isChatInputCommand()) {
-      const command = client.commands.get(interaction.commandName);
-      if (command) await command.execute(interaction);
-    } else {
-      return;
+    // ─── FILET DE SÉCURITÉ : Discord ferme la porte au bout de 3 secondes ───
+    // Si le traitement dépasse 2,2 s (Render gratuit, création de salon,
+    // permissions...), on accuse réception automatiquement. Le vrai message
+    // suivra via editReply : le membre ne voit donc JAMAIS
+    // « L'application n'a pas répondu à temps ».
+    const stopFilet = poserFilet(interaction);
+
+    try {
+      if (interaction.isButton()) await ticket.handleButton(interaction);
+      else if (interaction.isAnySelectMenu()) await ticket.handleSelectMenu(interaction);
+      else if (interaction.isModalSubmit()) await ticket.handleModal(interaction);
+      else if (interaction.isChatInputCommand()) {
+        const command = client.commands.get(interaction.commandName);
+        if (command) await command.execute(interaction);
+      } else {
+        return;
+      }
+    } finally {
+      stopFilet();
     }
     // ─── Sécurité : TOUTE interaction DOIT recevoir une réponse ───
     // (commande, bouton, menu ou formulaire : évite « l'application ne répond pas »)

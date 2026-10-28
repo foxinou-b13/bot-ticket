@@ -37,13 +37,20 @@ async function test(nom, fn) {
 }
 
 // ─── Mocks ───
+// ─── Chronologie : qui a été fait AVANT l'accusé de réception ? ───
+// (Discord n'accorde que 3 s : toute écriture faite avant l'accusé de réception
+//  peut provoquer « L'application n'a pas répondu à temps ».)
+function evenement(cap, type, nom) {
+  cap.events = cap.events || [];
+  cap.events.push({ type, nom });
+}
 function canalMock(id, cap) {
   const msgTicket = { id: 'm-tick', edit: async p => { cap.edit = p; return msgTicket; } };
   return {
     id,
-    send: async p => { cap.send = p; return { id: 'm-' + id, pin: async () => {} }; },
-    delete: async () => { cap.delete = true; },
-    permissionOverwrites: { edit: async () => {}, delete: async () => {} },
+    send: async p => { evenement(cap, 'ecriture', 'envoi d\'un message'); cap.send = p; return { id: 'm-' + id, pin: async () => { evenement(cap, 'ecriture', 'épinglage'); } }; },
+    delete: async () => { evenement(cap, 'ecriture', 'suppression'); cap.delete = true; },
+    permissionOverwrites: { edit: async () => { evenement(cap, 'ecriture', 'permissions'); }, delete: async () => {} },
     messages: {
       fetch: async arg => {
         if (arg && arg.limit) return new Map([['a', { createdTimestamp: Date.now(), author: { tag: 'X#1' }, content: 'bonjour' }]]);
@@ -63,7 +70,7 @@ function guildMock(cap, opts = {}) {
         if (opts.absent && opts.absent.includes(id)) return null;
         return canalMock(id, cap);
       },
-      create: async o => canalMock('c-new-' + o.name, cap),
+      create: async o => { evenement(cap, 'ecriture', 'création de salon'); return canalMock('c-new-' + o.name, cap); },
     },
   };
 }
@@ -74,12 +81,13 @@ function interMock(cap, over = {}) {
     user: { id: 'u-admin' },
     channel: over.channel || canalMock('c-tick', cap),
     client: { user: { id: 'bot-1' }, users: { fetch: async () => ({ send: async () => {} }) } },
-    reply: async r => { cap.repondu = 'reply'; cap.last = r; return r; },
-    update: async r => { cap.repondu = 'update'; cap.last = r; return r; },
+    reply: async r => { evenement(cap, 'accuse'); cap.repondu = 'reply'; cap.last = r; return r; },
+    update: async r => { evenement(cap, 'accuse'); cap.repondu = 'update'; cap.last = r; return r; },
     editReply: async r => { cap.repondu = 'editReply'; cap.last = r; return r; },
-    deferReply: async () => { cap.repondu = 'defer'; },
-    followUp: async r => { cap.repondu = 'followUp'; return r; },
-    showModal: async m => { cap.repondu = 'modal'; cap.last = m; return m; },
+    deferReply: async () => { evenement(cap, 'accuse'); cap.repondu = 'defer'; },
+    deferUpdate: async () => { evenement(cap, 'accuse'); cap.repondu = 'deferUpdate'; },
+    followUp: async r => { cap.repondu = 'followUp'; cap.last = r; return r; },
+    showModal: async m => { evenement(cap, 'accuse'); cap.repondu = 'modal'; cap.last = m; return m; },
   };
   return Object.assign(base, over);
 }
@@ -136,6 +144,16 @@ function idsDe(p) {
 
 function aRepondu(cap, nom) {
   if (!cap.repondu) throw new Error('AUCUNE RÉPONSE (' + nom + ')');
+  // Le bot a-t-il écrit sur Discord AVANT d'accuser réception ?
+  const events = cap.events || [];
+  const premierAccuse = events.findIndex(e => e.type === 'accuse');
+  const premiereEcriture = events.findIndex(e => e.type === 'ecriture');
+  if (premiereEcriture !== -1 && (premierAccuse === -1 || premiereEcriture < premierAccuse)) {
+    throw new Error(
+      '⏱️ ÉCRITURE AVANT ACCUSÉ DE RÉCEPTION (' + nom + ') : « ' + events[premiereEcriture].nom +
+      ' » — risque de « L\'application n\'a pas répondu à temps »'
+    );
+  }
 }
 
 (async () => {

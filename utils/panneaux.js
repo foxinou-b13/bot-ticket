@@ -95,10 +95,64 @@ async function repondre(interaction, o = {}) {
 async function maj(interaction, o = {}) {
   const p = { ...payload(o, false), embeds: [] };
   try {
+    // Si on a déjà accusé réception (deferUpdate), on modifie le message ainsi
+    if (interaction.deferred) return await interaction.editReply(p);
     return await interaction.update(p);
   } catch {
     return repondre(interaction, o);
   }
 }
 
-module.exports = { COULEURS, couleurAuto, carte, payload, repondre, maj };
+/**
+ * Accuse réception d'un bouton / menu SANS perdre le message (le « … » de Discord).
+ * À utiliser avant tout travail long, puis `maj()` pour afficher le résultat.
+ */
+async function differerMiseAJour(interaction) {
+  if (!interaction || interaction.deferred || interaction.replied) return false;
+  try {
+    await interaction.deferUpdate();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sécurité anti-« L'application n'a pas répondu à temps ».
+ * Discord n'accorde que 3 secondes pour répondre. Pour toute action qui prend
+ * du temps (création de salon, permissions, messages...), on accuse réception
+ * TOUT DE SUITE, puis on répond vraiment avec `repondre()` (qui utilisera
+ * `editReply`). N'échoue jamais.
+ */
+async function differer(interaction, ephemere = true) {
+  if (!interaction || interaction.deferred || interaction.replied) return false;
+  try {
+    await interaction.deferReply({ flags: ephemere ? MessageFlags.Ephemeral : 0 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Filet de sécurité : si au bout de `ms` (2200 par défaut) le bot n'a toujours
+ * rien répondu, on accuse réception pour lui. Discord laisse 3 secondes.
+ * Renvoie une fonction à appeler à la fin du traitement pour arrêter le minuteur.
+ */
+function filetDeSecurite(interaction, ms = 2200) {
+  let minuteur = null;
+  try {
+    minuteur = setTimeout(() => {
+      try {
+        if (!interaction.replied && !interaction.deferred && interaction.isRepliable && interaction.isRepliable()) {
+          const p = interaction.deferReply({ flags: MessageFlags.Ephemeral });
+          if (p && p.catch) p.catch(() => {});
+        }
+      } catch { /* jamais bloquant */ }
+    }, ms);
+    if (minuteur.unref) minuteur.unref();
+  } catch { /* jamais bloquant */ }
+  return () => { try { clearTimeout(minuteur); } catch { /* rien */ } };
+}
+
+module.exports = { COULEURS, couleurAuto, carte, payload, repondre, maj, differer, differerMiseAJour, filetDeSecurite };

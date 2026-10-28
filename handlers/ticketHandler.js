@@ -31,7 +31,7 @@ const {
 const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
 const { genererBanniere } = require('../utils/banniere');
-const { repondre, maj, carte, payload } = require('../utils/panneaux');
+const { repondre, maj, carte, payload, differer, differerMiseAJour } = require('../utils/panneaux');
 const { autorise, nettoyerTexte, nettoyerMultiligne, permissionsManquantes } = require('../utils/securite');
 const emojis = require('../utils/emojis');
 
@@ -1522,7 +1522,7 @@ async function creerTicketInterne(interaction, sujet, typeId, categoryId, staffR
   infos.messageId = message.id;
   store.addTicket(guild.id, salon.id, infos);
 
-  await message.pin().catch(() => {}); // Épingler si le bot en a le droit
+  message.pin().catch(() => {}); // Épingler sans bloquer la réponse au membre
 
   return { salon };
 }
@@ -2397,6 +2397,7 @@ async function publierPanneauBouton(interaction) {
   }
   const pret = majBouton(guild.id, { configure: true });
   const config = store.getGuild(guild.id);
+  await differerMiseAJour(interaction); // ⏳ envoi + nettoyage des doublons : on accuse réception avant
   const salon = await envoyerPanel(guild, config, { mode: 'bouton' });
   await maj(interaction, {
     couleur: salon ? 'succes' : 'attention',
@@ -2422,6 +2423,7 @@ async function publierPanneauBouton(interaction) {
 async function ecranReinitialisation(interaction) {
   const guild = interaction.guild;
   const b = configBoutonDe(guild.id);
+  await differerMiseAJour(interaction); // ⏳ lecture du salon : on accuse réception avant
   const panneaux = b.panelChannelId
     ? await trouverPanneauxBouton(await guild.channels.fetch(b.panelChannelId).catch(() => null), guild.client)
     : [];
@@ -2608,6 +2610,7 @@ async function routeurAssistantBouton(interaction) {
       return true;
     }
     let supprimes = 0;
+    await differerMiseAJour(interaction); // ⏳ suppression des panneaux : on accuse réception avant
     const salons = new Set([b.panelChannelId, store.getGuild(guild.id).panelChannelId].filter(Boolean));
     for (const salonId of salons) {
       const salon = await guild.channels.fetch(salonId).catch(() => null);
@@ -2877,6 +2880,8 @@ async function handleSelectMenu(interaction) {
   if (id === 'ticket:select-roles') {
     const roles = interaction.values;
     store.setGuild(guild.id, { staffRoleIds: roles });
+    // ⏳ Création des salons + envoi du panneau : on accuse réception d'abord
+    await differerMiseAJour(interaction);
     let cfg;
     try {
       cfg = await preparerInfra(guild);
@@ -3170,6 +3175,8 @@ async function handleModal(interaction) {
       return repondre(interaction, { couleur: 'attention', texte: "❌ Ce bouton n'existe plus. Demande à un administrateur de refaire `/setup ticket bouton`." });
     }
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
+    // ⏳ Création d'un salon + permissions + message : on accuse réception AVANT
+    await differer(interaction);
     const resultat = await creerTicket(interaction, sujet, null, item);
     if (resultat.erreur) return repondre(interaction, { texte: `❌ ${resultat.erreur}` });
     return repondre(interaction, { couleur: 'succes', titre: 'Ton ticket est ouvert', texte: `Salon privé : <#${resultat.salon.id}>` });
@@ -3178,6 +3185,7 @@ async function handleModal(interaction) {
   // ── Ouverture d'un ticket simple (bouton) ──
   if (id === 'ticket:sujet') {
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
+    await differer(interaction);
     const resultat = await creerTicket(interaction, sujet, null);
     if (resultat.erreur) return repondre(interaction, { texte: `❌ ${resultat.erreur}` });
     return repondre(interaction, { couleur: 'succes', titre: 'Ton ticket est ouvert', texte: `Salon privé : <#${resultat.salon.id}>` });
@@ -3187,6 +3195,7 @@ async function handleModal(interaction) {
   if (id.startsWith('tkt:sujet:')) {
     const typeId = id.split(':')[2];
     const sujet = (interaction.fields.getTextInputValue('sujet') || '').trim();
+    await differer(interaction);
     const resultat = await creerTicket(interaction, sujet, typeId);
     if (resultat.erreur) return repondre(interaction, { texte: `❌ ${resultat.erreur}` });
     return repondre(interaction, { couleur: 'succes', titre: 'Ton ticket est ouvert', texte: `Salon privé : <#${resultat.salon.id}>` });

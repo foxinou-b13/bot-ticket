@@ -21,7 +21,7 @@ const {
 const { MessageFlags } = require('discord.js');
 const store = require('../utils/store');
 const handler = require('../handlers/ticketHandler');
-const { repondre, maj } = require('../utils/panneaux');
+const { repondre, maj, differer, differerMiseAJour } = require('../utils/panneaux');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -127,6 +127,7 @@ module.exports = {
       if (roleOption) {
         let panelInfo = 'déjà en place';
         if (!store.getGuild(guild.id).panelSent) {
+          await differerMiseAJour(interaction); // ⏳ envoi du panneau : on accuse réception d'abord
           const channel = await handler.envoyerPanel(guild, store.getGuild(guild.id));
           if (channel) {
             store.setGuild(guild.id, { panelSent: true });
@@ -192,6 +193,7 @@ module.exports = {
 
       // Option(s) remplie(s) → envoi direct (comportement avancé conservé)
       if (titre || description) {
+        await differer(interaction); // ⏳ envoi du panneau : on accuse réception d'abord
         const channel = await handler.envoyerPanel(guild, cfg, { titre, description });
         if (!channel) {
           return repondre(interaction, { texte: '❌ Salon du panneau introuvable. Refais `/ticket setup` ou `/setup ticket bouton`.' });
@@ -316,6 +318,7 @@ module.exports = {
       }
       const membre = interaction.options.getMember('membre');
       if (!membre) return repondre(interaction, { texte: '❌ Membre introuvable sur le serveur.' });
+      await differer(interaction, false); // ⏳ on accuse réception avant de toucher aux permissions
       try {
         await interaction.channel.permissionOverwrites.edit(membre.id, {
           ViewChannel: true,
@@ -332,6 +335,7 @@ module.exports = {
       if (!t) return repondre(interaction, { texte: '❌ Cette commande marche uniquement dans un ticket ouvert.' });
       const membre = interaction.options.getMember('membre');
       if (!membre) return repondre(interaction, { texte: '❌ Membre introuvable sur le serveur.' });
+      await differer(interaction, false);
       await interaction.channel.permissionOverwrites.delete(membre.id).catch(() => {});
       return repondre(interaction, { ephemere: false, texte: `✅ <@${membre.id}> a été retiré du ticket.` });
     }
@@ -360,6 +364,7 @@ module.exports = {
         modal.addComponents(new ActionRowBuilder().addComponents(champ));
         return interaction.showModal(modal);
       }
+      await differer(interaction, false); // ⏳ transcription + messages + suppression : c'est long
       await repondre(interaction, { ephemere: false, couleur: 'attention', texte: '🔒 Fermeture en cours...' });
       return handler.fermerTicket(interaction, t, raison);
     }
