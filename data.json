@@ -55,23 +55,7 @@
       "panelSent": false,
       "panelMessageId": null,
       "counter": 20,
-      "open": {
-        "1565013608830599289": {
-          "numero": 20,
-          "userId": "1497375017980137534",
-          "sujet": "Test",
-          "typeId": "bouton:bmvor03xhg26",
-          "typeNom": "Achat",
-          "typeEmoji": "🤝",
-          "staffRoleIds": [
-            "1558960935006249071"
-          ],
-          "claimedBy": null,
-          "createdAt": 1793198721111,
-          "guildId": "1558915513634005024",
-          "messageId": "1565013610843873404"
-        }
-      },
+      "open": {},
       "panelMode": "bouton",
       "panel": {
         "titre": null,
