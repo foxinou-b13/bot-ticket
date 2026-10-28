@@ -376,6 +376,14 @@ function repondreSante(res) {
     const serveurs = client.isReady() ? client.guilds.cache.size : 0;
     morceaux.push(`gateway=${connecte} · ping=${ping} · serveurs=${serveurs}`);
     morceaux.push(`uptime=${Math.round(process.uptime() / 60)} min · statut=${client.user ? client.presence?.status || 'online' : 'non connecté'}`);
+    if (!client.isReady()) {
+      const dans = etatConnexion.prochaineTentative ? Math.max(0, Math.round((etatConnexion.prochaineTentative - Date.now()) / 1000)) : null;
+      morceaux.push(
+        `connexion : tentative n°${etatConnexion.tentatives}` +
+        (dans !== null ? ` · prochaine dans ${dans} s` : '') +
+        (etatConnexion.derniereErreur ? ` · derniere erreur : ${etatConnexion.derniereErreur}` : '')
+      );
+    }
     const mo = process.memoryUsage();
     morceaux.push(`memoire=${Math.round(mo.rss / 1048576)} Mo (tas ${Math.round(mo.heapUsed / 1048576)} Mo) · journal=${JOURNAL.length} ligne(s)`);
     morceaux.push(`auto-appel=${DERNIER_AUTO_APPEL}`);
@@ -499,29 +507,53 @@ function diagReseau() {
 // suivante (10 s, 20 s, 40 s… jusqu'à 5 min) et le processus reste en vie.
 let tentativesConnexion = 0;
 let repriseEnCours = false;
+let derniereErreurConnexion = null;
+const etatConnexion = { tentatives: 0, derniereErreur: null, prochaineTentative: null };
 
 function delaiReprise() {
-  return Math.min(10000 * Math.pow(2, Math.max(0, tentativesConnexion - 1)), 300000);
+  // 30 s, 60 s, 120 s, 240 s… puis 10 min maximum : on ne martèle JAMAIS Discord.
+  return Math.min(30000 * Math.pow(2, Math.max(0, tentativesConnexion - 1)), 600000);
 }
 
+const attendre = ms => new Promise(r => setTimeout(r, ms));
+
 async function connecter() {
+  repriseEnCours = false;
   try {
-    await client.login(token);
+    // Un login ne doit jamais rester bloqué : au bout de 45 s on considère
+    // que la tentative a échoué et on réessaiera plus tard.
+    const resultat = await Promise.race([
+      client.login(token).then(() => 'ok'),
+      attendre(45000).then(() => 'delai'),
+    ]);
+    if (resultat === 'delai') throw new Error('délai de connexion dépassé (45 s)');
     tentativesConnexion = 0;
-    repriseEnCours = false;
+    etatConnexion.tentatives = 0;
+    etatConnexion.derniereErreur = null;
+    etatConnexion.prochaineTentative = null;
     return true;
   } catch (erreur) {
-    const message = String(erreur && erreur.message ? erreur.message : erreur);
+    const message = String(erreur && erreur.message ? erreur.message : erreur).slice(0, 160);
+    derniereErreurConnexion = message;
+    etatConnexion.derniereErreur = message;
     // Token refusé : inutile d'insister, on s'arrête avec un message clair.
-    if (/token|4014|4004/i.test(message) && /invalid|incorrect/i.test(message)) {
+    if (/invalid token|tokeninvalid|4004/i.test(message)) {
       console.error('❌ Le token du bot est refusé. Vérifie la variable DISCORD_TOKEN sur Render.');
       process.exit(1);
     }
+    if (/1015|rate limit|429/i.test(message)) {
+      console.error('⏳ Discord limite temporairement ce serveur (erreur 1015/429). C\'est passager : on attend calmement.');
+    }
+    try { client.destroy(); } catch { /* déjà arrêté */ }
     tentativesConnexion++;
+    etatConnexion.tentatives = tentativesConnexion;
     const attente = delaiReprise();
-    console.error(`❌ Connexion Discord impossible (${message.slice(0, 120)}). Nouvelle tentative dans ${Math.round(attente / 1000)} s…`);
-    setTimeout(() => { repriseEnCours = false; connecter(); }, attente);
+    etatConnexion.prochaineTentative = Date.now() + attente;
+    console.error(`❌ Connexion Discord impossible (${message}). Nouvelle tentative dans ${Math.round(attente / 1000)} s…`);
+    setTimeout(() => connecter(), attente);
     return false;
+  } finally {
+    repriseEnCours = false;
   }
 }
 
@@ -529,7 +561,9 @@ function reessayerConnexion(pourquoi) {
   if (repriseEnCours) return;
   repriseEnCours = true;
   tentativesConnexion++;
+  etatConnexion.tentatives = tentativesConnexion;
   const attente = delaiReprise();
+  etatConnexion.prochaineTentative = Date.now() + attente;
   console.error(`🔄 Reprise de la connexion (${pourquoi}) dans ${Math.round(attente / 1000)} s…`);
   try { client.destroy(); } catch { /* déjà arrêté */ }
   setTimeout(() => connecter(), attente);

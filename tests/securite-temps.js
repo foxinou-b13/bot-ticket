@@ -224,10 +224,12 @@ function guildLente() {
     assert.ok(!/process\.exit\(1\)[^\n]*watchdog/.test(src), 'le watchdog tue encore le processus');
     assert.ok(/reessayerConnexion\('délai de 60 s'\)/.test(src), 'le watchdog ne réessaie pas calmement');
     assert.ok(!/process\.exit\(1\);\n  \}\n\}, 60000\);/.test(src), 'l\'ancienne boucle de redémarrage est encore là');
-    // Le délai doit grandir : 10 s puis 20 s puis 40 s… et plafonner à 5 min.
-    const max = 300000;
-    assert.ok(bloc.includes('300000'), 'pas de plafond à 5 minutes');
-    assert.ok(max === 300000);
+    // Le délai doit grandir : 30 s puis 60 s puis 120 s… et plafonner à 10 min.
+    assert.ok(bloc.includes('600000'), 'pas de plafond à 10 minutes');
+    // Une tentative de connexion ne doit jamais rester bloquée pour toujours.
+    assert.ok(/Promise\.race/.test(bloc), 'aucune limite de temps sur la tentative de connexion');
+    assert.ok(repriseLibre(bloc), 'la boucle peut rester bloquée : le drapeau de reprise n\'est jamais relâché');
+    function repriseLibre(txt) { return /finally\s*\{[^}]*repriseEnCours = false/.test(txt); }
   });
 
   console.log(`\n${ok} tests de sécurité OK${ko ? ` — ÉCHEC de ${ko}` : ' ✅'}`);
