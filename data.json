@@ -189,7 +189,7 @@
         "panelMessageId": null,
         "panel": {
           "titre": "**CRÉÉ UN TICKET**",
-          "description": null,
+          "description": "🎫 **INFORMATIONS & CONSEILS**\n\nBienvenue dans notre système de tickets !\n\n📌 __**Informations :**__\n\n> Choisissez le bouton qui correspond à votre demande. Un ticket privé sera automatiquement créé pour que vous puissiez échanger avec le staff.\n\n💡 __**Conseils :**__\n\n> Expliquez bien votre problème, restez poli et respectueux, ajoutez des preuves si nécessaire et évitez d'ouvrir plusieurs tickets pour la même demande.\n\n*Merci de respecter ces quelques consignes et bon support à tous !* ❤️",
           "image": null,
           "bouton": null,
           "boutonEmoji": null
