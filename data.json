@@ -194,7 +194,16 @@
           "bouton": null,
           "boutonEmoji": null
         },
-        "items": []
+        "items": [
+          {
+            "id": "bmvwis5nzc4v",
+            "label": "Signaler un bug",
+            "emoji": "🐛",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
+          }
+        ]
       }
     }
   }
