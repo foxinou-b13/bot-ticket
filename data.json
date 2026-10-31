@@ -218,6 +218,14 @@
               "1547319742950547476",
               "1546989134319714305"
             ]
+          },
+          {
+            "id": "bmvwixzpqgib",
+            "label": "Autre demande",
+            "emoji": "📨",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
           }
         ]
       }
