@@ -206,6 +206,14 @@
               "1547319742950547476",
               "1546989244118204486"
             ]
+          },
+          {
+            "id": "bmvwivbhvo55",
+            "label": "Questions",
+            "emoji": "❓",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
           }
         ]
       }
