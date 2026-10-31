@@ -171,25 +171,7 @@
       "panelSent": false,
       "panelMessageId": null,
       "counter": 1,
-      "open": {
-        "1566105769018138646": {
-          "numero": 1,
-          "userId": "1497375017980137534",
-          "sujet": "Test",
-          "typeId": "bouton:bmvwis5nzc4v",
-          "typeNom": "Signaler un bug",
-          "typeEmoji": "🐛",
-          "staffRoleIds": [
-            "1546922086302220410",
-            "1547319742950547476",
-            "1546989244118204486"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1793459112502,
-          "guildId": "1539668540787925052",
-          "messageId": "1566105771702231142"
-        }
-      },
+      "open": {},
       "panelMode": null,
       "panel": {
         "titre": null,
