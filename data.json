@@ -196,18 +196,6 @@
         },
         "items": [
           {
-            "id": "bmvwivbhvo55",
-            "label": "Questions",
-            "emoji": "❓",
-            "couleur": "bleu",
-            "categoryId": "1539705201437708429",
-            "staffRoleIds": [
-              "1546922086302220410",
-              "1547319742950547476",
-              "1546989134319714305"
-            ]
-          },
-          {
             "id": "bmvwixzpqgib",
             "label": "Autre demande",
             "emoji": "📨",
