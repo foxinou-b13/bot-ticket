@@ -127,7 +127,7 @@
         ],
         "panel": {
           "titre": "**OPEN TICKET**",
-          "description": "```Besoin d'aide cliquer sur le bouton ci-dessous pour créer un ticket un membre de l'équipe va vous répondre```",
+          "description": "🎫 __**INFORMATION & GUIDELINES**__\n\n*Welcome to our ticket support system!*\n\n📌 __**Information:**__\n\n\n> Choose the button that matches your request. A private ticket will automatically be created so you can communicate with the staff team.\n\n\n💡 __**Guidelines**__:\n\n\n> Please explain your issue clearly, remain polite and respectful, provide evidence if necessary, and avoid opening multiple tickets for the same request.\n\n\n*Thank you for following these guidelines and enjoy our support system!* ❤️",
           "image": null,
           "bouton": null,
           "boutonEmoji": null
