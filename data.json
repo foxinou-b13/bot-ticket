@@ -194,20 +194,7 @@
           "bouton": null,
           "boutonEmoji": null
         },
-        "items": [
-          {
-            "id": "bmvwj2icfnuk",
-            "label": "Partenariat",
-            "emoji": "🫱🏻‍🫲🏾",
-            "couleur": "gris",
-            "categoryId": "1539705201437708429",
-            "staffRoleIds": [
-              "1546922086302220410",
-              "1546924153330860114",
-              "1546921426773221386"
-            ]
-          }
-        ]
+        "items": []
       }
     }
   }
