@@ -196,18 +196,6 @@
         },
         "items": [
           {
-            "id": "bmvwis5nzc4v",
-            "label": "Signaler un bug",
-            "emoji": "🐛",
-            "couleur": "rouge",
-            "categoryId": "1539705201437708429",
-            "staffRoleIds": [
-              "1546922086302220410",
-              "1547319742950547476",
-              "1546989244118204486"
-            ]
-          },
-          {
             "id": "bmvwivbhvo55",
             "label": "Questions",
             "emoji": "❓",
