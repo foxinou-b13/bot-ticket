@@ -196,17 +196,6 @@
         },
         "items": [
           {
-            "id": "bmvwixzpqgib",
-            "label": "Autre demande",
-            "emoji": "📨",
-            "couleur": "vert",
-            "categoryId": "1539705201437708429",
-            "staffRoleIds": [
-              "1546922086302220410",
-              "1547319742950547476"
-            ]
-          },
-          {
             "id": "bmvwj2icfnuk",
             "label": "Partenariat",
             "emoji": "🫱🏻‍🫲🏾",
