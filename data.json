@@ -126,7 +126,7 @@
           }
         ],
         "panel": {
-          "titre": "OPEN TICKET",
+          "titre": "**OPEN TICKET**",
           "description": "```Besoin d'aide cliquer sur le bouton ci-dessous pour créer un ticket un membre de l'équipe va vous répondre```",
           "image": null,
           "bouton": null,
