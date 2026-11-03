@@ -208,6 +208,14 @@
               "1546923961739120741",
               "1546924153330860114"
             ]
+          },
+          {
+            "id": "bmw10i9pgjs0",
+            "label": "Configuration de bot",
+            "emoji": "⚙️",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
           }
         ]
       }
