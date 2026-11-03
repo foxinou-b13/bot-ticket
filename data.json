@@ -194,7 +194,16 @@
           "bouton": null,
           "boutonEmoji": null
         },
-        "items": []
+        "items": [
+          {
+            "id": "bmw10fbjrsdf",
+            "label": "Création de bot",
+            "emoji": "🤖",
+            "couleur": "vert",
+            "categoryId": null,
+            "staffRoleIds": []
+          }
+        ]
       }
     }
   }
