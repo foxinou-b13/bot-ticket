@@ -55,23 +55,7 @@
       "panelSent": false,
       "panelMessageId": null,
       "counter": 21,
-      "open": {
-        "1568041782430933027": {
-          "numero": 21,
-          "userId": "1336752601802473482",
-          "sujet": "Besoin d'aide Juste j'ai un truc qui cloche c'est trop chelou.",
-          "typeId": "bouton:bmvonu92165w",
-          "typeNom": "Question",
-          "typeEmoji": "❓",
-          "staffRoleIds": [
-            "1558960935006249071"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1793920693918,
-          "guildId": "1558915513634005024",
-          "messageId": "1568041784314171426"
-        }
-      },
+      "open": {},
       "panelMode": "bouton",
       "panel": {
         "titre": null,
