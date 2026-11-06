@@ -171,26 +171,7 @@
       "panelSent": false,
       "panelMessageId": null,
       "counter": 3,
-      "open": {
-        "1568092943414464636": {
-          "numero": 3,
-          "userId": "1414263479967285270",
-          "sujet": "U",
-          "typeId": "bouton:bmw10fbjrsdf",
-          "typeNom": "Création de bot",
-          "typeEmoji": "🤖",
-          "staffRoleIds": [
-            "1546923961739120741",
-            "1546924153330860114",
-            "1546923314369536090"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1793932891778,
-          "guildId": "1539668540787925052",
-          "messageId": "1568092954881425479",
-          "nomPerso": "creation-d-un-bot"
-        }
-      },
+      "open": {},
       "panelMode": null,
       "panel": {
         "titre": null,
