@@ -187,7 +187,8 @@
           "claimedBy": "1497375017980137534",
           "createdAt": 1793932891778,
           "guildId": "1539668540787925052",
-          "messageId": "1568092954881425479"
+          "messageId": "1568092954881425479",
+          "nomPerso": "creation-d-un-bot"
         }
       },
       "panelMode": null,
