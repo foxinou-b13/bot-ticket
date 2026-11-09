@@ -599,5 +599,42 @@ function monde(opts = {}) {
     }
   });
 
+  await test("sûreté config : accusé immédiat avant tout affichage lent (wizard, menu, publication, choix du salon)", () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'handlers', 'ticketHandler.js'), 'utf8');
+    for (const fn of ['afficherWizard', 'afficherMenu']) {
+      const j = src.indexOf('async function ' + fn + '(');
+      if (j === -1 || !src.slice(j, j + 300).includes('differerMiseAJour(interaction)')) throw new Error(fn + " n'accuse pas réception tout de suite");
+    }
+    const ip = src.indexOf('async function publierDepuisChoix(');
+    if (ip === -1) throw new Error('publierDepuisChoix introuvable');
+    const dif = src.indexOf('differerMiseAJour', ip), envoi = src.indexOf('envoyerPanel', ip);
+    if (dif === -1 || dif > envoi) throw new Error("publication MENU : accusé après l'envoi (risque de « le bot ne répond pas » sur Discord lent)");
+    const ic = src.indexOf("id === 'tkt:panel-channel'");
+    const difc = src.indexOf('differerMiseAJour', ic);
+    if (ic === -1 || difc === -1 || difc > src.indexOf('envoyerPanel', ic)) throw new Error("choix du salon du panneau : accusé manquant avant création/envoi");
+  });
+
+  await test("sûreté texte : publier sans texte est refusé par les DEUX systèmes (rien n'est inventé)", () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'handlers', 'ticketHandler.js'), 'utf8');
+    if (!src.includes('Aucun texte dans le panneau')) throw new Error('garde publication MENU absente');
+    if (!src.includes('un titre ou une description du panneau')) throw new Error('garde publication BOUTON absente');
+  });
+
+  await test("maj() : édite le message d'origine même après deferUpdate (jamais de doublon public)", async () => {
+    const panels = require('../utils/panneaux');
+    const inter = {
+      deferred: false, replied: false, updates: 0, edits: 0, follows: 0,
+      deferUpdate: async () => { inter.deferred = true; },
+      update: async () => { inter.updates++; return true; },
+      editReply: async () => { inter.edits++; return true; },
+      followUp: async () => { inter.follows++; return true; },
+      reply: async () => { inter.follows++; return true; },
+    };
+    await panels.differerMiseAJour(inter);
+    await panels.maj(inter, { texte: 'carte de navigation' });
+    if (inter.updates !== 1) throw new Error("le message d'origine doit être édité en place (updates=" + inter.updates + ')');
+    if (inter.edits !== 0 || inter.follows !== 0) throw new Error('message parasite après un deferUpdate');
+  });
+
   console.log(`\n${ok} tests de régression OK ${process.exitCode ? '— ÉCHEC' : '✅'}`);
 })();

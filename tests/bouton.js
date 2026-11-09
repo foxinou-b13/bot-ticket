@@ -160,12 +160,13 @@ function texteDe(o) {
     assert.ok(!json.includes('Informations importantes'), 'texte du menu repris');
   });
 
-  await test('sans réglage, le panneau bouton a un texte par défaut (pas celui du menu)', async () => {
+  await test("sans réglage, le panneau bouton n'a AUCUN texte (rien n'est inventé)", async () => {
     reset();
     const payload = h.construirePanneau({ ...store.getGuild(GUILD), panelMode: 'bouton', bouton: { ...store.getGuild(GUILD).bouton, configure: true } }, {}, 'Serveur');
+    assert.deepStrictEqual(payload.embeds, [], 'le bot a fabriqué un texte par défaut');
     const json = JSON.stringify(payload);
-    assert.ok(json.includes('Bienvenue sur le support de'), 'texte par défaut absent');
-    assert.ok(!json.includes('Informations importantes'));
+    assert.ok(!json.includes('Bienvenue sur le support de'));
+    assert.ok(!json.includes('Support |'));
   });
 
   console.log('── Sécurité ──');
@@ -202,7 +203,7 @@ function texteDe(o) {
         configure: false, categoryId: 'cat-1', panelChannelId: 'salon-panneau', logChannelId: 'log-1',
         staffRoleIds: ['role-1'], panelMessageId: null,
         items: [{ id: 'it', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: 'cat-1', staffRoleIds: ['role-1'] }],
-        panel: { titre: null, description: null, image: null },
+        panel: { titre: 'Bienvenue chez nous', description: 'Ouvre un ticket.', image: null },
       },
     });
     let envoye = null;
@@ -226,7 +227,36 @@ function texteDe(o) {
     assert.notEqual(g.panelMode, 'bouton', 'le mode global a été modifié : le menu est impacté');
     assert.equal(g.bouton.panelMessageId, 'msg-panneau', 'message non mémorisé');
     assert.ok(envoye && envoye.embeds && envoye.embeds.length, 'panneau non envoyé');
+    assert.ok(JSON.stringify(envoye.embeds).includes('Bienvenue chez nous'), 'le texte écrit par l’admin est absent du panneau envoyé');
     assert.match(texteDe(conf), /publié|prêt/);
+  });
+
+  await test('publier SANS AUCUN texte = refus clair (rien envoyé, rien inventé)', async () => {
+    reset();
+    store.setGuild(GUILD, {
+      bouton: {
+        configure: false, categoryId: 'cat-1', panelChannelId: 'salon-vide', logChannelId: 'log-1',
+        staffRoleIds: ['role-1'], panelMessageId: null,
+        items: [{ id: 'it', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: 'cat-1', staffRoleIds: ['role-1'] }],
+        panel: { titre: null, description: null, image: null },
+      },
+    });
+    let envoye = null;
+    const canal = {
+      id: 'salon-vide', permissionOverwrites: { edit: async () => {} },
+      messages: { fetch: async () => null },
+      send: async p => { envoye = p; return { id: 'msg-x', pin: async () => {} }; },
+    };
+    const guild = mockGuild();
+    guild.channels.fetch = async id => (id === 'salon-vide' ? canal : { id, permissionOverwrites: { edit: async () => {} } });
+    let conf = null;
+    await h.handleSelectMenu({
+      customId: 'tktb:publier', guild, member: admin,
+      update: r => { conf = r; }, reply: r => { conf = r; },
+    });
+    assert.equal(envoye, null, "un panneau sans texte a été envoyé — il ne doit rien publier");
+    assert.match(texteDe(conf), /titre ou une description/);
+    assert.equal(store.getGuild(GUILD).bouton.panelMessageId, null, 'message mémorisé alors que rien n’a été publié');
   });
 
   await test('un bouton incomplet bloque la publication (et dit lequel)', async () => {
@@ -362,7 +392,7 @@ function texteDe(o) {
     assert.deepEqual(styles, [1, 3, 2, 4]);
   });
 
-  await test('sans bouton créé → panneau SANS aucun bouton', async () => {
+  await test('sans bouton NI texte créé → panneau strictement vide (rien d\'inventé)', async () => {
     reset();
     store.setGuild(GUILD, {
       panelMode: 'bouton',
@@ -370,7 +400,7 @@ function texteDe(o) {
     });
     const payload = h.construirePanneau(store.getGuild(GUILD), {}, 'S');
     assert.equal(payload.components.length, 0, 'bouton par défaut présent : ' + payload.components.length);
-    assert.ok(payload.embeds && payload.embeds.length, 'le panneau doit rester visible');
+    assert.equal(payload.embeds.length, 0, 'le bot a inventé un embed pour rendre le panneau visible');
   });
 
   await test('25 boutons maximum', async () => {
@@ -534,7 +564,7 @@ function texteDe(o) {
     const g = store.getGuild('g-jamais-touche');
     const payload = h.construirePanneau({ ...g, panelMode: 'bouton', bouton: { ...g.bouton, configure: true } }, {}, 'Neuf');
     assert.equal(payload.components.length, 0);
-    assert.ok(payload.embeds && payload.embeds.length, 'le panneau doit quand même exister');
+    assert.equal(payload.embeds.length, 0, 'le bot a inventé un texte pour « faire exister » le panneau');
   });
 
   await test('impossible de publier sans avoir créé de bouton', async () => {
@@ -618,7 +648,7 @@ function texteDe(o) {
     await h.envoyerPanel(guild, store.getGuild(GUILD));
     assert.ok(!journal.some(j => j.startsWith('envoye:')), 'un nouveau panneau a été envoyé : ' + journal.join(','));
     assert.ok(existant.dernierEdite, 'le panneau existant n\'a pas été mis à jour');
-    assert.ok(existant.dernierEdite.embeds && existant.dernierEdite.embeds.length, 'l\'embed a été retiré du panneau bouton');
+    assert.ok(Array.isArray(existant.dernierEdite.embeds) && existant.dernierEdite.embeds.length === 0, 'le bot a réinjecté un texte par défaut dans le panneau réutilisé');
   });
 
   await test('plusieurs panneaux dans le salon → les doublons sont supprimés', async () => {
@@ -1076,11 +1106,12 @@ function texteDe(o) {
     guild.channels.fetch = async () => canal;
     store.setGuild(GUILD, {
       bouton: { configure: false, categoryId: null, panelChannelId: 'PAN', logChannelId: 'LOG', staffRoleIds: [], panelMessageId: null,
-        items: [{ id: 'a', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: 'CAT', staffRoleIds: ['ROLE'] }], panel: {} },
+        items: [{ id: 'a', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: 'CAT', staffRoleIds: ['ROLE'] }], panel: { titre: 'Support', description: 'Contacte-nous.' } },
     });
     const it = interB('tktb:publier', { guild });
     await h.handleButton(it);
     assert.ok(envoye, 'panneau non envoyé');
+    assert.ok(envoye.embeds && JSON.stringify(envoye.embeds).includes('Contacte-nous'), 'le texte écrit est absent du panneau publié');
     assert.equal(store.getGuild(GUILD).bouton.configure, true);
     assert.match(texteDe(it.out), /publié/);
   });

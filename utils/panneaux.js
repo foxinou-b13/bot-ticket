@@ -94,13 +94,11 @@ async function repondre(interaction, o = {}) {
  */
 async function maj(interaction, o = {}) {
   const p = { ...payload(o, false), embeds: [] };
-  try {
-    // Si on a déjà accusé réception (deferUpdate), on modifie le message ainsi
-    if (interaction.deferred) return await interaction.editReply(p);
-    return await interaction.update(p);
-  } catch {
-    return repondre(interaction, o);
-  }
+  // update() est valide AVANT et APRÈS deferUpdate() : on édite le message d'origine
+  // dans tous les cas (jamais de doublon public). Replis en cascade, jamais bloquants.
+  try { return await interaction.update(p); } catch { /* déjà répondu / différé en reply */ }
+  try { return await interaction.editReply(p); } catch { /* follow-up alors */ }
+  return repondre(interaction, o);
 }
 
 /**

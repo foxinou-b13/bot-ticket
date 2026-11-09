@@ -130,48 +130,18 @@ function serifBold(texte) {
   });
 }
 
+function estHttp(u) { return String(u).startsWith('http://') || String(u).startsWith('https://'); }
+
 function embedPanneau(config, options = {}, guildName = null) {
+  // Règle expresse : le texte du panneau est écrit PAR la personne qui configure,
+  // sinon RIEN — le bot n'invente plus aucun contenu par défaut.
   const p = config.panel || {};
-  // Texte par défaut du panneau MENU : style des bots de support pro
-  // (paragraphs, séparateurs fins, puces décoratives)
-  const defautMenu = [
-    `Bienvenue sur le support officiel de ${serifBold(guildName || 'ce serveur')}`,
-    SEP,
-    'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
-    SEP,
-    'ⓘ\uFE0E __**Informations importantes :**__',
-    '• Soyez clairs et précis dans vos demandes.',
-    '• Le manque de respect envers le staff est strictement interdit.',
-    '• Évitez les mentions inutiles.',
-    '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
-    SEP,
-    '⏳ *Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.*',
-  ].join('\n');
-  const defautBouton = [
-    "Besoin d'aide ? Clique sur le bouton **🎫 Ouvrir un ticket** ci-dessous.",
-    'Un salon privé sera créé pour toi et notre équipe te répondra.',
-    SEP,
-    '⏳ *Merci de votre patience, un membre du staff prendra ton ticket en charge dès que possible.*',
-  ].join('\n');
-  const embed = new EmbedBuilder()
-    // Bordure de l'embed = couleur du fond du thème sombre Discord :
-    // aucune ligne colorée visible, ni à gauche ni ailleurs.
-    .setTitle(
-      coupe(
-        options.titre || p.titre || (guildName ? `👑 ${serifBold('Support | ' + guildName)}` : '🎫 Support'),
-        256
-      )
-    )
-    .setDescription(
-      coupe(
-        options.description ||
-          p.description ||
-          (modePanneau(config) === 'menu' ? defautMenu : defautBouton),
-        4096
-      )
-    )
-  ;
-  if (p.image && /^https?:\/\//.test(p.image)) embed.setImage(p.image);
+  const embed = new EmbedBuilder();
+  const titre = coupe(options.titre || p.titre || '', 256);
+  const desc = coupe(options.description || p.description || '', 4096);
+  if (titre) embed.setTitle(titre);
+  if (desc) embed.setDescription(desc);
+  if (p.image && estHttp(p.image)) embed.setImage(p.image);
   return embed;
 }
 
@@ -236,26 +206,22 @@ function reglages(config, mode = modePanneau(config)) {
 // Un embed simple : titre + description + boutons. AUCUNE bannière,
 // AUCUN texte repris du panneau du menu. Textes 100% réglables.
 function panneauBouton(p = {}, options = {}, guildName = null) {
-  const nom = guildName || 'ce serveur';
-  const description =
-    options.description ||
-    p.description ||
-    [
-      `Bienvenue sur le support de **${nom}**.`,
-      '',
-      "Clique sur le bouton ci-dessous pour ouvrir un ticket privé : un salon réservé à toi et à l'équipe s'ouvre aussitôt.",
-      'Décris ta demande en quelques lignes, un membre du staff te répondra dès que possible.',
-    ].join('\n');
-
-  const embed = new EmbedBuilder()
-    // Meme couleur que le fond sombre Discord : aucune ligne coloree visible
-    .setColor(0x2b2d31)
-    .setTitle(coupe(options.titre || p.titre || `🎫 Support | ${nom}`, 256))
-    .setDescription(coupe(description, 4096));
+  // Aucun texte par défaut : le panneau affiche UNIQUEMENT ce que l'admin a écrit.
+  const titre = coupe(options.titre || p.titre || '', 256);
+  const desc = coupe(options.description || p.description || '', 4096);
   const lien = options.image || p.image;
-  if (lien && /^https?:\/\//.test(lien)) embed.setImage(lien);
+  const embeds = [];
+  if (titre || desc || (lien && estHttp(lien))) {
+    const embed = new EmbedBuilder()
+      // Meme couleur que le fond sombre Discord : aucune ligne coloree visible
+      .setColor(0x2b2d31);
+    if (titre) embed.setTitle(titre);
+    if (desc) embed.setDescription(desc);
+    if (lien && estHttp(lien)) embed.setImage(lien);
+    embeds.push(embed);
+  }
   return {
-    embeds: [embed],
+    embeds,
     // Aucun bouton par défaut : uniquement ceux créés par la personne.
     components: lignesBoutons(p.items || []),
     allowedMentions: { parse: [] },
@@ -276,7 +242,7 @@ function construirePanneau(config, options = {}, guildName = null, modeForce = n
   const fichiers = [];
 
   const galerie = (() => {
-    if (p.image && /^https?:\/\//.test(p.image)) {
+    if (p.image && estHttp(p.image)) {
       return new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(p.image));
     }
     if (!guildName) return null;
@@ -289,37 +255,15 @@ function construirePanneau(config, options = {}, guildName = null, modeForce = n
   // référence — textes + séparateurs FINS serrés + bannière DEDANS.
   // Pas de couleur d'accent → aucune bordure/liseré coloré sur la carte.
   const carte = new ContainerBuilder();
-  carte.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(options.titre || p.titre || `**👑 ${serifBold('Support | ' + nom)}**`)
-  );
-
-  carte.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      options.description ||
-        p.description ||
-        [
-          `Bienvenue sur le support officiel de ${serifBold(nom)}`,
-          '',
-          'Pour ouvrir un ticket, sélectionnez la catégorie correspondante à votre besoin via le menu ci-dessous et veuillez détailler en quelques lignes votre demande avant l\'ouverture.',
-        ].join('\n')
-    )
-  );
-  carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-  carte.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      [
-        'ⓘ\uFE0E __**Informations importantes :**__',
-        '• Soyez clairs et précis dans vos demandes.',
-        '• Le manque de respect envers le staff est strictement interdit.',
-        '• Évitez les mentions inutiles.',
-        '• Les tickets abusifs ou inactifs seront automatiquement fermés puis supprimés.',
-      ].join('\n')
-    )
-  );
-  carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-  carte.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('⏳ *Merci de votre patience, un membre du staff prendra votre ticket en charge dès que possible.*')
-  );
+  // Règle expresse : chaque bloc texte n'existe QUE s'il a été ÉCRIT par l'admin.
+  // Rien d'écrit = rien d'affiché — le bot n'ajoute plus de pavés « par défaut ».
+  const titreV2 = options.titre || p.titre || '';
+  const descV2 = options.description || p.description || '';
+  if (titreV2) carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(titreV2));
+  if (descV2) carte.addTextDisplayComponents(new TextDisplayBuilder().setContent(descV2));
+  if (titreV2 || descV2) {
+    carte.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+  }
 
   if (galerie) carte.addMediaGalleryComponents(galerie);
 
@@ -554,6 +498,14 @@ function rowSalonChoix() {
 // Publication + confirmation après choix dans le sélecteur du /ticket panel
 async function publierDepuisChoix(interaction, cfg, modeDemande = null) {
   const mode = modeDemande || modePanneau(cfg);
+  await differerMiseAJour(interaction); // ⏳ envoi lent (salon + message + nettoyage) : accusé TOUT DE SUITE
+  const pan = mode === 'bouton' ? (cfg.bouton?.panel || {}) : (cfg.panel || {});
+  if (!pan.titre && !pan.description) {
+    return maj(interaction, {
+      couleur: 'erreur',
+      texte: '⚠️ **Aucun texte dans le panneau.** Écris au moins un titre ou une description dans « Textes du panneau » — je ne mets plus rien par défaut : rien d\'écrit = rien à publier.',
+    });
+  }
   const salonCible = mode === 'bouton'
     ? (cfg.bouton?.panelChannelId || cfg.panelChannelId)
     : cfg.panelChannelId;
@@ -889,7 +841,7 @@ function rowAssistant(config) {
       .setLabel('Réinitialiser les textes')
       .setEmoji('🧹')
       .setValue('__reset__')
-      .setDescription('Revenir aux textes complets par défaut'),
+      .setDescription('Vider tous les textes (rien ne sera affiché)'),
     new StringSelectMenuOptionBuilder()
       .setLabel('Terminer')
       .setEmoji('✅')
@@ -1019,6 +971,7 @@ function rowWizard(typeId, step) {
 }
 
 async function afficherWizard(interaction, typeId, step, note) {
+  await differerMiseAJour(interaction); // ⏳ navigation Suivant/Retour : accusé immédiat = jamais « le bot ne répond pas »
   const config = store.getGuild(interaction.guild.id);
   const type = store.getType(interaction.guild.id, typeId);
   if (!type) return afficherMenu(interaction, '❌ Ce type n\'existe plus.');
@@ -1034,11 +987,11 @@ async function afficherWizard(interaction, typeId, step, note) {
     lignes: [champs, note || null, `-# Étape ${numero}/${WIZARD_STEPS.length} — utilise les boutons ci-dessous`].filter(Boolean),
     composants: [rowWizard(typeId, step)],
   };
-  if (interaction.replied || interaction.deferred) return repondre(interaction, { ...options, ephemere: false });
   return maj(interaction, options);
 }
 
 async function afficherMenu(interaction, note) {
+  await differerMiseAJour(interaction); // ⏳ accusé immédiat, comme le wizard
   const config = store.getGuild(interaction.guild.id);
   const options = {
     couleur: note && /^❌/.test(note) ? 'erreur' : 'info',
@@ -1047,7 +1000,6 @@ async function afficherMenu(interaction, note) {
     lignes: note ? [note] : [],
     composants: [rowAssistant(config)],
   };
-  if (interaction.replied || interaction.deferred) return repondre(interaction, { ...options, ephemere: false });
   return maj(interaction, options);
 }
 
@@ -2096,7 +2048,7 @@ async function routeurModalBouton(interaction) {
     const titre = (interaction.fields.getTextInputValue('titre') || '').trim();
     const nouveau = majBouton(guild.id, { panel: { titre: titre || null } });
     const b3 = configBoutonDe(guild.id);
-    await repondre(interaction, carteEtapeBouton(guild, b3, 3, titre ? '✅ Titre enregistré.' : '✅ Titre remis par défaut.'));
+    await repondre(interaction, carteEtapeBouton(guild, b3, 3, titre ? '✅ Titre enregistré.' : "✅ Titre vidé — rien ne s'affichera."));
     return true;
   }
 
@@ -2105,7 +2057,7 @@ async function routeurModalBouton(interaction) {
     const description = (interaction.fields.getTextInputValue('description') || '').trim();
     majBouton(guild.id, { panel: { description: description || null } });
     const b4 = configBoutonDe(guild.id);
-    await repondre(interaction, carteEtapeBouton(guild, b4, 4, description ? '✅ Description enregistrée.' : '✅ Description remise par défaut.'));
+    await repondre(interaction, carteEtapeBouton(guild, b4, 4, description ? '✅ Description enregistrée.' : '✅ Description vidée.'));
     return true;
   }
 
@@ -2117,7 +2069,7 @@ async function routeurModalBouton(interaction) {
       panel: {
         titre: titre || null,
         description: description || null,
-        image: /^https?:\/\//.test(image) ? image : null,
+        image: estHttp(image) ? image : null,
       },
     });
     await repondre(interaction, carteEtapeBouton(guild, nouveau, 6, '✅ Titre et description enregistrés.'));
@@ -2208,7 +2160,7 @@ function carteEtapeBouton(guild, b, etape, complement = '') {
       "Voici le titre affiché en haut du panneau.",
       'Clique sur « ✏️ Renommer » pour le changer.',
       '',
-      ligneValeur('🎨 Titre actuel', coupe(p.titre || `🎫 Support | ${guild.name}`, 90), 'aucun'),
+      ligneValeur('🎨 Titre actuel', p.titre ? coupe(String(p.titre), 90) : null, 'aucun (rien affiché)'),
     ].join('\n');
     composants.push(
       new ActionRowBuilder().addComponents(
@@ -2223,7 +2175,7 @@ function carteEtapeBouton(guild, b, etape, complement = '') {
       'Voici le texte affiché sous le titre.',
       'Clique sur « ✏️ Modifier » pour le changer.',
       '',
-      ligneValeur('📝 Description actuelle', p.description ? coupe(String(p.description).replace(/\n/g, ' '), 140) : null, 'texte par défaut'),
+      ligneValeur('📝 Description actuelle', p.description ? coupe(String(p.description).replace(/\n/g, ' '), 140) : null, 'aucune (rien affiché)'),
     ].join('\n');
     composants.push(
       new ActionRowBuilder().addComponents(
@@ -2251,6 +2203,7 @@ function carteEtapeBouton(guild, b, etape, complement = '') {
     if (!b.panelChannelId) manques.push('le salon du panneau');
     if (!b.logChannelId) manques.push('le salon de logs');
     if (!b.items.length) manques.push('au moins un bouton');
+    if (!(b.panel?.titre || b.panel?.description)) manques.push('un titre ou une description du panneau (je ne mets rien par défaut)');
     incomplets.forEach(i => manques.push(`le bouton « ${coupe(i.label || '?', 40)} »`));
 
     titre = '🔘 Configuration · récapitulatif';
@@ -2259,8 +2212,8 @@ function carteEtapeBouton(guild, b, etape, complement = '') {
       '',
       ligneValeur('📬 Salon du panneau', b.panelChannelId ? `<#${b.panelChannelId}>` : null, 'non réglé'),
       ligneValeur('📜 Salon de logs', b.logChannelId ? `<#${b.logChannelId}>` : null, 'non réglé'),
-      ligneValeur('🎨 Titre', coupe(p.titre || `🎫 Support | ${guild.name}`, 90), 'aucun'),
-      ligneValeur('📝 Description', p.description ? coupe(String(p.description).replace(/\n/g, ' '), 110) + '…' : null, 'texte par défaut'),
+      ligneValeur('🎨 Titre', p.titre ? coupe(String(p.titre), 90) : null, 'aucun (rien affiché)'),
+      ligneValeur('📝 Description', p.description ? coupe(String(p.description).replace(/\n/g, ' '), 110) + '…' : null, 'aucune (rien affiché)'),
       '',
       `🧩 **Boutons (${b.items.length})** :`,
       b.items.length
@@ -2567,6 +2520,7 @@ async function publierPanneauBouton(interaction) {
   if (!b.panelChannelId) manques.push('le salon du panneau');
   if (!b.logChannelId) manques.push('le salon de logs');
   if (!b.items.length) manques.push('au moins un bouton');
+  if (!(b.panel?.titre || b.panel?.description)) manques.push('un titre ou une description du panneau (je ne mets rien par défaut)');
   for (const i of b.items.filter(x => !x.categoryId || !x.staffRoleIds.length)) {
     const details = [];
     if (!i.categoryId) details.push('catégorie');
@@ -2748,7 +2702,7 @@ async function routeurAssistantBouton(interaction) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('titre')
-          .setLabel('Titre (vide = titre par défaut)')
+          .setLabel('Titre (vide = rien affiché)')
           .setStyle(TextInputStyle.Short)
           .setMaxLength(250)
           .setRequired(false)
@@ -2767,7 +2721,7 @@ async function routeurAssistantBouton(interaction) {
       new ActionRowBuilder().addComponents(
         new TextInputBuilder()
           .setCustomId('description')
-          .setLabel('Description (vide = texte par défaut)')
+          .setLabel('Description (vide = rien affiché)')
           .setStyle(TextInputStyle.Paragraph)
           .setMaxLength(1500)
           .setRequired(false)
@@ -3190,7 +3144,7 @@ async function handleSelectMenu(interaction) {
         panel: { titre: null, description: null, selecteur: null, image: null },
       });
       const cfg = store.getGuild(guild.id);
-      return afficherMenu(interaction, '🧹 **Textes réinitialisés !** Le panneau affichera les textes complets par défaut. Clique sur « ✅ Terminer » pour republier le panneau.');
+      return afficherMenu(interaction, "🧹 **Textes réinitialisés !** Le panneau n'affichera plus aucun texte tant que tu n'écris rien. Clique sur « ✅ Terminer » pour republier le panneau.");
     }
 
     if (valeur === '__done__') {
@@ -3302,6 +3256,7 @@ async function handleSelectMenu(interaction) {
     }
     const channelId = interaction.values[0];
     store.setGuild(guild.id, { panelChannelId: channelId, panelMode: 'menu', panelMessageId: null });
+    await differerMiseAJour(interaction); // ⏳ création d'infra + envoi du panneau = longs : accusé immédiat (jamais « le bot ne répond pas »)
     let cfg = store.getGuild(guild.id);
     // Catégorie / salon de logs manquants → créés automatiquement
     if (!cfg.categoryId || !cfg.logChannelId) {
@@ -3502,7 +3457,7 @@ async function handleModal(interaction) {
         titre: titre || null,
         description: description || null,
         selecteur: selecteur || null,
-        image: /^https?:\/\//.test(image) ? image : null,
+        image: estHttp(image) ? image : null,
       },
     });
     const config = store.getGuild(guild.id);

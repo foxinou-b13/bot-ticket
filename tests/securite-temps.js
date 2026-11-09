@@ -174,7 +174,7 @@ function guildLente() {
     store.setGuild(G, {
       bouton: {
         configure: false, categoryId: null, panelChannelId: 'P', logChannelId: 'L', staffRoleIds: [], panelMessageId: null,
-        panel: {}, items: [{ id: 'a', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: 'CAT', staffRoleIds: ['R1'] }],
+        panel: { titre: 'Support', description: 'Bienvenue chez nous.' }, items: [{ id: 'a', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: 'CAT', staffRoleIds: ['R1'] }],
       },
     });
     const evenements = [];

@@ -28,6 +28,7 @@ store.setGuild('g-test', {
   logChannelId: 'log-1',
   panelChannelId: 'pan-1',
   panelMode: 'menu',
+  panel: { titre: '**Bienvenue ici**', description: 'Choisis une catégorie ci-dessous.', selecteur: null, image: null },
   types: [{ id: 't1', nom: 'Problème', emoji: '🔴', description: null, categoryId: null, staffRoleIds: [] }],
 });
 
@@ -235,6 +236,7 @@ async function test(nom, fn) {
     };
     await h.handleSelectMenu(inter);
     if (!payload || payload.flags !== 32768) throw new Error('panneau non envoyé ou sans flag');
+    if (!JSON.stringify(payload.components).includes('Choisis une catégorie ci-dessous')) throw new Error('texte admin perdu dans le panneau publié');
     const carte = payload.components[0].toJSON();
     const last = carte.components[carte.components.length - 1];
     if (last.type !== 1 || last.components[0].type !== 3) throw new Error('sélecteur pas en bas de la carte : ' + JSON.stringify(last).slice(0, 120));
@@ -245,7 +247,7 @@ async function test(nom, fn) {
     let payload = null;
     const canal = { id: 'pan-sel2', permissionOverwrites: { edit: async () => {} }, messages: { fetch: async () => null }, send: async p => { payload = p; return { id: 'm-sel2' }; } };
     store.setGuild('g-test', { panelChannelId: 'pan-sel2', panelMessageId: null });
-    store.setGuild('g-test', { bouton: { ...store.getGuild('g-test').bouton, configure: true, items: [{ id: 'x', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }] } });
+    store.setGuild('g-test', { bouton: { ...store.getGuild('g-test').bouton, configure: true, items: [{ id: 'x', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }], panel: { titre: 'Support du serveur', description: 'Clique ci-dessous.', image: null } } });
     let maj = null;
     const inter = {
       customId: 'tkt:panel-choix', values: ['bouton'],

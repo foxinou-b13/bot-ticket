@@ -35,16 +35,25 @@ function test(nom, fn) {
 }
 
 console.log('── Panneaux ──');
-test('panneau MENU (components v2 : textes + séparateurs + image + menu)', () => {
+test("panneau MENU : rien d'écrit = rien d'affiché (le bot n'invente AUCUN texte)", () => {
   const p = h.construirePanneau(config, {}, 'Serveur Test');
   const j = JSON.stringify(p.components);
-  if (!j.includes('Informations importantes')) throw new Error('texte par défaut absent');
+  if (j.includes('Bienvenue sur le support')) throw new Error('texte par défaut encore généré');
+  if (j.includes('Informations importantes')) throw new Error('bloc fixe encore injecté');
+  if (j.includes('Merci de votre patience')) throw new Error('bloc fixe « patience » encore injecté');
+  if (j.includes('\u{1F451}')) throw new Error('titre auto-généré encore présent');
+  if ((j.match(/"type":10/g) || []).length !== 0) throw new Error('blocs de texte inventés sur panneau vide');
   if (!j.includes('tkt:type-ouvrir')) throw new Error('menu déroulant absent');
-  if ((j.match(/"type":14/g) || []).length < 2) throw new Error('séparateurs gris absents');
-  if ((j.match(/"type":10/g) || []).length < 3) throw new Error('blocs de texte absents');
-  if (j.includes('ℹ️')) throw new Error('emoji bleu présent (la référence utilise ⓘ monochrome)');
-  if (j.includes('__**Informations')) {} else throw new Error('souligné absent');
-  if (!j.includes('*Merci de votre patience')) throw new Error('italique absent');
+});
+test("panneau MENU : les textes écrits par l'admin passent TELS QUELS", () => {
+  const avant = config.panel;
+  config.panel = { titre: '**Mon titre perso**', description: "Ma description à moi, rien d'autre.", selecteur: null, image: null };
+  try {
+    const j = JSON.stringify(h.construirePanneau(config, {}, 'Serveur Test').components);
+    if (!j.includes('Mon titre perso')) throw new Error('titre admin perdu');
+    if (!j.includes('Ma description à moi')) throw new Error('description admin perdue');
+    if (j.includes('Bienvenue sur le support')) throw new Error('défaut réinjecté à côté du texte admin');
+  } finally { config.panel = avant; }
 });
 test('structure référence : carte conteneur (17) + sélecteur hors carte + séparateurs serrés', () => {
   const p = h.construirePanneau(config, {}, 'Serveur Test');
@@ -52,8 +61,13 @@ test('structure référence : carte conteneur (17) + sélecteur hors carte + sé
   if (j[0].type !== 17) throw new Error('pas de carte conteneur en premier : ' + j[0].type);
   if (j[0].accent_color) throw new Error('accent coloré sur la carte (la référence n’en a pas)');
   if (j.length !== 1) throw new Error('tout doit être DANS la carte (1 seul component) : ' + j.length);
-  const internes = j[0].components.map(c => c.type).join(',');
-  if (internes !== '10,10,14,10,14,10,12,1') throw new Error('contenu carte : ' + internes);
+  let internes = null;
+  const avantP = config.panel;
+  config.panel = { titre: 'T', description: 'D', selecteur: null, image: null };
+  try {
+    internes = h.construirePanneau(config, {}, 'Serveur Test').components.map(c => c.toJSON())[0].components.map(c => c.type).join(',');
+  } finally { config.panel = avantP; }
+  if (internes !== '10,10,14,12,1') throw new Error('contenu carte (2 blocs écrits + séparateur + bannière + sélecteur) : ' + internes);
   const seps = j[0].components.filter(c => c.type === 14);
   if (seps.some(sep => sep.spacing !== 1)) throw new Error('séparateurs pas serrés (Small)');
   const dern = j[0].components[j[0].components.length - 1];
@@ -147,7 +161,7 @@ test('panneau MENU porte le flag v2 (32768)', () => {
 });
 test('panneau BOUTON : embed autonome, sans bannière ni texte du menu', () => {
   const p = h.construirePanneau(
-    { ...config, panelMode: 'bouton', types: [], bouton: { ...(config.bouton || {}), configure: true, items: [{ id: 'x', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }] } },
+    { ...config, panelMode: 'bouton', types: [], bouton: { ...(config.bouton || {}), configure: true, panel: { titre: 'Support ici', description: 'Écris-nous en cliquant ci-dessous.' }, items: [{ id: 'x', label: 'Support', emoji: '🎫', couleur: 'vert', categoryId: null, staffRoleIds: [] }] } },
     {},
     'Serveur Test'
   );
@@ -158,6 +172,7 @@ test('panneau BOUTON : embed autonome, sans bannière ni texte du menu', () => {
   if (p.flags === 32768) throw new Error('le panneau bouton ne doit pas être une carte v2');
   const data = p.embeds[0].data || p.embeds[0];
   if (!data.title || !data.description) throw new Error('titre ou description manquant');
+  if (!JSON.stringify(data.title).includes('Support ici') || !JSON.stringify(data.description).includes('Écris-nous')) throw new Error('les textes écrits par l\'admin ne sont pas ceux affichés');
   const row = (p.components[0].toJSON ? p.components[0].toJSON() : p.components[0]);
   const bouton = (row.components || [])[0];
   if (!bouton || bouton.type !== 2) throw new Error('bouton absent');
