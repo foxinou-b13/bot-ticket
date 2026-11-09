@@ -176,7 +176,7 @@
       "panel": {
         "titre": "Recruitment Support",
         "description": "**Bienvenue dans le recrutement de Support Officiel Optimus !**\n\n> *Tu souhaites rejoindre notre équipe et participer au développement du serveur ? Tu es au bon endroit* !\n\n📋 ```Avant d'ouvrir ton ticket``` :\n\n• __**Être respectueux et motivé.**__\n• __**Être actif sur le serveur.**__\n• __**Avoir un bon comportement.**__\n• __**Être prêt à aider les membres.**__\n\n📩 __**Comment ça se passe**__?\n\n*Ouvre un ticket et présente-toi. Un membre du Staff viendra te répondre dès que possible.*\n\n⚠️ > Toute candidature troll ou irrespectueuse pourra être refusée.\n\n🍀 __**Bonne chance à tous les candidats**__ !",
-        "selecteur": null,
+        "selecteur": "Candidater ici...",
         "image": null
       },
       "types": [
