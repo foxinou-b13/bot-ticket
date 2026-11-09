@@ -1992,6 +1992,45 @@ function majItem(guildId, itemId, modifications) {
 // ─── Formulaires du système BOUTON (textes + bouton) ───
 async function routeurModalBouton(interaction) {
   const id = interaction.customId || '';
+  // ── Bibliothèque : résultats de la recherche ──
+  if (id.startsWith('tktb:emote-recherche-m:')) {
+    const itemId = id.split(':')[2];
+    const q = (interaction.fields.getTextInputValue('q') || '').trim();
+    const trouves = emojis.rechercher(q).slice(0, 25);
+    if (!trouves.length) {
+      await maj(interaction, await afficherBibliotheque(interaction, itemId, null,
+        `❌ Aucun emote pour « ${coupe(q, 30)} ». Essaie « pièce », « ticket », « or »…`));
+      return true;
+    }
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId(`tktb:emote-choix:${itemId}`)
+      .setPlaceholder(`🔎 ${trouves.length} résultat(s) pour « ${coupe(q, 40)} »`)
+      .setMinValues(1)
+      .setMaxValues(1);
+    for (const e of trouves) {
+      const o = new StringSelectMenuOptionBuilder()
+        .setLabel(nomLisibleEmote(e))
+        .setValue(e.cle)
+        .setDescription(`${e.genre === 'gif' ? '✨ Animée' : 'Statique'} · ${CATEGORIE_EMOTE[e.categorie] || e.categorie}`);
+      try { o.setEmoji(emojis.ej(guild, e.cle)); } catch { /* sans emoji */ }
+      menu.addOptions(o);
+    }
+    await maj(interaction, {
+      titre: '🔎 Résultats de la recherche',
+      texte: [
+        `**${trouves.length} emote(s)** pour « ${coupe(q, 40)} ».`,
+        'Choisis-en une : elle s\'affichera sur ton bouton.',
+      ].join('\n'),
+      composants: [
+        new ActionRowBuilder().addComponents(menu),
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`tktb:emote-biblio:${itemId}`).setLabel('Retour à la bibliothèque').setEmoji('⬅️').setStyle(ButtonStyle.Secondary)
+        ),
+      ],
+    });
+    return true;
+  }
+
   const estItem = id === 'tktb:item-new' || id.startsWith('tktb:item-texte:');
   const estPanneau = id === 'tktb:titre' || id === 'tktb:desc';
   if (id !== BT.textes && !estItem && !estPanneau) return false;
@@ -2292,7 +2331,8 @@ function carteEtapeItem(guild, b, itemId, etape, complement = '') {
     ].join('\n');
     composants.push(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`tktb:item-renommer:${itemId}`).setLabel('Renommer').setEmoji('✏️').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(`tktb:item-renommer:${itemId}`).setLabel('Renommer').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`tktb:emote-biblio:${itemId}`).setLabel('Choisir un emote').setEmoji('🎨').setStyle(ButtonStyle.Primary)
       )
     );
   }
@@ -2369,6 +2409,148 @@ async function afficherEtape(interaction, etape, complement = '') {
   const b = configBoutonDe(interaction.guild.id);
   await maj(interaction, carteEtapeBouton(interaction.guild, b, etape, complement));
   return true;
+}
+
+// ════════════════════════════════════════════════════════
+// BIBLIOTHÈQUE D'EMOTES (sélection d'un emote personnalisé)
+// ════════════════════════════════════════════════════════
+
+/** Noms lisibles des catégories de la bibliothèque. */
+const CATEGORIE_EMOTE = {
+  royal: '👑 Royal', staff: '🛡️ Staff', tickets: '🎫 Tickets', economie: '💰 Économie',
+  gaming: '🎮 Gaming', communaute: '💬 Communauté',
+  securite: '🔒 Sécurité', systeme: '⚙️ Système', premium: '💎 Premium',
+};
+
+/** Libellé court et lisible d'une emote (« oa_eco_piece » → « pièce · Économie »). */
+function nomLisibleEmote(e) {
+  // « oa_royal_couronne_laurier » → « couronne laurier » (le préfixe de
+  // catégorie est déjà affiché au-dessus : inutile de le répéter).
+  const court = e.cle
+    .replace(/^oa_(royal|staff|ticket|eco|game|comu|animal|secu|sys|prem|div)_?/, '')
+    .replace(/_/g, ' ');
+  // Les clés d'emoji sont sans accent (obligatoire sur Discord) : on remet
+  // les accents à l'affichage, sinon « piece » au lieu de « pièce ».
+  const ACCENTS = {
+    piece: 'pièce', medaille: 'médaille', cle: 'clé', epee: 'épée', trophee: 'trophée',
+    diademe: 'diadème', ecusson: 'écusson', deco: 'déco', ecran: 'écran', etoile: 'étoile',
+    resau: 'réseau', reseau: 'réseau', donnee: 'donnée', donnees: 'données', regle: 'règle',
+    verifie: 'vérifié', securite: 'sécurité', economie: 'économie', degat: 'dégât',
+  };
+  const avecAccents = court.split(' ').map(m => ACCENTS[m] || m).join(' ');
+  return coupe(avecAccents.charAt(0).toUpperCase() + avecAccents.slice(1), 88);
+}
+
+/** Construit réellement les composants de la bibliothèque. */
+function composantsBibliotheque(guild, b, itemId, categorie = null, page = 0) {
+  const lignes = [];
+
+  // 1) Catégories (toujours visible)
+  const menuCat = new StringSelectMenuBuilder()
+    .setCustomId(`tktb:emote-cat:${itemId}`)
+    .setPlaceholder('📂 Choisis une catégorie d\'emotes…')
+    .setMinValues(1)
+    .setMaxValues(1);
+  for (const cat of emojis.CATEGORIES) {
+    const premier = emojis.emotesDe(cat)[0];
+    const o = new StringSelectMenuOptionBuilder()
+      .setLabel((CATEGORIE_EMOTE[cat] || cat).replace(/^\S+\s/, ''))
+      .setValue(cat)
+      .setDescription(`${emojis.emotesDe(cat).length} emotes · dont ${emojis.emotesDe(cat).filter(e => e.genre === 'gif').length} animées`);
+    try { o.setEmoji(premier ? emojis.ej(guild, premier.cle) : '📦'); } catch { /* sans emoji */ }
+    menuCat.addOptions(o);
+  }
+  lignes.push(new ActionRowBuilder().addComponents(menuCat));
+
+  // 2) Emotes de la catégorie choisie (aperçu réel dans le menu)
+  if (categorie) {
+    const toutes = emojis.emotesDe(categorie);
+    const pages = Math.max(1, Math.ceil(toutes.length / 25));
+    const courante = Math.min(Math.max(0, page), pages - 1);
+    const liste = toutes.slice(courante * 25, courante * 25 + 25);
+    if (liste.length) {
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId(`tktb:emote-choix:${itemId}`)
+        .setPlaceholder(pages > 1
+          ? `🎨 Emotes ${courante * 25 + 1} à ${courante * 25 + liste.length} sur ${toutes.length}…`
+          : '🎨 Choisis l\'emote à mettre sur le bouton…')
+        .setMinValues(1)
+        .setMaxValues(1);
+      for (const e of liste) {
+        const o = new StringSelectMenuOptionBuilder()
+          .setLabel(nomLisibleEmote(e))
+          .setValue(e.cle)
+          .setDescription(e.genre === 'gif' ? '✨ Animée' : 'Statique');
+        try { o.setEmoji(emojis.ej(guild, e.cle)); } catch { /* sans emoji */ }
+        menu.addOptions(o);
+      }
+      lignes.push(new ActionRowBuilder().addComponents(menu));
+    }
+    if (pages > 1) {
+      const nav = [];
+      if (courante > 0) {
+        nav.push(new ButtonBuilder()
+          .setCustomId(`tktb:emote-page:${itemId}:${categorie}:${courante - 1}`)
+          .setLabel('Précédentes').setEmoji('◀️').setStyle(ButtonStyle.Secondary));
+      }
+      if (courante < pages - 1) {
+        nav.push(new ButtonBuilder()
+          .setCustomId(`tktb:emote-page:${itemId}:${categorie}:${courante + 1}`)
+          .setLabel(`Suivantes (${courante * 25 + 26}-${Math.min(toutes.length, courante * 25 + 50)})`)
+          .setEmoji('▶️').setStyle(ButtonStyle.Primary));
+      }
+      if (nav.length) lignes.push(new ActionRowBuilder().addComponents(nav));
+    }
+  }
+
+  // 3) Recherche + retour
+  lignes.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`tktb:emote-recherche:${itemId}`).setLabel('Rechercher').setEmoji('🔎').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`tktb:emote-espace:${itemId}`).setLabel('Enlever l\'emote').setEmoji('🚫').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(`tktb:btn:${itemId}:1`).setLabel('Retour').setEmoji('⬅️').setStyle(ButtonStyle.Secondary),
+  ));
+  return lignes;
+}
+
+/** Ouvre (ou rafraîchit) la bibliothèque. */
+async function afficherBibliotheque(interaction, itemId, categorie = null, complement = '', page = 0) {
+  const guild = interaction.guild;
+  const b = configBoutonDe(guild.id);
+  const item = itemDe(b, itemId);
+  if (!item) return afficherEtape(interaction, 5, '❌ Ce bouton n\'existe plus.');
+
+  const liste = categorie ? emojis.emotesDe(categorie) : [];
+  const entete = [
+    'Toutes ces emotes fonctionnent sur **tous les serveurs** où le bot est présent :',
+    'aucun import, aucun Nitro pour tes membres.',
+    '',
+    ligneValeur('🎫 Bouton', `${item.emoji ? item.emoji + ' ' : ''}${coupe(item.label || '', 40)}`, 'sans nom'),
+    ligneValeur('😀 Emote actuelle', item.emoji, 'aucune'),
+    '',
+  ];
+  if (categorie) {
+    const nb = emojis.emotesDe(categorie).filter(e => e.genre === 'gif').length;
+    const pages = Math.max(1, Math.ceil(liste.length / 25));
+    entete.push(`**${CATEGORIE_EMOTE[categorie] || categorie}** — ${liste.length} emotes, dont **${nb} animées**`);
+    if (pages > 1) entete.push(`Page **${page + 1}/${pages}** — boutons ◀️ / ▶️ pour voir les autres.`);
+    entete.push('Choisis-en une : elle s\'affichera directement sur ton bouton.');
+  } else {
+    entete.push('1️⃣ Choisis une **catégorie** dans le menu.');
+    entete.push('2️⃣ Ou clique sur **🔎 Rechercher** pour taper un nom.');
+  }
+
+  const etiquette = emojis.etat();
+  // 0 présent = la synchronisation n'a pas encore eu lieu au démarrage :
+  // on n'affiche pas « 0/330 » qui inquiéterait pour rien.
+  entete.push('', etiquette.presents > 0
+    ? `-# Bibliothèque : ${etiquette.presents}/${etiquette.total} emote(s) prêtes`
+    : `-# Bibliothèque : ${etiquette.total} emotes (aucun import à faire)`);
+
+  return {
+    titre: '🎨 Bibliothèque d\'emotes',
+    texte: (complement ? complement + '\n\n' : '') + entete.join('\n'),
+    composants: composantsBibliotheque(guild, b, itemId, categorie, page),
+  };
 }
 
 async function afficherEtapeItem(interaction, itemId, etape, complement = '') {
@@ -2479,6 +2661,39 @@ async function routeurAssistantBouton(interaction) {
   }
   const guild = interaction.guild;
   const b = configBoutonDe(guild.id);
+
+  // ── Bibliothèque d'emotes : ouverture ──
+  if (id.startsWith('tktb:emote-biblio:')) {
+    const itemId = id.split(':')[2];
+    await maj(interaction, await afficherBibliotheque(interaction, itemId));
+    return true;
+  }
+
+  // ── Bibliothèque : retirer l'emote du bouton ──
+  if (id.startsWith('tktb:emote-espace:')) {
+    const itemId = id.split(':')[2];
+    majItem(guild.id, itemId, { emoji: null });
+    await maj(interaction, carteEtapeItem(guild, configBoutonDe(guild.id), itemId, 1, '🚫 Emote retirée du bouton.'));
+    return true;
+  }
+
+  // ── Bibliothèque : fenêtre de recherche ──
+  if (id.startsWith('tktb:emote-recherche:')) {
+    const itemId = id.split(':')[2];
+    const modal = new ModalBuilder()
+      .setCustomId(`tktb:emote-recherche-m:${itemId}`)
+      .setTitle('🔎 Rechercher un emote');
+    modal.addComponents(new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('q')
+        .setLabel('Nom de l\'emote (ex. pièce, ticket, or)')
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(40)
+        .setRequired(true)
+    ));
+    await interaction.showModal(modal);
+    return true;
+  }
 
   // ── Navigation entre les étapes (boutons Suivant / Retour) ──
   if (id.startsWith('tktb:etape:')) {
@@ -2645,6 +2860,34 @@ async function routeurAssistantBouton(interaction) {
   }
 
   // ── Liste des boutons : ajouter / modifier ──
+  // ── Bibliothèque d'emotes : catégorie choisie ──
+  if (id.startsWith('tktb:emote-page:')) {
+    const [, , itemId, categorie, page] = id.split(':');
+    await maj(interaction, await afficherBibliotheque(interaction, itemId, categorie, '', parseInt(page, 10) || 0));
+    return true;
+  }
+
+  if (id.startsWith('tktb:emote-cat:')) {
+    const itemId = id.split(':')[2];
+    await maj(interaction, await afficherBibliotheque(interaction, itemId, interaction.values[0]));
+    return true;
+  }
+
+  // ── Bibliothèque d'emotes : emote choisie → elle va sur le bouton ──
+  if (id.startsWith('tktb:emote-choix:')) {
+    const itemId = id.split(':')[2];
+    const cle = interaction.values[0];
+    if (!emojis.existe(cle)) {
+      await maj(interaction, await afficherBibliotheque(interaction, itemId, null, '❌ Cette emote n\'existe pas.'));
+      return true;
+    }
+    majItem(guild.id, itemId, { emoji: emojis.ej(guild, cle) });
+    const animee = emojis.estAnimee(cle);
+    await maj(interaction, carteEtapeItem(guild, configBoutonDe(guild.id), itemId, 1,
+      `✅ Emote sélectionnée : ${emojis.ej(guild, cle)}${animee ? ' (animée)' : ''}`));
+    return true;
+  }
+
   if (id === 'tktb:items') {
     const valeur = interaction.values[0];
     if (valeur === '__back__') {

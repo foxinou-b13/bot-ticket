@@ -75,6 +75,14 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Bot connecté : ${readyClient.user.tag}`);
   console.log(`🌍 Présent sur ${readyClient.guilds.cache.size} serveur(s).`);
+
+  // ─── Bibliothèque d'emotes : emojis d'application (globaux) ───
+  // Créées une seule fois pour toute l'application : elles fonctionnent dans
+  // tous les serveurs, sans import et sans Nitro. Reprise automatique si
+  // Discord limite la cadence (429).
+  emojis.synchroniserApplication(readyClient).then(r => {
+    if (r && r.erreur) console.log(`🎨 Emotes : ${r.erreur}`);
+  }).catch(e => console.log('🎨 Emotes : erreur de synchronisation —', e.message));
   // ─── Statut du bot : UNIQUEMENT l'activité « Regarde » ───
   // (un bot ne peut afficher qu'une seule activité ; le statut personnalisé
   //  « bulle » a été retiré volontairement — c'est le « Regarde » qui est gardé)
@@ -119,19 +127,8 @@ client.once(Events.ClientReady, async readyClient => {
     }
   }
 
-  // ─── Emojis manquants : nouvel essai toutes les 10 min (Discord limite la création) ───
-  setInterval(async () => {
-    for (const guild of readyClient.guilds.cache.values()) {
-      try {
-        const e = emojis.etat(guild);
-        if (e.manquants.length === 0) continue;
-        const r = await emojis.installer(guild, { silencieux: true });
-        if (r.crees) console.log(`😀 ${guild.name} : ${r.crees} emoji(s) créé(s) — ${emojis.etat(guild).presents}/${emojis.NOMS.length}`);
-      } catch (erreur) {
-        console.error('Emojis (nouvel essai) :', erreur.message);
-      }
-    }
-  }, 10 * 60 * 1000);
+  // (réessai par serveur supprimé : les emotes sont des emojis d'application,
+  //  synchronisés globalement — voir emojis.synchroniserApplication)
 
   // ─── Vérification automatique au démarrage ───
   // Uniquement sur les serveurs où les tickets sont DÉJÀ configurés : le bot
@@ -218,34 +215,23 @@ client.on(Events.GuildEmojiDelete, guild => {
 // Filet de sécurité : le serveur peut aussi gagner des places autrement
 // (boost, suppression groupée) → on revérifie régulièrement.
 client.once(Events.ClientReady, readyClient => {
+  // Les emotes sont désormais des emojis d'application (globaux) : plus besoin
+  // de les copier dans chaque serveur. On ne relance donc plus la boucle
+  // d'installation par serveur (elle consommait les 50 emplacements du serveur).
   setInterval(() => {
-    for (const guild of readyClient.guilds.cache.values()) {
-      if (emojis.etat(guild).manquants.length) completerEmojis(guild, 0, true);
+    if (readyClient.application && emojis.etat().manquants.length) {
+      emojis.synchroniserApplication(readyClient).catch(() => {});
     }
-  }, 15 * 60 * 1000);
+  }, 30 * 60 * 1000);
 });
 
 // ─── Complète les emojis manquants d'un serveur (dès qu'une place est libre) ───
 const enCours = new Set();
 function completerEmojis(guild, delai = 0, silencieux = false) {
-  if (!guild || enCours.has(guild.id)) return;
-  enCours.add(guild.id);
-  setTimeout(async () => {
-    try {
-      const avant = emojis.etat(guild);
-      if (!avant.manquants.length) return;
-      const r = await emojis.installer(guild, { silencieux: true });
-      const apres = emojis.etat(guild);
-      if (r.crees) {
-        console.log(`😀 ${guild.name} : ${r.crees} emoji(s) ajouté(s) → ${apres.presents}/${apres.total}`);
-      } else if (!silencieux) {
-        console.log(`😀 ${guild.name} : ${apres.presents}/${apres.total} (${r.erreur || 'rien à faire'})`);
-      }
-    } catch (erreur) {
-      console.error(`Emojis (${guild.name}) :`, erreur.message);
-    } finally {
-      enCours.delete(guild.id);
-    }
+  // Compatibilité : la bibliothèque est globale (emojis d'application).
+  if (!client.application) return;
+  setTimeout(() => {
+    emojis.synchroniserApplication(client, { silencieux }).catch(() => {});
   }, delai);
 }
 

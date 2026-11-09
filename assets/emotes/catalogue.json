@@ -1,0 +1,2716 @@
+{
+ "version": "v2026-11-03-emotes-v7-270",
+ "categories": [
+  "royal",
+  "staff",
+  "tickets",
+  "economie",
+  "gaming",
+  "communaute",
+  "securite",
+  "systeme",
+  "premium"
+ ],
+ "emotes": [
+  {
+   "cle": "oa_royal_couronne",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "👑",
+   "fichier": "oa_royal_couronne.png",
+   "animation": null,
+   "forme": "couronne",
+   "octets": 19940
+  },
+  {
+   "cle": "oa_royal_couronne_argent",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "👑",
+   "fichier": "oa_royal_couronne_argent.png",
+   "animation": null,
+   "forme": "couronne",
+   "octets": 19485
+  },
+  {
+   "cle": "oa_royal_couronne_bronze",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "👑",
+   "fichier": "oa_royal_couronne_bronze.png",
+   "animation": null,
+   "forme": "couronne",
+   "octets": 19119
+  },
+  {
+   "cle": "oa_royal_couronne_noire",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "👑",
+   "fichier": "oa_royal_couronne_noire.png",
+   "animation": null,
+   "forme": "couronne",
+   "octets": 18832
+  },
+  {
+   "cle": "oa_royal_couronne_ronde",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "👑",
+   "fichier": "oa_royal_couronne_ronde.png",
+   "animation": null,
+   "forme": "couronne_ronde",
+   "octets": 15450
+  },
+  {
+   "cle": "oa_royal_diademe",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "👸",
+   "fichier": "oa_royal_diademe.png",
+   "animation": null,
+   "forme": "diademe",
+   "octets": 14574
+  },
+  {
+   "cle": "oa_royal_laurier",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🏆",
+   "fichier": "oa_royal_laurier.gif",
+   "animation": "reflet",
+   "forme": "couronne_laurier",
+   "octets": 85564
+  },
+  {
+   "cle": "oa_royal_trone",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🪑",
+   "fichier": "oa_royal_trone.png",
+   "animation": null,
+   "forme": "trone",
+   "octets": 11624
+  },
+  {
+   "cle": "oa_royal_trone_rouge",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🪑",
+   "fichier": "oa_royal_trone_rouge.png",
+   "animation": null,
+   "forme": "trone",
+   "octets": 11346
+  },
+  {
+   "cle": "oa_royal_sceptre",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🪄",
+   "fichier": "oa_royal_sceptre.png",
+   "animation": null,
+   "forme": "sceptre",
+   "octets": 14393
+  },
+  {
+   "cle": "oa_royal_calice",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🏆",
+   "fichier": "oa_royal_calice.png",
+   "animation": null,
+   "forme": "calice",
+   "octets": 15480
+  },
+  {
+   "cle": "oa_royal_calice_argent",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🏆",
+   "fichier": "oa_royal_calice_argent.png",
+   "animation": null,
+   "forme": "calice",
+   "octets": 14529
+  },
+  {
+   "cle": "oa_royal_medaille_or",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🏅",
+   "fichier": "oa_royal_medaille_or.gif",
+   "animation": "reflet",
+   "forme": "medaille",
+   "octets": 78316
+  },
+  {
+   "cle": "oa_royal_medaille_argent",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🥈",
+   "fichier": "oa_royal_medaille_argent.gif",
+   "animation": "reflet",
+   "forme": "medaille",
+   "octets": 88387
+  },
+  {
+   "cle": "oa_royal_medaille_bronze",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🥉",
+   "fichier": "oa_royal_medaille_bronze.gif",
+   "animation": "reflet",
+   "forme": "medaille",
+   "octets": 78391
+  },
+  {
+   "cle": "oa_royal_trophee",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🏆",
+   "fichier": "oa_royal_trophee.gif",
+   "animation": "reflet",
+   "forme": "trophée",
+   "octets": 76625
+  },
+  {
+   "cle": "oa_royal_coupe",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🏆",
+   "fichier": "oa_royal_coupe.gif",
+   "animation": "reflet",
+   "forme": "coupe_premium",
+   "octets": 71077
+  },
+  {
+   "cle": "oa_royal_etoile_badge",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "⭐",
+   "fichier": "oa_royal_etoile_badge.gif",
+   "animation": "sparkle",
+   "forme": "etoile_badge",
+   "octets": 62684
+  },
+  {
+   "cle": "oa_royal_blason",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_royal_blason.png",
+   "animation": null,
+   "forme": "bouclier_rond",
+   "octets": 15040
+  },
+  {
+   "cle": "oa_royal_ecusson",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_royal_ecusson.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 15468
+  },
+  {
+   "cle": "oa_royal_ecu_rouge",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_royal_ecu_rouge.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 15251
+  },
+  {
+   "cle": "oa_royal_ecu_bleu",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_royal_ecu_bleu.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 15374
+  },
+  {
+   "cle": "oa_royal_niveau",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🏵️",
+   "fichier": "oa_royal_niveau.gif",
+   "animation": "montee",
+   "forme": "niveau",
+   "octets": 58958
+  },
+  {
+   "cle": "oa_royal_fanion",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "🚩",
+   "fichier": "oa_royal_fanion.png",
+   "animation": null,
+   "forme": "fanion",
+   "octets": 14154
+  },
+  {
+   "cle": "oa_royal_jeton",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🪙",
+   "fichier": "oa_royal_jeton.gif",
+   "animation": "spin",
+   "forme": "jeton",
+   "octets": 79630
+  },
+  {
+   "cle": "oa_royal_diplome",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "📜",
+   "fichier": "oa_royal_diplome.png",
+   "animation": null,
+   "forme": "parchemin",
+   "octets": 10086
+  },
+  {
+   "cle": "oa_royal_certificat",
+   "categorie": "royal",
+   "genre": "png",
+   "secours": "📄",
+   "fichier": "oa_royal_certificat.png",
+   "animation": null,
+   "forme": "document",
+   "octets": 6326
+  },
+  {
+   "cle": "oa_royal_diamant",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "💎",
+   "fichier": "oa_royal_diamant.gif",
+   "animation": "sparkle",
+   "forme": "diamant_brillant",
+   "octets": 75405
+  },
+  {
+   "cle": "oa_royal_diamant_bleu",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "💎",
+   "fichier": "oa_royal_diamant_bleu.gif",
+   "animation": "sparkle",
+   "forme": "diamant_brillant",
+   "octets": 67990
+  },
+  {
+   "cle": "oa_royal_cle_acces",
+   "categorie": "royal",
+   "genre": "gif",
+   "secours": "🗝️",
+   "fichier": "oa_royal_cle_acces.gif",
+   "animation": "rotation_douce",
+   "forme": "cle",
+   "octets": 64358
+  },
+  {
+   "cle": "oa_staff_bouclier",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_staff_bouclier.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 14126
+  },
+  {
+   "cle": "oa_staff_bouclier_vert",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_staff_bouclier_vert.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 14191
+  },
+  {
+   "cle": "oa_staff_badge",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🎖️",
+   "fichier": "oa_staff_badge.png",
+   "animation": null,
+   "forme": "bouclier_rond",
+   "octets": 15642
+  },
+  {
+   "cle": "oa_staff_badge_bronze",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🎖️",
+   "fichier": "oa_staff_badge_bronze.png",
+   "animation": null,
+   "forme": "bouclier_rond",
+   "octets": 15040
+  },
+  {
+   "cle": "oa_staff_cle",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "🔑",
+   "fichier": "oa_staff_cle.gif",
+   "animation": "rotation_douce",
+   "forme": "cle",
+   "octets": 64358
+  },
+  {
+   "cle": "oa_staff_cadenas",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🔒",
+   "fichier": "oa_staff_cadenas.png",
+   "animation": null,
+   "forme": "cadenas",
+   "octets": 13601
+  },
+  {
+   "cle": "oa_staff_surveillance",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "📡",
+   "fichier": "oa_staff_surveillance.gif",
+   "animation": "radar",
+   "forme": "radar",
+   "octets": 96908
+  },
+  {
+   "cle": "oa_staff_sifflet",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "🔔",
+   "fichier": "oa_staff_sifflet.gif",
+   "animation": "balancement",
+   "forme": "cloche",
+   "octets": 69212
+  },
+  {
+   "cle": "oa_staff_pointeur",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "🔍",
+   "fichier": "oa_staff_pointeur.gif",
+   "animation": "recherche",
+   "forme": "loupe",
+   "octets": 62573
+  },
+  {
+   "cle": "oa_staff_soutien",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "🤝",
+   "fichier": "oa_staff_soutien.gif",
+   "animation": "battement",
+   "forme": "coeur",
+   "octets": 72753
+  },
+  {
+   "cle": "oa_staff_valide",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "✅",
+   "fichier": "oa_staff_valide.png",
+   "animation": null,
+   "forme": "cercle_check",
+   "octets": 21525
+  },
+  {
+   "cle": "oa_staff_refuse",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "❌",
+   "fichier": "oa_staff_refuse.png",
+   "animation": null,
+   "forme": "cercle_croix",
+   "octets": 22401
+  },
+  {
+   "cle": "oa_staff_attention",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "⚠️",
+   "fichier": "oa_staff_attention.gif",
+   "animation": "secousse",
+   "forme": "triangle_attention",
+   "octets": 65252
+  },
+  {
+   "cle": "oa_staff_equipe",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "👥",
+   "fichier": "oa_staff_equipe.png",
+   "animation": null,
+   "forme": "groupe",
+   "octets": 14471
+  },
+  {
+   "cle": "oa_staff_equipe_or",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "👥",
+   "fichier": "oa_staff_equipe_or.png",
+   "animation": null,
+   "forme": "groupe",
+   "octets": 14471
+  },
+  {
+   "cle": "oa_staff_grade",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "🎖️",
+   "fichier": "oa_staff_grade.gif",
+   "animation": "montee",
+   "forme": "niveau",
+   "octets": 58958
+  },
+  {
+   "cle": "oa_staff_rapport",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "📄",
+   "fichier": "oa_staff_rapport.png",
+   "animation": null,
+   "forme": "document",
+   "octets": 6326
+  },
+  {
+   "cle": "oa_staff_etoile",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "⭐",
+   "fichier": "oa_staff_etoile.gif",
+   "animation": "sparkle",
+   "forme": "etoile",
+   "octets": 60480
+  },
+  {
+   "cle": "oa_staff_megaphone",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "📢",
+   "fichier": "oa_staff_megaphone.gif",
+   "animation": "pulse",
+   "forme": "megaphone",
+   "octets": 66843
+  },
+  {
+   "cle": "oa_staff_annonces",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "#️⃣",
+   "fichier": "oa_staff_annonces.png",
+   "animation": null,
+   "forme": "hashtag",
+   "octets": 16395
+  },
+  {
+   "cle": "oa_staff_planning",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🗓️",
+   "fichier": "oa_staff_planning.png",
+   "animation": null,
+   "forme": "calendrier",
+   "octets": 15255
+  },
+  {
+   "cle": "oa_staff_checklist",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "☑️",
+   "fichier": "oa_staff_checklist.png",
+   "animation": null,
+   "forme": "formulaire",
+   "octets": 11505
+  },
+  {
+   "cle": "oa_staff_corbeille",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🗑️",
+   "fichier": "oa_staff_corbeille.png",
+   "animation": null,
+   "forme": "corbeille",
+   "octets": 12264
+  },
+  {
+   "cle": "oa_staff_signet",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🔖",
+   "fichier": "oa_staff_signet.png",
+   "animation": null,
+   "forme": "signet",
+   "octets": 9563
+  },
+  {
+   "cle": "oa_staff_sanction",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🔨",
+   "fichier": "oa_staff_sanction.png",
+   "animation": null,
+   "forme": "marteau",
+   "octets": 17311
+  },
+  {
+   "cle": "oa_staff_reglement",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "📜",
+   "fichier": "oa_staff_reglement.png",
+   "animation": null,
+   "forme": "parchemin",
+   "octets": 10003
+  },
+  {
+   "cle": "oa_staff_horloge",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "⏰",
+   "fichier": "oa_staff_horloge.gif",
+   "animation": "tic",
+   "forme": "horloge",
+   "octets": 35727
+  },
+  {
+   "cle": "oa_staff_alerte",
+   "categorie": "staff",
+   "genre": "gif",
+   "secours": "🚨",
+   "fichier": "oa_staff_alerte.gif",
+   "animation": "faisceau",
+   "forme": "gyrophare",
+   "octets": 52444
+  },
+  {
+   "cle": "oa_staff_vocal",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "🎧",
+   "fichier": "oa_staff_vocal.png",
+   "animation": null,
+   "forme": "casque_vocal",
+   "octets": 17144
+  },
+  {
+   "cle": "oa_staff_sondage",
+   "categorie": "staff",
+   "genre": "png",
+   "secours": "📊",
+   "fichier": "oa_staff_sondage.png",
+   "animation": null,
+   "forme": "sondage",
+   "octets": 10000
+  },
+  {
+   "cle": "oa_ticket_ouvert",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🎫",
+   "fichier": "oa_ticket_ouvert.png",
+   "animation": null,
+   "forme": "billet_ticket",
+   "octets": 8694
+  },
+  {
+   "cle": "oa_ticket_vide",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🎫",
+   "fichier": "oa_ticket_vide.png",
+   "animation": null,
+   "forme": "billet_ticket",
+   "octets": 8678
+  },
+  {
+   "cle": "oa_ticket_pris_en_charge",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🎧",
+   "fichier": "oa_ticket_pris_en_charge.png",
+   "animation": null,
+   "forme": "casque_vocal",
+   "octets": 17395
+  },
+  {
+   "cle": "oa_ticket_valide",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "✅",
+   "fichier": "oa_ticket_valide.png",
+   "animation": null,
+   "forme": "ticket_coche",
+   "octets": 8699
+  },
+  {
+   "cle": "oa_ticket_ferme",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🔒",
+   "fichier": "oa_ticket_ferme.png",
+   "animation": null,
+   "forme": "cadenas",
+   "octets": 12639
+  },
+  {
+   "cle": "oa_ticket_en_attente",
+   "categorie": "tickets",
+   "genre": "gif",
+   "secours": "⏳",
+   "fichier": "oa_ticket_en_attente.gif",
+   "animation": "sable",
+   "forme": "sablier",
+   "octets": 51731
+  },
+  {
+   "cle": "oa_ticket_urgent",
+   "categorie": "tickets",
+   "genre": "gif",
+   "secours": "🚩",
+   "fichier": "oa_ticket_urgent.gif",
+   "animation": "secousse",
+   "forme": "marque_page",
+   "octets": 60604
+  },
+  {
+   "cle": "oa_ticket_archive",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🗄️",
+   "fichier": "oa_ticket_archive.png",
+   "animation": null,
+   "forme": "boite_archive",
+   "octets": 6171
+  },
+  {
+   "cle": "oa_ticket_dossier",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "📁",
+   "fichier": "oa_ticket_dossier.png",
+   "animation": null,
+   "forme": "dossier",
+   "octets": 7954
+  },
+  {
+   "cle": "oa_ticket_message",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "💬",
+   "fichier": "oa_ticket_message.png",
+   "animation": null,
+   "forme": "bulle",
+   "octets": 18020
+  },
+  {
+   "cle": "oa_ticket_reponse",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "↩️",
+   "fichier": "oa_ticket_reponse.png",
+   "animation": null,
+   "forme": "fleche_droite",
+   "octets": 10373
+  },
+  {
+   "cle": "oa_ticket_mail",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "📨",
+   "fichier": "oa_ticket_mail.png",
+   "animation": null,
+   "forme": "enveloppe",
+   "octets": 6612
+  },
+  {
+   "cle": "oa_ticket_note",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "📝",
+   "fichier": "oa_ticket_note.png",
+   "animation": null,
+   "forme": "document",
+   "octets": 6642
+  },
+  {
+   "cle": "oa_ticket_rapport",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "📄",
+   "fichier": "oa_ticket_rapport.png",
+   "animation": null,
+   "forme": "fichier",
+   "octets": 6231
+  },
+  {
+   "cle": "oa_ticket_recherche",
+   "categorie": "tickets",
+   "genre": "gif",
+   "secours": "🔎",
+   "fichier": "oa_ticket_recherche.gif",
+   "animation": "recherche",
+   "forme": "loupe",
+   "octets": 69217
+  },
+  {
+   "cle": "oa_ticket_chrono",
+   "categorie": "tickets",
+   "genre": "gif",
+   "secours": "⏱️",
+   "fichier": "oa_ticket_chrono.gif",
+   "animation": "sable",
+   "forme": "sablier",
+   "octets": 57022
+  },
+  {
+   "cle": "oa_ticket_priorite",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🔺",
+   "fichier": "oa_ticket_priorite.png",
+   "animation": null,
+   "forme": "niveau",
+   "octets": 13965
+  },
+  {
+   "cle": "oa_ticket_retour",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🔄",
+   "fichier": "oa_ticket_retour.png",
+   "animation": null,
+   "forme": "fleche_bas",
+   "octets": 10608
+  },
+  {
+   "cle": "oa_ticket_escalade",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "⬆️",
+   "fichier": "oa_ticket_escalade.png",
+   "animation": null,
+   "forme": "fleche_haut",
+   "octets": 10786
+  },
+  {
+   "cle": "oa_ticket_calendrier",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "📅",
+   "fichier": "oa_ticket_calendrier.png",
+   "animation": null,
+   "forme": "calendrier",
+   "octets": 15247
+  },
+  {
+   "cle": "oa_ticket_corbeille",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🗑️",
+   "fichier": "oa_ticket_corbeille.png",
+   "animation": null,
+   "forme": "corbeille",
+   "octets": 12264
+  },
+  {
+   "cle": "oa_ticket_signet",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🔖",
+   "fichier": "oa_ticket_signet.png",
+   "animation": null,
+   "forme": "signet",
+   "octets": 9373
+  },
+  {
+   "cle": "oa_ticket_formulaire",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "📋",
+   "fichier": "oa_ticket_formulaire.png",
+   "animation": null,
+   "forme": "formulaire",
+   "octets": 11691
+  },
+  {
+   "cle": "oa_ticket_horloge",
+   "categorie": "tickets",
+   "genre": "gif",
+   "secours": "🕐",
+   "fichier": "oa_ticket_horloge.gif",
+   "animation": "tic",
+   "forme": "horloge",
+   "octets": 35727
+  },
+  {
+   "cle": "oa_ticket_client",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "👤",
+   "fichier": "oa_ticket_client.png",
+   "animation": null,
+   "forme": "personne",
+   "octets": 12159
+  },
+  {
+   "cle": "oa_ticket_rappel",
+   "categorie": "tickets",
+   "genre": "gif",
+   "secours": "🔔",
+   "fichier": "oa_ticket_rappel.gif",
+   "animation": "balancement",
+   "forme": "cloche",
+   "octets": 67137
+  },
+  {
+   "cle": "oa_ticket_lu",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "✅",
+   "fichier": "oa_ticket_lu.png",
+   "animation": null,
+   "forme": "cercle_check",
+   "octets": 21774
+  },
+  {
+   "cle": "oa_ticket_fil",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🧵",
+   "fichier": "oa_ticket_fil.png",
+   "animation": null,
+   "forme": "fil",
+   "octets": 19244
+  },
+  {
+   "cle": "oa_ticket_transfert",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🔀",
+   "fichier": "oa_ticket_transfert.png",
+   "animation": null,
+   "forme": "double_fleche",
+   "octets": 12041
+  },
+  {
+   "cle": "oa_ticket_etiquette",
+   "categorie": "tickets",
+   "genre": "png",
+   "secours": "🏷️",
+   "fichier": "oa_ticket_etiquette.png",
+   "animation": null,
+   "forme": "tag",
+   "octets": 8243
+  },
+  {
+   "cle": "oa_eco_piece",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🪙",
+   "fichier": "oa_eco_piece.gif",
+   "animation": "spin",
+   "forme": "piece",
+   "octets": 71153
+  },
+  {
+   "cle": "oa_eco_piece_argent",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🪙",
+   "fichier": "oa_eco_piece_argent.gif",
+   "animation": "spin",
+   "forme": "piece",
+   "octets": 80052
+  },
+  {
+   "cle": "oa_eco_dollar",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "💲",
+   "fichier": "oa_eco_dollar.gif",
+   "animation": "spin",
+   "forme": "piece",
+   "octets": 72421
+  },
+  {
+   "cle": "oa_eco_billets",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "💵",
+   "fichier": "oa_eco_billets.png",
+   "animation": null,
+   "forme": "billets",
+   "octets": 6340
+  },
+  {
+   "cle": "oa_eco_billet_grand",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "💵",
+   "fichier": "oa_eco_billet_grand.png",
+   "animation": null,
+   "forme": "billets",
+   "octets": 6284
+  },
+  {
+   "cle": "oa_eco_sac",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "💰",
+   "fichier": "oa_eco_sac.png",
+   "animation": null,
+   "forme": "sac_argent",
+   "octets": 18239
+  },
+  {
+   "cle": "oa_eco_lingot",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🧱",
+   "fichier": "oa_eco_lingot.gif",
+   "animation": "glow",
+   "forme": "lingot_or",
+   "octets": 53421
+  },
+  {
+   "cle": "oa_eco_carte",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "💳",
+   "fichier": "oa_eco_carte.png",
+   "animation": null,
+   "forme": "carte_bancaire",
+   "octets": 7899
+  },
+  {
+   "cle": "oa_eco_portefeuille",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "👛",
+   "fichier": "oa_eco_portefeuille.png",
+   "animation": null,
+   "forme": "porte_monnaie",
+   "octets": 9801
+  },
+  {
+   "cle": "oa_eco_tirelire",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🐷",
+   "fichier": "oa_eco_tirelire.gif",
+   "animation": "bounce",
+   "forme": "tirelire",
+   "octets": 72145
+  },
+  {
+   "cle": "oa_eco_banque",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🏦",
+   "fichier": "oa_eco_banque.png",
+   "animation": null,
+   "forme": "terminal",
+   "octets": 15242
+  },
+  {
+   "cle": "oa_eco_boutique",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🛒",
+   "fichier": "oa_eco_boutique.png",
+   "animation": null,
+   "forme": "panier",
+   "octets": 18264
+  },
+  {
+   "cle": "oa_eco_prix",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🏷️",
+   "fichier": "oa_eco_prix.png",
+   "animation": null,
+   "forme": "etiquette_prix",
+   "octets": 12102
+  },
+  {
+   "cle": "oa_eco_prix_barre",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🏷️",
+   "fichier": "oa_eco_prix_barre.png",
+   "animation": null,
+   "forme": "etiquette_prix",
+   "octets": 11846
+  },
+  {
+   "cle": "oa_eco_reduction",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "%",
+   "fichier": "oa_eco_reduction.png",
+   "animation": null,
+   "forme": "pourcentage",
+   "octets": 23720
+  },
+  {
+   "cle": "oa_eco_hausse",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "📈",
+   "fichier": "oa_eco_hausse.gif",
+   "animation": "montee",
+   "forme": "graphique_hausse",
+   "octets": 45904
+  },
+  {
+   "cle": "oa_eco_baisse",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "📉",
+   "fichier": "oa_eco_baisse.png",
+   "animation": null,
+   "forme": "graphique_baisse",
+   "octets": 16724
+  },
+  {
+   "cle": "oa_eco_balance",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "⚖️",
+   "fichier": "oa_eco_balance.png",
+   "animation": null,
+   "forme": "balance",
+   "octets": 15201
+  },
+  {
+   "cle": "oa_eco_jeton",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🪙",
+   "fichier": "oa_eco_jeton.gif",
+   "animation": "spin",
+   "forme": "jeton",
+   "octets": 79630
+  },
+  {
+   "cle": "oa_eco_diamant",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "💎",
+   "fichier": "oa_eco_diamant.gif",
+   "animation": "sparkle",
+   "forme": "diamant_argent",
+   "octets": 66673
+  },
+  {
+   "cle": "oa_eco_coupon",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🎟️",
+   "fichier": "oa_eco_coupon.png",
+   "animation": null,
+   "forme": "ticket_coche",
+   "octets": 8584
+  },
+  {
+   "cle": "oa_eco_bon_achat",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🎫",
+   "fichier": "oa_eco_bon_achat.png",
+   "animation": null,
+   "forme": "ticket_coche",
+   "octets": 8759
+  },
+  {
+   "cle": "oa_eco_cadeau",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🎁",
+   "fichier": "oa_eco_cadeau.gif",
+   "animation": "bounce",
+   "forme": "cadeau",
+   "octets": 74295
+  },
+  {
+   "cle": "oa_eco_don",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🎁",
+   "fichier": "oa_eco_don.gif",
+   "animation": "battement",
+   "forme": "cadeau",
+   "octets": 77705
+  },
+  {
+   "cle": "oa_eco_vip",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "🌟",
+   "fichier": "oa_eco_vip.gif",
+   "animation": "sparkle",
+   "forme": "etoile_badge",
+   "octets": 62684
+  },
+  {
+   "cle": "oa_eco_abonnement",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🔁",
+   "fichier": "oa_eco_abonnement.png",
+   "animation": null,
+   "forme": "carte_bancaire",
+   "octets": 7869
+  },
+  {
+   "cle": "oa_eco_salaire",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "💸",
+   "fichier": "oa_eco_salaire.png",
+   "animation": null,
+   "forme": "billets",
+   "octets": 6320
+  },
+  {
+   "cle": "oa_eco_depense",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "📉",
+   "fichier": "oa_eco_depense.png",
+   "animation": null,
+   "forme": "fleche_bas",
+   "octets": 10093
+  },
+  {
+   "cle": "oa_eco_gain",
+   "categorie": "economie",
+   "genre": "gif",
+   "secours": "📈",
+   "fichier": "oa_eco_gain.gif",
+   "animation": "montee",
+   "forme": "fleche_haut",
+   "octets": 52558
+  },
+  {
+   "cle": "oa_eco_remboursement",
+   "categorie": "economie",
+   "genre": "png",
+   "secours": "🔄",
+   "fichier": "oa_eco_remboursement.png",
+   "animation": null,
+   "forme": "double_fleche",
+   "octets": 11850
+  },
+  {
+   "cle": "oa_game_manette",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🎮",
+   "fichier": "oa_game_manette.png",
+   "animation": null,
+   "forme": "manette_v2",
+   "octets": 14803
+  },
+  {
+   "cle": "oa_game_manette_rose",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🎮",
+   "fichier": "oa_game_manette_rose.png",
+   "animation": null,
+   "forme": "manette_v2",
+   "octets": 14821
+  },
+  {
+   "cle": "oa_game_console",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🎮",
+   "fichier": "oa_game_console.png",
+   "animation": null,
+   "forme": "console_portable",
+   "octets": 15650
+  },
+  {
+   "cle": "oa_game_epee",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "⚔️",
+   "fichier": "oa_game_epee.png",
+   "animation": null,
+   "forme": "epee_v2",
+   "octets": 11379
+  },
+  {
+   "cle": "oa_game_epee_or",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🗡️",
+   "fichier": "oa_game_epee_or.png",
+   "animation": null,
+   "forme": "epee_v2",
+   "octets": 11297
+  },
+  {
+   "cle": "oa_game_bouclier",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_game_bouclier.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 13682
+  },
+  {
+   "cle": "oa_game_joystick",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🕹️",
+   "fichier": "oa_game_joystick.png",
+   "animation": null,
+   "forme": "joystick_v2",
+   "octets": 14377
+  },
+  {
+   "cle": "oa_game_borne",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "👾",
+   "fichier": "oa_game_borne.png",
+   "animation": null,
+   "forme": "borne_arcade",
+   "octets": 16129
+  },
+  {
+   "cle": "oa_game_de",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🎲",
+   "fichier": "oa_game_de.png",
+   "animation": null,
+   "forme": "de",
+   "octets": 10630
+  },
+  {
+   "cle": "oa_game_de_or",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🎲",
+   "fichier": "oa_game_de_or.png",
+   "animation": null,
+   "forme": "de",
+   "octets": 10574
+  },
+  {
+   "cle": "oa_game_puzzle",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🧩",
+   "fichier": "oa_game_puzzle.png",
+   "animation": null,
+   "forme": "puzzle",
+   "octets": 11991
+  },
+  {
+   "cle": "oa_game_trophee",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "🏆",
+   "fichier": "oa_game_trophee.gif",
+   "animation": "reflet",
+   "forme": "trophée",
+   "octets": 76625
+  },
+  {
+   "cle": "oa_game_coupe",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "🏆",
+   "fichier": "oa_game_coupe.gif",
+   "animation": "reflet",
+   "forme": "coupe_premium",
+   "octets": 71077
+  },
+  {
+   "cle": "oa_game_medaille",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "🥈",
+   "fichier": "oa_game_medaille.gif",
+   "animation": "reflet",
+   "forme": "medaille",
+   "octets": 88387
+  },
+  {
+   "cle": "oa_game_badge_top",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🏵️",
+   "fichier": "oa_game_badge_top.png",
+   "animation": null,
+   "forme": "bouclier_rond",
+   "octets": 15451
+  },
+  {
+   "cle": "oa_game_bombe",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "💣",
+   "fichier": "oa_game_bombe.gif",
+   "animation": "secousse",
+   "forme": "bombe",
+   "octets": 78278
+  },
+  {
+   "cle": "oa_game_boost",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "🚀",
+   "fichier": "oa_game_boost.gif",
+   "animation": "decollage",
+   "forme": "fusee_v2",
+   "octets": 55536
+  },
+  {
+   "cle": "oa_game_niveau",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "📈",
+   "fichier": "oa_game_niveau.gif",
+   "animation": "montee",
+   "forme": "niveau",
+   "octets": 59108
+  },
+  {
+   "cle": "oa_game_combat",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "⚔️",
+   "fichier": "oa_game_combat.png",
+   "animation": null,
+   "forme": "epee_bouclier",
+   "octets": 13605
+  },
+  {
+   "cle": "oa_game_eclair",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "⚡",
+   "fichier": "oa_game_eclair.gif",
+   "animation": "flash",
+   "forme": "eclair",
+   "octets": 34512
+  },
+  {
+   "cle": "oa_game_flamme",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "🔥",
+   "fichier": "oa_game_flamme.gif",
+   "animation": "vacillement",
+   "forme": "flamme",
+   "octets": 70070
+  },
+  {
+   "cle": "oa_game_crane",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "💀",
+   "fichier": "oa_game_crane.png",
+   "animation": null,
+   "forme": "crane",
+   "octets": 13524
+  },
+  {
+   "cle": "oa_game_marteau",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🔨",
+   "fichier": "oa_game_marteau.png",
+   "animation": null,
+   "forme": "marteau",
+   "octets": 18088
+  },
+  {
+   "cle": "oa_game_arc",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🏹",
+   "fichier": "oa_game_arc.png",
+   "animation": null,
+   "forme": "arc",
+   "octets": 14676
+  },
+  {
+   "cle": "oa_game_cible",
+   "categorie": "gaming",
+   "genre": "png",
+   "secours": "🎯",
+   "fichier": "oa_game_cible.png",
+   "animation": null,
+   "forme": "cible",
+   "octets": 28036
+  },
+  {
+   "cle": "oa_game_potion",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "🧪",
+   "fichier": "oa_game_potion.gif",
+   "animation": "glow",
+   "forme": "potion",
+   "octets": 61024
+  },
+  {
+   "cle": "oa_game_vie",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "❤️",
+   "fichier": "oa_game_vie.gif",
+   "animation": "battement",
+   "forme": "coeur",
+   "octets": 75412
+  },
+  {
+   "cle": "oa_game_etoile",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "⭐",
+   "fichier": "oa_game_etoile.gif",
+   "animation": "sparkle",
+   "forme": "etoile",
+   "octets": 60480
+  },
+  {
+   "cle": "oa_game_victoire",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "🌠",
+   "fichier": "oa_game_victoire.gif",
+   "animation": "sparkle",
+   "forme": "etoile_filante",
+   "octets": 51764
+  },
+  {
+   "cle": "oa_game_defaite",
+   "categorie": "gaming",
+   "genre": "gif",
+   "secours": "💔",
+   "fichier": "oa_game_defaite.gif",
+   "animation": "battement",
+   "forme": "coeur_brisе",
+   "octets": 80099
+  },
+  {
+   "cle": "oa_comu_bulle",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "💬",
+   "fichier": "oa_comu_bulle.png",
+   "animation": null,
+   "forme": "bulle",
+   "octets": 18020
+  },
+  {
+   "cle": "oa_comu_question",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "❓",
+   "fichier": "oa_comu_question.png",
+   "animation": null,
+   "forme": "bulle_question",
+   "octets": 20769
+  },
+  {
+   "cle": "oa_comu_idee",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "💡",
+   "fichier": "oa_comu_idee.gif",
+   "animation": "glow",
+   "forme": "bulle_idee",
+   "octets": 86159
+  },
+  {
+   "cle": "oa_comu_coeur",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "❤️",
+   "fichier": "oa_comu_coeur.gif",
+   "animation": "battement",
+   "forme": "coeur",
+   "octets": 76581
+  },
+  {
+   "cle": "oa_comu_coeur_rose",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "💗",
+   "fichier": "oa_comu_coeur_rose.png",
+   "animation": null,
+   "forme": "coeur",
+   "octets": 15364
+  },
+  {
+   "cle": "oa_comu_coeur_bleu",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "💙",
+   "fichier": "oa_comu_coeur_bleu.png",
+   "animation": null,
+   "forme": "coeur",
+   "octets": 15011
+  },
+  {
+   "cle": "oa_comu_coeur_vert",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "💚",
+   "fichier": "oa_comu_coeur_vert.png",
+   "animation": null,
+   "forme": "coeur",
+   "octets": 15082
+  },
+  {
+   "cle": "oa_comu_etoile",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "⭐",
+   "fichier": "oa_comu_etoile.gif",
+   "animation": "sparkle",
+   "forme": "etoile",
+   "octets": 60480
+  },
+  {
+   "cle": "oa_comu_etoile_bleue",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "🌟",
+   "fichier": "oa_comu_etoile_bleue.gif",
+   "animation": "sparkle",
+   "forme": "etoile",
+   "octets": 59538
+  },
+  {
+   "cle": "oa_comu_mains",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "👏",
+   "fichier": "oa_comu_mains.png",
+   "animation": null,
+   "forme": "mains",
+   "octets": 8902
+  },
+  {
+   "cle": "oa_comu_merci",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "🙏",
+   "fichier": "oa_comu_merci.gif",
+   "animation": "battement",
+   "forme": "mains",
+   "octets": 85822
+  },
+  {
+   "cle": "oa_comu_pouce",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "👍",
+   "fichier": "oa_comu_pouce.png",
+   "animation": null,
+   "forme": "pouce",
+   "octets": 12323
+  },
+  {
+   "cle": "oa_comu_membre",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "👤",
+   "fichier": "oa_comu_membre.png",
+   "animation": null,
+   "forme": "personne",
+   "octets": 12061
+  },
+  {
+   "cle": "oa_comu_groupe",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "👥",
+   "fichier": "oa_comu_groupe.png",
+   "animation": null,
+   "forme": "groupe",
+   "octets": 14471
+  },
+  {
+   "cle": "oa_comu_reunion",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "👥",
+   "fichier": "oa_comu_reunion.png",
+   "animation": null,
+   "forme": "groupe",
+   "octets": 14442
+  },
+  {
+   "cle": "oa_comu_annonce",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "📢",
+   "fichier": "oa_comu_annonce.gif",
+   "animation": "pulse",
+   "forme": "megaphone",
+   "octets": 68028
+  },
+  {
+   "cle": "oa_comu_cloche",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "🔔",
+   "fichier": "oa_comu_cloche.gif",
+   "animation": "balancement",
+   "forme": "cloche",
+   "octets": 69212
+  },
+  {
+   "cle": "oa_comu_cadeau",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "🎁",
+   "fichier": "oa_comu_cadeau.gif",
+   "animation": "bounce",
+   "forme": "cadeau",
+   "octets": 74295
+  },
+  {
+   "cle": "oa_comu_celebration",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "🎉",
+   "fichier": "oa_comu_celebration.gif",
+   "animation": "confetti",
+   "forme": "cotillon",
+   "octets": 41955
+  },
+  {
+   "cle": "oa_comu_fete",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "🥳",
+   "fichier": "oa_comu_fete.png",
+   "animation": null,
+   "forme": "chapeau_fete",
+   "octets": 12945
+  },
+  {
+   "cle": "oa_comu_smiley",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "😀",
+   "fichier": "oa_comu_smiley.png",
+   "animation": null,
+   "forme": "smiley",
+   "octets": 16771
+  },
+  {
+   "cle": "oa_comu_fanion",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "🚩",
+   "fichier": "oa_comu_fanion.png",
+   "animation": null,
+   "forme": "fanion",
+   "octets": 14154
+  },
+  {
+   "cle": "oa_comu_badge",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "⭐",
+   "fichier": "oa_comu_badge.gif",
+   "animation": "sparkle",
+   "forme": "etoile_badge",
+   "octets": 62684
+  },
+  {
+   "cle": "oa_comu_sondage",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "📊",
+   "fichier": "oa_comu_sondage.png",
+   "animation": null,
+   "forme": "sondage",
+   "octets": 10000
+  },
+  {
+   "cle": "oa_comu_invitation",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "🔗",
+   "fichier": "oa_comu_invitation.png",
+   "animation": null,
+   "forme": "lien",
+   "octets": 20877
+  },
+  {
+   "cle": "oa_comu_evenement",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "📅",
+   "fichier": "oa_comu_evenement.png",
+   "animation": null,
+   "forme": "calendrier",
+   "octets": 14912
+  },
+  {
+   "cle": "oa_comu_role",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "🏷️",
+   "fichier": "oa_comu_role.png",
+   "animation": null,
+   "forme": "tag",
+   "octets": 8211
+  },
+  {
+   "cle": "oa_comu_vocal",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "🎧",
+   "fichier": "oa_comu_vocal.png",
+   "animation": null,
+   "forme": "casque_vocal",
+   "octets": 17144
+  },
+  {
+   "cle": "oa_comu_salon",
+   "categorie": "communaute",
+   "genre": "png",
+   "secours": "#️⃣",
+   "fichier": "oa_comu_salon.png",
+   "animation": null,
+   "forme": "hashtag",
+   "octets": 16395
+  },
+  {
+   "cle": "oa_comu_etincelle",
+   "categorie": "communaute",
+   "genre": "gif",
+   "secours": "✨",
+   "fichier": "oa_comu_etincelle.gif",
+   "animation": "sparkle",
+   "forme": "etincelle",
+   "octets": 52520
+  },
+  {
+   "cle": "oa_secu_bouclier",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_secu_bouclier.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 14058
+  },
+  {
+   "cle": "oa_secu_antivirus",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🦠",
+   "fichier": "oa_secu_antivirus.png",
+   "animation": null,
+   "forme": "antivirus",
+   "octets": 19693
+  },
+  {
+   "cle": "oa_secu_cadenas",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🔒",
+   "fichier": "oa_secu_cadenas.png",
+   "animation": null,
+   "forme": "cadenas",
+   "octets": 13601
+  },
+  {
+   "cle": "oa_secu_cadenas_ouvert",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🔓",
+   "fichier": "oa_secu_cadenas_ouvert.png",
+   "animation": null,
+   "forme": "cadenas_ouvert",
+   "octets": 16757
+  },
+  {
+   "cle": "oa_secu_verrou",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🔐",
+   "fichier": "oa_secu_verrou.png",
+   "animation": null,
+   "forme": "cadenas",
+   "octets": 12639
+  },
+  {
+   "cle": "oa_secu_cle",
+   "categorie": "securite",
+   "genre": "gif",
+   "secours": "🔑",
+   "fichier": "oa_secu_cle.gif",
+   "animation": "rotation_douce",
+   "forme": "cle",
+   "octets": 64358
+  },
+  {
+   "cle": "oa_secu_surveillance",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🎥",
+   "fichier": "oa_secu_surveillance.png",
+   "animation": null,
+   "forme": "camera",
+   "octets": 13386
+  },
+  {
+   "cle": "oa_secu_mur",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🧱",
+   "fichier": "oa_secu_mur.png",
+   "animation": null,
+   "forme": "mur",
+   "octets": 13579
+  },
+  {
+   "cle": "oa_secu_radar",
+   "categorie": "securite",
+   "genre": "gif",
+   "secours": "📡",
+   "fichier": "oa_secu_radar.gif",
+   "animation": "radar",
+   "forme": "radar",
+   "octets": 90926
+  },
+  {
+   "cle": "oa_secu_radar_rouge",
+   "categorie": "securite",
+   "genre": "gif",
+   "secours": "📡",
+   "fichier": "oa_secu_radar_rouge.gif",
+   "animation": "radar",
+   "forme": "radar",
+   "octets": 91637
+  },
+  {
+   "cle": "oa_secu_alerte",
+   "categorie": "securite",
+   "genre": "gif",
+   "secours": "🚨",
+   "fichier": "oa_secu_alerte.gif",
+   "animation": "faisceau",
+   "forme": "gyrophare",
+   "octets": 52444
+  },
+  {
+   "cle": "oa_secu_signal",
+   "categorie": "securite",
+   "genre": "gif",
+   "secours": "⚠️",
+   "fichier": "oa_secu_signal.gif",
+   "animation": "secousse",
+   "forme": "triangle_attention",
+   "octets": 65252
+  },
+  {
+   "cle": "oa_secu_interdit",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "⛔",
+   "fichier": "oa_secu_interdit.png",
+   "animation": null,
+   "forme": "cercle_croix",
+   "octets": 22401
+  },
+  {
+   "cle": "oa_secu_verifie",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "✅",
+   "fichier": "oa_secu_verifie.png",
+   "animation": null,
+   "forme": "cercle_check",
+   "octets": 21525
+  },
+  {
+   "cle": "oa_secu_ban",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🔨",
+   "fichier": "oa_secu_ban.png",
+   "animation": null,
+   "forme": "marteau",
+   "octets": 17311
+  },
+  {
+   "cle": "oa_secu_journal",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "📋",
+   "fichier": "oa_secu_journal.png",
+   "animation": null,
+   "forme": "document",
+   "octets": 6326
+  },
+  {
+   "cle": "oa_secu_protection",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🛡️",
+   "fichier": "oa_secu_protection.png",
+   "animation": null,
+   "forme": "bouclier_rond",
+   "octets": 15642
+  },
+  {
+   "cle": "oa_secu_patrouille",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "👮",
+   "fichier": "oa_secu_patrouille.png",
+   "animation": null,
+   "forme": "personne",
+   "octets": 12061
+  },
+  {
+   "cle": "oa_secu_ciblage",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🎯",
+   "fichier": "oa_secu_ciblage.png",
+   "animation": null,
+   "forme": "cible",
+   "octets": 28036
+  },
+  {
+   "cle": "oa_secu_identite",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🪪",
+   "fichier": "oa_secu_identite.png",
+   "animation": null,
+   "forme": "carte_identite",
+   "octets": 11761
+  },
+  {
+   "cle": "oa_secu_virus",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🦠",
+   "fichier": "oa_secu_virus.png",
+   "animation": null,
+   "forme": "virus",
+   "octets": 24643
+  },
+  {
+   "cle": "oa_secu_confiance",
+   "categorie": "securite",
+   "genre": "gif",
+   "secours": "⭐",
+   "fichier": "oa_secu_confiance.gif",
+   "animation": "sparkle",
+   "forme": "etoile_badge",
+   "octets": 63352
+  },
+  {
+   "cle": "oa_secu_controle",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "📋",
+   "fichier": "oa_secu_controle.png",
+   "animation": null,
+   "forme": "formulaire",
+   "octets": 11581
+  },
+  {
+   "cle": "oa_secu_muet",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🔇",
+   "fichier": "oa_secu_muet.png",
+   "animation": null,
+   "forme": "micro_barre",
+   "octets": 15524
+  },
+  {
+   "cle": "oa_secu_raid",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "👥",
+   "fichier": "oa_secu_raid.png",
+   "animation": null,
+   "forme": "groupe",
+   "octets": 13657
+  },
+  {
+   "cle": "oa_secu_ip",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🌐",
+   "fichier": "oa_secu_ip.png",
+   "animation": null,
+   "forme": "globe",
+   "octets": 20702
+  },
+  {
+   "cle": "oa_secu_filtre",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🔍",
+   "fichier": "oa_secu_filtre.png",
+   "animation": null,
+   "forme": "entonnoir",
+   "octets": 12344
+  },
+  {
+   "cle": "oa_secu_quarantaine",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "📦",
+   "fichier": "oa_secu_quarantaine.png",
+   "animation": null,
+   "forme": "boite_archive",
+   "octets": 6475
+  },
+  {
+   "cle": "oa_secu_blacklist",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🚫",
+   "fichier": "oa_secu_blacklist.png",
+   "animation": null,
+   "forme": "marque_page",
+   "octets": 9048
+  },
+  {
+   "cle": "oa_secu_whitelist",
+   "categorie": "securite",
+   "genre": "png",
+   "secours": "🔖",
+   "fichier": "oa_secu_whitelist.png",
+   "animation": null,
+   "forme": "signet",
+   "octets": 9299
+  },
+  {
+   "cle": "oa_sys_parametre",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "⚙️",
+   "fichier": "oa_sys_parametre.gif",
+   "animation": "rotation_douce",
+   "forme": "engrenage",
+   "octets": 81926
+  },
+  {
+   "cle": "oa_sys_parametre_or",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "⚙️",
+   "fichier": "oa_sys_parametre_or.gif",
+   "animation": "rotation_douce",
+   "forme": "engrenage",
+   "octets": 84619
+  },
+  {
+   "cle": "oa_sys_logs",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "📋",
+   "fichier": "oa_sys_logs.png",
+   "animation": null,
+   "forme": "document",
+   "octets": 6537
+  },
+  {
+   "cle": "oa_sys_reglage",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "⌨️",
+   "fichier": "oa_sys_reglage.png",
+   "animation": null,
+   "forme": "clavier",
+   "octets": 14126
+  },
+  {
+   "cle": "oa_sys_maintenance",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🔧",
+   "fichier": "oa_sys_maintenance.gif",
+   "animation": "rotation_douce",
+   "forme": "cle_plate",
+   "octets": 48513
+  },
+  {
+   "cle": "oa_sys_batterie",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🔋",
+   "fichier": "oa_sys_batterie.gif",
+   "animation": "remplissage",
+   "forme": "batterie",
+   "octets": 52559
+  },
+  {
+   "cle": "oa_sys_serveur",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "🖥️",
+   "fichier": "oa_sys_serveur.png",
+   "animation": null,
+   "forme": "serveur",
+   "octets": 7428
+  },
+  {
+   "cle": "oa_sys_deploiement",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🚀",
+   "fichier": "oa_sys_deploiement.gif",
+   "animation": "decollage",
+   "forme": "fusee_v2",
+   "octets": 54871
+  },
+  {
+   "cle": "oa_sys_sauvegarde",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "💾",
+   "fichier": "oa_sys_sauvegarde.png",
+   "animation": null,
+   "forme": "disquette",
+   "octets": 9230
+  },
+  {
+   "cle": "oa_sys_database",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "🗄️",
+   "fichier": "oa_sys_database.png",
+   "animation": null,
+   "forme": "cylindre_bdd",
+   "octets": 13929
+  },
+  {
+   "cle": "oa_sys_wifi",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "📶",
+   "fichier": "oa_sys_wifi.gif",
+   "animation": "ondes",
+   "forme": "wifi",
+   "octets": 11557
+  },
+  {
+   "cle": "oa_sys_api",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🔗",
+   "fichier": "oa_sys_api.gif",
+   "animation": "pulse",
+   "forme": "double_fleche",
+   "octets": 37249
+  },
+  {
+   "cle": "oa_sys_ok",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "✅",
+   "fichier": "oa_sys_ok.png",
+   "animation": null,
+   "forme": "cercle_check",
+   "octets": 21525
+  },
+  {
+   "cle": "oa_sys_erreur",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "❌",
+   "fichier": "oa_sys_erreur.gif",
+   "animation": "secousse",
+   "forme": "cercle_croix",
+   "octets": 97331
+  },
+  {
+   "cle": "oa_sys_check",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "☑️",
+   "fichier": "oa_sys_check.png",
+   "animation": null,
+   "forme": "bouclier_rond",
+   "octets": 16904
+  },
+  {
+   "cle": "oa_sys_horloge",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🕐",
+   "fichier": "oa_sys_horloge.gif",
+   "animation": "tic",
+   "forme": "horloge",
+   "octets": 35727
+  },
+  {
+   "cle": "oa_sys_timeout",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "⏳",
+   "fichier": "oa_sys_timeout.gif",
+   "animation": "sable",
+   "forme": "sablier",
+   "octets": 51731
+  },
+  {
+   "cle": "oa_sys_terminal",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "⌨️",
+   "fichier": "oa_sys_terminal.png",
+   "animation": null,
+   "forme": "terminal",
+   "octets": 15242
+  },
+  {
+   "cle": "oa_sys_progression",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "📊",
+   "fichier": "oa_sys_progression.gif",
+   "animation": "remplissage",
+   "forme": "progression",
+   "octets": 42728
+  },
+  {
+   "cle": "oa_sys_maj",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🔄",
+   "fichier": "oa_sys_maj.gif",
+   "animation": "rotation_douce",
+   "forme": "update",
+   "octets": 69791
+  },
+  {
+   "cle": "oa_sys_code",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "👨‍💻",
+   "fichier": "oa_sys_code.png",
+   "animation": null,
+   "forme": "code",
+   "octets": 22761
+  },
+  {
+   "cle": "oa_sys_alerte",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "⚠️",
+   "fichier": "oa_sys_alerte.gif",
+   "animation": "secousse",
+   "forme": "triangle_attention",
+   "octets": 65252
+  },
+  {
+   "cle": "oa_sys_corbeille",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "🗑️",
+   "fichier": "oa_sys_corbeille.png",
+   "animation": null,
+   "forme": "corbeille",
+   "octets": 12264
+  },
+  {
+   "cle": "oa_sys_online",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🟢",
+   "fichier": "oa_sys_online.gif",
+   "animation": "pulse",
+   "forme": "point_online",
+   "octets": 59135
+  },
+  {
+   "cle": "oa_sys_offline",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "🔴",
+   "fichier": "oa_sys_offline.gif",
+   "animation": "pulse",
+   "forme": "point_offline",
+   "octets": 61602
+  },
+  {
+   "cle": "oa_sys_pause",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "⏸️",
+   "fichier": "oa_sys_pause.png",
+   "animation": null,
+   "forme": "pause",
+   "octets": 7811
+  },
+  {
+   "cle": "oa_sys_fichier",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "📄",
+   "fichier": "oa_sys_fichier.png",
+   "animation": null,
+   "forme": "fichier",
+   "octets": 5828
+  },
+  {
+   "cle": "oa_sys_demarrage",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "▶️",
+   "fichier": "oa_sys_demarrage.png",
+   "animation": null,
+   "forme": "play",
+   "octets": 12737
+  },
+  {
+   "cle": "oa_sys_stop",
+   "categorie": "systeme",
+   "genre": "png",
+   "secours": "⏹️",
+   "fichier": "oa_sys_stop.png",
+   "animation": null,
+   "forme": "stop",
+   "octets": 5560
+  },
+  {
+   "cle": "oa_sys_ampoule",
+   "categorie": "systeme",
+   "genre": "gif",
+   "secours": "💡",
+   "fichier": "oa_sys_ampoule.gif",
+   "animation": "glow",
+   "forme": "ampoule",
+   "octets": 61468
+  },
+  {
+   "cle": "oa_prem_diamant",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "💎",
+   "fichier": "oa_prem_diamant.gif",
+   "animation": "sparkle",
+   "forme": "diamant_premium",
+   "octets": 73869
+  },
+  {
+   "cle": "oa_prem_diamant_rose",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "💎",
+   "fichier": "oa_prem_diamant_rose.gif",
+   "animation": "sparkle",
+   "forme": "diamant_premium",
+   "octets": 70122
+  },
+  {
+   "cle": "oa_prem_couronne",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "👑",
+   "fichier": "oa_prem_couronne.png",
+   "animation": null,
+   "forme": "couronne_premium",
+   "octets": 13889
+  },
+  {
+   "cle": "oa_prem_couronne_noire",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "👑",
+   "fichier": "oa_prem_couronne_noire.png",
+   "animation": null,
+   "forme": "couronne_premium",
+   "octets": 13387
+  },
+  {
+   "cle": "oa_prem_badge_or",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🥇",
+   "fichier": "oa_prem_badge_or.gif",
+   "animation": "reflet",
+   "forme": "medaille",
+   "octets": 78316
+  },
+  {
+   "cle": "oa_prem_badge_platine",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "💠",
+   "fichier": "oa_prem_badge_platine.gif",
+   "animation": "reflet",
+   "forme": "bouclier_rond",
+   "octets": 99392
+  },
+  {
+   "cle": "oa_prem_badge_violet",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "💎",
+   "fichier": "oa_prem_badge_violet.png",
+   "animation": null,
+   "forme": "bouclier",
+   "octets": 15501
+  },
+  {
+   "cle": "oa_prem_trophee",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🏆",
+   "fichier": "oa_prem_trophee.gif",
+   "animation": "reflet",
+   "forme": "trophée",
+   "octets": 76625
+  },
+  {
+   "cle": "oa_prem_coupe",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🏆",
+   "fichier": "oa_prem_coupe.gif",
+   "animation": "reflet",
+   "forme": "coupe_premium",
+   "octets": 71077
+  },
+  {
+   "cle": "oa_prem_medaille_argent",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🥈",
+   "fichier": "oa_prem_medaille_argent.gif",
+   "animation": "reflet",
+   "forme": "medaille",
+   "octets": 88387
+  },
+  {
+   "cle": "oa_prem_etoile",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🌟",
+   "fichier": "oa_prem_etoile.gif",
+   "animation": "sparkle",
+   "forme": "etoile",
+   "octets": 60480
+  },
+  {
+   "cle": "oa_prem_etoile_rose",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "✨",
+   "fichier": "oa_prem_etoile_rose.gif",
+   "animation": "sparkle",
+   "forme": "etoile",
+   "octets": 62427
+  },
+  {
+   "cle": "oa_prem_etoile_filante",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🌠",
+   "fichier": "oa_prem_etoile_filante.gif",
+   "animation": "sparkle",
+   "forme": "etoile_filante",
+   "octets": 51764
+  },
+  {
+   "cle": "oa_prem_parchemin",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "📜",
+   "fichier": "oa_prem_parchemin.png",
+   "animation": null,
+   "forme": "parchemin",
+   "octets": 10003
+  },
+  {
+   "cle": "oa_prem_parchemin_blanc",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "📜",
+   "fichier": "oa_prem_parchemin_blanc.png",
+   "animation": null,
+   "forme": "parchemin",
+   "octets": 10086
+  },
+  {
+   "cle": "oa_prem_potion",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🧪",
+   "fichier": "oa_prem_potion.gif",
+   "animation": "glow",
+   "forme": "potion",
+   "octets": 61024
+  },
+  {
+   "cle": "oa_prem_potion_rose",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🧪",
+   "fichier": "oa_prem_potion_rose.gif",
+   "animation": "glow",
+   "forme": "potion",
+   "octets": 64544
+  },
+  {
+   "cle": "oa_prem_boost",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🚀",
+   "fichier": "oa_prem_boost.gif",
+   "animation": "decollage",
+   "forme": "fusee_v2",
+   "octets": 54526
+  },
+  {
+   "cle": "oa_prem_cadeau",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🎁",
+   "fichier": "oa_prem_cadeau.gif",
+   "animation": "bounce",
+   "forme": "cadeau",
+   "octets": 74295
+  },
+  {
+   "cle": "oa_prem_ticket_vip",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "🎟️",
+   "fichier": "oa_prem_ticket_vip.png",
+   "animation": null,
+   "forme": "billet_ticket",
+   "octets": 8679
+  },
+  {
+   "cle": "oa_prem_cle",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🗝️",
+   "fichier": "oa_prem_cle.gif",
+   "animation": "rotation_douce",
+   "forme": "cle",
+   "octets": 64358
+  },
+  {
+   "cle": "oa_prem_acces_anticipe",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "🔖",
+   "fichier": "oa_prem_acces_anticipe.png",
+   "animation": null,
+   "forme": "signet",
+   "octets": 9457
+  },
+  {
+   "cle": "oa_prem_limite",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "⏳",
+   "fichier": "oa_prem_limite.gif",
+   "animation": "sable",
+   "forme": "sablier",
+   "octets": 51360
+  },
+  {
+   "cle": "oa_prem_illimite",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "♾️",
+   "fichier": "oa_prem_illimite.gif",
+   "animation": "pulse",
+   "forme": "double_fleche",
+   "octets": 37458
+  },
+  {
+   "cle": "oa_prem_licorne",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🦄",
+   "fichier": "oa_prem_licorne.gif",
+   "animation": "sparkle",
+   "forme": "licorne",
+   "octets": 64521
+  },
+  {
+   "cle": "oa_prem_ange",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "😇",
+   "fichier": "oa_prem_ange.gif",
+   "animation": "glow",
+   "forme": "ange",
+   "octets": 99032
+  },
+  {
+   "cle": "oa_prem_jeton",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🪙",
+   "fichier": "oa_prem_jeton.gif",
+   "animation": "spin",
+   "forme": "jeton",
+   "octets": 79630
+  },
+  {
+   "cle": "oa_prem_avantage",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "⭐",
+   "fichier": "oa_prem_avantage.gif",
+   "animation": "sparkle",
+   "forme": "etoile_badge",
+   "octets": 62659
+  },
+  {
+   "cle": "oa_prem_abonnement",
+   "categorie": "premium",
+   "genre": "png",
+   "secours": "💳",
+   "fichier": "oa_prem_abonnement.png",
+   "animation": null,
+   "forme": "carte_bancaire",
+   "octets": 7869
+  },
+  {
+   "cle": "oa_prem_renouvellement",
+   "categorie": "premium",
+   "genre": "gif",
+   "secours": "🔄",
+   "fichier": "oa_prem_renouvellement.gif",
+   "animation": "rotation_douce",
+   "forme": "update",
+   "octets": 70616
+  }
+ ]
+}

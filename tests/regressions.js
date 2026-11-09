@@ -513,7 +513,7 @@ function monde(opts = {}) {
 
   await test('emojis : repli automatique sur l\'emoji classique si non installé', () => {
     const e = require('../utils/emojis');
-    if (e.NOMS.length !== 50) throw new Error('catalogue incomplet : ' + e.NOMS.length);
+    if (e.NOMS.length !== 270) throw new Error('catalogue incomplet : ' + e.NOMS.length);
     for (const nom of e.NOMS) {
       const valeur = e.ej('serveur-inconnu', nom);
       if (!valeur) throw new Error('aucun secours pour ' + nom);
@@ -526,17 +526,23 @@ function monde(opts = {}) {
     const fs = require('fs');
     const path = require('path');
     const e = require('../utils/emojis');
-    const dossier = path.join(__dirname, '..', 'assets', 'emojis');
-    const manquants = e.NOMS.filter(n => !fs.existsSync(path.join(dossier, n + '.png')));
+    const dossier = path.join(__dirname, '..', 'assets', 'emotes');
+    const manquants = e.NOMS.filter(n => {
+      const cle = e.cleDe(n) || n;
+      return !fs.existsSync(path.join(dossier, cle + '.png')) && !fs.existsSync(path.join(dossier, cle + '.gif'));
+    });
     if (manquants.length) throw new Error('images manquantes : ' + manquants.join(', '));
   });
 
 
-  await test('emojis : la surveillance et le déclenchement à la place libre existent', () => {
+  await test('emojis : la synchronisation des emojis d\'application est branchée', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.js'), 'utf8');
     if (!/Events\.GuildEmojiDelete/.test(src)) throw new Error('pas de surveillance de suppression d\'emoji');
     if (!/function completerEmojis/.test(src)) throw new Error('pas de fonction de complétion');
-    if (!/15 \* 60 \* 1000/.test(src)) throw new Error('pas de revérification périodique');
+    if (!/emojis\.synchroniserApplication/.test(src)) throw new Error('pas de synchronisation des emojis d\'application');
+    const e = require('../utils/emojis');
+    if (typeof e.synchroniserApplication !== 'function') throw new Error('synchroniserApplication absente du module');
+    if (!/30 \* 60 \* 1000/.test(src)) throw new Error('pas de revérification périodique');
   });
 
   await test('emojis : le bot retombe sur les emojis normaux quand les siens manquent', () => {
