@@ -2076,7 +2076,9 @@ async function routeurModalBouton(interaction) {
     return true;
   }
 
-  return true;
+  // Id de formulaire « tktb: » inconnu → false : le repli de handleModal
+  // répondra « formulaire expiré ou inconnu » au lieu de se taire.
+  return false;
 }
 
 
@@ -2650,10 +2652,14 @@ async function routeurAssistantBouton(interaction) {
   }
 
   // ── Navigation entre les étapes (boutons Suivant / Retour) ──
+  // Une cible hors plage = carte périmée (double clic pendant un envoi lent,
+  // ou vieille ephemère) : JAMAIS de silence — on ramène le membre à l'étape
+  // réelle la plus proche avec une explication, et les garde-fous s'appliquent.
   if (id.startsWith('tktb:etape:')) {
-    const cible = parseInt(id.split(':')[2], 10);
-    if (cible < 1 || cible > NB_ETAPES) return true;
-    let complement = '';
+    let cible = parseInt(id.split(':')[2], 10);
+    const perimee = !Number.isInteger(cible) || cible < 1 || cible > NB_ETAPES;
+    if (perimee) cible = Math.min(Math.max(Number.isInteger(cible) ? cible : 1, 1), NB_ETAPES);
+    let complement = perimee ? 'ℹ️ Cette carte datait — te revoilà à l\'étape en cours.' : '';
 
     // On empêche d'avancer sans avoir réglé l'essentiel de l'étape en cours
     if (cible === 2 && !b.panelChannelId) {
@@ -2662,27 +2668,11 @@ async function routeurAssistantBouton(interaction) {
     if (cible === 3 && !b.logChannelId) {
       return afficherEtape(interaction, 2, "⚠️ Choisis d'abord le salon de logs dans le menu ci-dessous.");
     }
-    if (cible === 4 && b.logChannelId) complement = '';
-    if (cible === 5 && !b.items.length) complement = '⚠️ Ajoute au moins un bouton avant de publier.';
-    return afficherEtape(interaction, cible, complement);
-  }
-
-  // ── Navigation entre les étapes du panneau ──
-  if (id.startsWith('tktb:etape:')) {
-    const cible = parseInt(id.split(':')[2], 10);
-    if (cible < 1 || cible > NB_ETAPES) return true;
-
-    // on ne saute pas une étape sans l'avoir réglée
-    if (cible === 2 && !b.panelChannelId) {
-      return afficherEtape(interaction, 1, "⚠️ Choisis d'abord le salon du panneau dans le menu.");
-    }
-    if (cible === 3 && !b.logChannelId) {
-      return afficherEtape(interaction, 2, "⚠️ Choisis d'abord le salon de logs dans le menu.");
-    }
     if (cible === 6 && !b.items.length) {
       return afficherEtape(interaction, 5, "⚠️ Ajoute au moins un bouton avant de publier.");
     }
-    return afficherEtape(interaction, cible);
+    if (cible === 5 && !b.items.length) complement = complement || '⚠️ Ajoute au moins un bouton avant de publier.';
+    return afficherEtape(interaction, cible, complement);
   }
 
   // ── Navigation entre les étapes d'UN bouton ──
@@ -2957,7 +2947,11 @@ async function routeurAssistantBouton(interaction) {
     return true;
   }
 
-  return true;
+  // Id « tktb: » inconnu (carte publiée par une ancienne version) : on ne se
+  // fait PAS passer pour traité — false laisse le repli standard répondre
+  // « expiré ou inconnu » au membre au lieu du silence (« l'application n'a
+  // pas répondu à temps »).
+  return false;
 }
 
 async function handleSelectMenu(interaction) {

@@ -16,7 +16,7 @@ const emojis = require('./utils/emojis');
 const { permissionsManquantes } = require('./utils/securite');
 
 // ─── Version du bot (vérifiable sur /health) ───
-const VERSION = 'v2026-10-28-securite-anti-timeout';
+const VERSION = 'v2026-11-09-en-ligne-filet-actif';
 const { repondre, filetDeSecurite: poserFilet } = require('./utils/panneaux');
 
 // ─── Journal de diagnostic ───
