@@ -179,7 +179,16 @@
         "selecteur": null,
         "image": null
       },
-      "types": [],
+      "types": [
+        {
+          "id": "tmw8scagni7o7",
+          "nom": "Recrutement Support",
+          "emoji": null,
+          "description": null,
+          "categoryId": null,
+          "staffRoleIds": []
+        }
+      ],
       "bouton": {
         "configure": true,
         "categoryId": null,
