@@ -241,7 +241,7 @@ module.exports = {
           `🎛️ Système choisi : ${config.panelMode === 'menu' ? '📋 MENU (types de tickets)' : config.panelMode === 'bouton' ? '🔘 BOUTON (« Ouvrir un ticket »)' : 'aucun pour l\'instant — `/setup ticket bouton` ou `/setup ticket menu`'}`,
           [`🧩 Types de tickets (${config.types.length}) :`, ...lignesTypes].join('\n'),
           [
-            `🎨 Textes du panneau : ${p.titre || p.description || p.selecteur ? 'personnalisés' : 'par défaut'}`,
+            `🎨 Textes du panneau : ${p.titre || p.description || p.selecteur ? 'personnalisés' : 'aucun (rien affiché)'}`,
             `🎫 Tickets ouverts : ${Object.keys(config.open).length}`,
             `🔢 Dernier numéro attribué : #${config.counter}`,
           ].join('\n'),
