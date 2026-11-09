@@ -186,7 +186,10 @@
           "emoji": "📔",
           "description": "*Candidate pour rejoindre notre équipe et devenir membre du Support !*",
           "categoryId": "1539705201437708429",
-          "staffRoleIds": []
+          "staffRoleIds": [
+            "1546923961739120741",
+            "1546923314369536090"
+          ]
         }
       ],
       "bouton": {
