@@ -246,6 +246,40 @@
           }
         ]
       }
+    },
+    "1572972986657673246": {
+      "categoryId": "1572973079783800923",
+      "staffRoleIds": [],
+      "logChannelId": "1572973081511854170",
+      "panelChannelId": "1572973082648252640",
+      "panelSent": false,
+      "panelMessageId": null,
+      "counter": 0,
+      "open": {},
+      "panelMode": null,
+      "panel": {
+        "titre": null,
+        "description": null,
+        "selecteur": null,
+        "image": null
+      },
+      "bouton": {
+        "configure": false,
+        "categoryId": null,
+        "panelChannelId": null,
+        "logChannelId": null,
+        "staffRoleIds": [],
+        "panelMessageId": null,
+        "items": [],
+        "panel": {
+          "titre": null,
+          "description": null,
+          "image": null,
+          "bouton": null,
+          "boutonEmoji": null
+        }
+      },
+      "types": []
     }
   }
 }
