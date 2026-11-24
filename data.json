@@ -170,8 +170,26 @@
       "panelChannelId": "1539709163653963816",
       "panelSent": true,
       "panelMessageId": "1569295614481539185",
-      "counter": 4,
-      "open": {},
+      "counter": 5,
+      "open": {
+        "1574847529520988173": {
+          "numero": 5,
+          "userId": "1497375017980137534",
+          "sujet": "Test",
+          "typeId": "bouton:bmw10fbjrsdf",
+          "typeNom": "Création de bot",
+          "typeEmoji": "🤖",
+          "staffRoleIds": [
+            "1546923961739120741",
+            "1546924153330860114",
+            "1546923314369536090"
+          ],
+          "claimedBy": null,
+          "createdAt": 1795543310535,
+          "guildId": "1539668540787925052",
+          "messageId": "1574847532771577937"
+        }
+      },
       "panelMode": "menu",
       "panel": {
         "titre": "Recruitment Support",
