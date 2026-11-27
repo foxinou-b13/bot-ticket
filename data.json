@@ -171,25 +171,7 @@
       "panelSent": true,
       "panelMessageId": "1569295614481539185",
       "counter": 6,
-      "open": {
-        "1575906684751061154": {
-          "numero": 6,
-          "userId": "1497375017980137534",
-          "sujet": "Test",
-          "typeId": "bouton:bmw10k3v94a7",
-          "typeNom": "Autre demande",
-          "typeEmoji": "❓",
-          "staffRoleIds": [
-            "1546923314369536090",
-            "1546923961739120741",
-            "1546924153330860114"
-          ],
-          "claimedBy": "1497375017980137534",
-          "createdAt": 1795795832771,
-          "guildId": "1539668540787925052",
-          "messageId": "1575906686458396814"
-        }
-      },
+      "open": {},
       "panelMode": "menu",
       "panel": {
         "titre": "Recruitment Support",
